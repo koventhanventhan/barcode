@@ -1,0 +1,243 @@
+# PROJECT_SPEC.md — Multi-tenant Student Management SaaS
+
+> How to use this file in Cursor (to save tokens):
+> 1. Put **PART A** in `.cursor/rules/project.mdc` (alwaysApply: true) and also keep this file in the repo root.
+> 2. Run **one phase per chat** (PART B). Start a NEW chat for every phase.
+> 3. In each new chat paste only: `Read PROJECT_SPEC.md PART A and execute PHASE N from PART B. Follow the Working Rules.`
+> 4. Do not move to the next phase until the phase's Definition of Done passes.
+
+---
+
+# PART A — MASTER CONTEXT (always applies)
+
+## A1. Product
+Working name: **EduFlow** (single constant `ProductName` in backend config and `web/src/config/brand.ts`, so renaming is one edit).
+A cloud SaaS for Sri Lankan schools and tuition institutes: student management, barcode attendance, fee management, exams/marks, automatic parent notifications (SMS/email/WhatsApp), parent portal, backups. Sold per institute (tenant) on subscription plans. Reference look-and-feel and sections: genixedu.app (hero, features, pricing, demo section).
+
+The software is cloud-hosted. Institute admins, staff and parents use it from any browser or phone. The Super Admin (product owner) manages all institutes.
+
+## A2. Tech stack (fixed, do not substitute)
+- Backend: **C# .NET 8 Web API**, Clean Architecture (Domain / Application / Infrastructure / Api), EF Core 8 + **SQL Server**, MediatR (or plain application services), FluentValidation, Serilog, Mapster/AutoMapper, Swagger.
+- Background jobs: **Hangfire with SQL Server storage** (reminders, outbox dispatch, backups, trial expiry, demo reset).
+- Real-time: SignalR (live attendance board).
+- Auth: JWT access token (15 min) + rotating refresh token (httpOnly cookie), role-based + permission-based.
+- Frontend: **React 18 + TypeScript + Vite**, Tailwind CSS, **shadcn/ui** (Radix), TanStack Query, TanStack Table, React Hook Form + Zod, React Router, Recharts, i18next (en / ta / si), lucide-react icons.
+- PDF: QuestPDF. Excel/CSV: ClosedXML. Barcode: Code128 generation (ZXing.Net / bwip-style SVG), scanning via USB scanner (keyboard-wedge) and phone camera (`@zxing/browser`).
+- File storage: `IFileStorage` abstraction (Local for dev, S3-compatible for prod: Cloudflare R2 / Backblaze B2).
+- SMS: `ISmsProvider` abstraction (+ `FakeSmsProvider` for dev/tests, one real adapter for a Sri Lankan gateway e.g. Notify.lk or Text.lk, config-driven). Email: `IEmailSender` (SMTP / Brevo). WhatsApp: `IWhatsAppProvider` (Cloud API, adapter + fake).
+- Payments: **PayHere** (card + online banking) behind `IPaymentGateway`.
+- Tests: xUnit, FluentAssertions, NSubstitute, **Testcontainers (MsSql)**, WebApplicationFactory; frontend Vitest + React Testing Library + MSW; E2E **Playwright**.
+- DevOps: Docker + docker-compose, GitHub Actions CI.
+
+## A3. Repository layout
+```
+/src
+  /EduFlow.Domain
+  /EduFlow.Application
+  /EduFlow.Infrastructure
+  /EduFlow.Api
+/tests
+  /EduFlow.UnitTests
+  /EduFlow.IntegrationTests
+/web                      (React app)
+  /src/app, /features/*, /components/ui, /lib, /i18n, /styles, /config
+/e2e                      (Playwright)
+/docker
+/docs                     (ARCHITECTURE.md, DEPLOYMENT.md, API.md, TESTING.md)
+.github/workflows/ci.yml
+PROJECT_SPEC.md
+```
+
+## A4. Multi-tenancy (core rule)
+- One database, shared schema, `TenantId` (Guid) on every tenant-owned table.
+- EF Core **global query filter** on `TenantId` for every tenant entity; `SaveChanges` stamps `TenantId` automatically and blocks cross-tenant writes.
+- Tenant resolved from (1) subdomain `abc.eduflow.lk`, (2) `X-Tenant` header in dev, (3) JWT claim. Super Admin has no tenant and uses `IgnoreQueryFilters` only inside explicit, audited services.
+- Every entity: `Id`, `TenantId`, `CreatedAt`, `CreatedBy`, `UpdatedAt`, `IsDeleted` (soft delete).
+- **Tenant isolation tests are mandatory** (see Testing).
+
+## A5. Roles and permissions
+Roles: `SuperAdmin`, `InstituteAdmin`, `Staff`, `Teacher`, `Parent`.
+Staff/Teacher get granular permissions (page access control), e.g. `students.view`, `students.edit`, `attendance.mark`, `fees.view`, `fees.collect`, `exams.manage`, `reports.view`, `settings.manage`. Institute Admin can create custom roles. Enforce on API (policy per permission) AND hide in UI.
+
+## A6. THE FEATURE-SWITCH RULE (most important behaviour)
+Every module and every automatic message has an **ON/OFF switch in the Institute Admin dashboard**. When OFF the feature must **really not work** (server-side enforced), not just be hidden.
+
+Effective availability = **Plan entitlement (set by Super Admin) AND Tenant switch (set by Institute Admin)**.
+
+Implementation:
+- `FeatureKey` enum/registry: `ParentPortal`, `AttendanceSms`, `ClassSessionSms`, `FeeReminderSms`, `PaymentConfirmationSms`, `ExamNotifications`, `EmailNotifications`, `WhatsAppMessaging`, `OnlinePayments`, `AutoBackup`, `Timetable`, `StaffLeave`, `OnlineAttendance`, `BroadcastMessages`.
+- Tables: `PlanFeature(PlanId, FeatureKey)`, `TenantFeatureSetting(TenantId, FeatureKey, IsEnabled, UpdatedBy, UpdatedAt)`; `IFeatureService.IsEnabledAsync(tenantId, key)` (cached, invalidated on change).
+- API: `[RequireFeature(FeatureKey.X)]` endpoint filter returns `403` with `{ code: "FEATURE_DISABLED", feature: "X" }`; `{ code: "FEATURE_NOT_IN_PLAN" }` when the plan doesn't include it.
+- Background jobs and the notification dispatcher check the switch **at enqueue time and again at send time** (a message queued before the switch was turned off must be skipped and logged as `Skipped:FeatureOff`).
+- Parent portal OFF -> parent login and all `/api/parent/*` return the disabled error; the parent app shows a clean "Your institute has turned this off" screen. Parent portal ON -> works.
+- UI: Settings -> **Features & Notifications** page with a switch per feature, a lock icon + "Upgrade plan" for features not in the plan, and optimistic update with toast.
+- Every switch change is written to the audit log.
+
+## A7. Plans (seed exactly from the pricing sheet; limits enforced server-side)
+| | Starter | Growth | Pro | Enterprise |
+|---|---|---|---|---|
+| Students | 250 | 500 | 1,500 | 2,500+ (extra can be added) |
+| Education levels | any 2 | any 3 | any 4 | all 5 |
+| Batches | 10 | 15 | 25 | unlimited |
+| Subjects | 5 | 10 | 60 | unlimited |
+| Staff accounts | 3 | 8 | 40 | unlimited |
+| Admin accounts | 1 | 2 | 3 | 5 |
+| SMS segments / month | 300 | 600 | 1,500 | 2,500 |
+| Cloud storage | 1 GB | 5 GB | 10 GB | 50 GB |
+
+Features by plan:
+- All plans: student management, cloud access, attendance with SMS alerts, fee management and analytics, marks and rank lists, broadcast SMS/email, custom institution logo, staff roles and page access control, in-app guidance chatbot (static FAQ-based help widget for v1).
+- Growth and above: PDF/CSV/Excel exports, barcode generator.
+- Pro and above: performance reports and report cards, multi-branch support, batch groups, report cleanup, priority support.
+- Enterprise only: bank/online payment (PayHere), staff and leave management, timetable, WhatsApp messaging, online attendance.
+- Super Admin can add any feature to any single tenant as an override ("available on request").
+- Prices are NOT hardcoded: `Plan.PriceMonthly` editable by Super Admin; the landing page shows "Contact us" if price is null.
+- Free trial: 14 days, no card, then the tenant becomes read-only until the Super Admin activates a subscription.
+- Plans are data (seeded + editable in Super Admin), never `if (plan == "Pro")` in code. Use `ILimitService.CheckAsync(tenant, LimitKey.Students)` returning a clear error `{ code: "LIMIT_REACHED", limit: "Students", max: 250 }`.
+
+## A8. Notification engine (spec)
+- **Outbox pattern**: domain events -> `NotificationOutbox` rows -> Hangfire dispatcher (retry with backoff, dead-letter after 5 tries, idempotency key to prevent duplicates).
+- Message types (each has its own switch + template + channel choice per tenant): `AttendancePresent`, `AttendanceAbsent`, `ClassStarted`, `ClassStopped`, `ClassCancelled`, `FeeDueReminder` (days before / on due date / overdue, configurable), `PaymentReceivedParent`, `PaymentReceivedAdmin`, `ExamScheduled`, `ExamReminder`, `MarksReleased`, `Broadcast`, `BackupResultAdmin`, `DailySummaryAdmin`.
+- Templates: per tenant, per language (en/ta/si), variables like `{studentName} {className} {amount} {dueDate} {examName} {instituteName}`, live preview with sample data, reset to default.
+- Channels: SMS / Email / WhatsApp per message type (only channels allowed by plan).
+- **SMS segment calculator** (`ISmsSegmentCalculator`): GSM-7 text = 160 chars (153 when multipart); any Unicode (Tamil/Sinhala) = 70 chars (67 when multipart). Show remaining quota, usage bar and warnings at 80% / 100% in the dashboard. Over-quota SMS are allowed but recorded as `ExtraSegments` for billing (configurable: block or allow).
+- Message log page: filters (type, channel, status, date, student), status `Queued/Sent/Delivered/Failed/Skipped`, retry button.
+- Quiet hours setting (e.g. no SMS between 21:00 and 06:00 except payment confirmations), timezone `Asia/Colombo`.
+
+## A9. Design system (must look hand-designed, NOT AI-generated)
+Banned: purple/blue-pink gradients, glassmorphism, big blurred blobs, emoji as icons, centered hero with 3 identical feature cards, oversized rounded-3xl everything, random drop shadows, lorem ipsum, placeholder "Acme" data, stock-AI illustrations.
+Required:
+- Tokens first: CSS variables for `--brand-50..900`, neutral slate scale, semantic success/warning/danger/info; 4/8px spacing grid; radius 6/8px; 1px borders over shadows; one elevation level for popovers.
+- Typography: **Inter** for UI (tabular-nums on numbers), **Noto Sans Tamil / Noto Sans Sinhala** fallbacks; clear scale (12/13/14/16/20/24/32), 14px base for dashboards.
+- Layout: left sidebar (collapsible, grouped nav, active indicator), top bar with search, tenant logo, language switcher, user menu; page header with title, description, primary action; breadcrumbs.
+- Data-dense, calm admin UI: tables with sticky header, column visibility, sorting, filters, pagination, row actions, bulk actions, CSV export; forms with inline validation; empty states with an action; skeleton loaders (no spinners on whole pages); confirm dialogs for destructive actions; toasts; keyboard accessible; WCAG AA contrast.
+- Dashboard: KPI cards (today's attendance %, fees collected this month, overdue count, SMS used/quota, upcoming exams), 2-3 meaningful charts, recent activity. Real numbers, no decorative widgets.
+- Mobile-first for: scanner page, parent portal, teacher attendance. Admin tables become card lists on small screens.
+- Light mode first; dark mode via the same tokens (toggle in user menu).
+- Microcopy: short, specific, human. Error messages say what happened and what to do.
+
+## A10. White-label branding ("change colors" requirement)
+- `TenantBranding`: `PrimaryColor`, `AccentColor`, `LogoUrl`, `FaviconUrl`, `LoginBackgroundUrl`, `InstituteDisplayName`, `Tagline`, `FontPreference` (Inter / system), `ThemeMode` default.
+- Frontend generates a full 50-900 brand scale from the single primary color (OKLCH or HSL algorithm), checks contrast and auto-picks readable text color; injects CSS variables at runtime on `<html>`.
+- Branding loads from a **public endpoint before login** (by subdomain) so the login page is already branded.
+- Settings -> **Branding** page: color pickers, logo/favicon upload with crop, **live preview** pane, reset to default, 6 curated preset palettes.
+- Plans: custom logo on all plans; full color theming on all plans (it is a selling point); "remove product branding" optional flag for Enterprise.
+- Super Admin has the same page for the platform's own default brand.
+- Print/PDF outputs (receipts, report cards, ID cards) use the tenant brand and logo.
+
+## A11. Working Rules for the AI (token-saving, quality)
+1. Edit files directly. **Never paste whole files in chat.** Keep chat replies under 15 lines: what changed, how to run, what is next.
+2. Do not re-scaffold or rewrite files that already work. Read only the files you need.
+3. No placeholder/TODO/mock code in delivered features. Real implementations, real validation, real error handling.
+4. After each phase run and fix until green: `dotnet build`, `dotnet test`, `cd web && npm run lint && npm run typecheck && npm test`. Report only the final summary.
+5. Write tests together with the code (not at the end). Small, focused commits: `git commit -m "phase N: ..."`.
+6. Use the abstractions in A2 so providers can be swapped by config. No secrets in code; use `appsettings` + environment variables + `.env.example`.
+7. Prefer well-known libraries over custom code. Do not add libraries that are not needed.
+8. If a requirement is ambiguous, choose the most reasonable option, note it in `docs/DECISIONS.md` in one line, and continue (do not stop to ask unless blocked).
+
+## A12. Definition of Done (every phase)
+Builds with no warnings-as-errors, all tests green, lint and typecheck clean, new endpoints appear in Swagger with correct auth/feature attributes, UI checked at 360px and 1440px widths, new text exists in en/ta/si resource files (ta/si can start as English fallback marked `// TODO-i18n` only in the resource JSON, never in code), `docs/` updated briefly.
+
+---
+
+# PART B — PHASE PROMPTS
+
+## PHASE 0 — Repository, tooling, skeleton
+Create the solution and folders from A3. Backend: projects with references per Clean Architecture, Serilog, Swagger, health checks (`/health`), global exception middleware returning RFC7807 problem details, CORS, `appsettings` + `.env.example`. Frontend: Vite React TS, Tailwind, shadcn/ui init, path aliases, ESLint + Prettier, Vitest, `typecheck` script. `docker-compose.yml` with `sqlserver` (mcr.microsoft.com/mssql/server:2022-latest, Express edition env), `api`, `web`. Add `.editorconfig`, `.gitignore`, README with run instructions, GitHub Actions `ci.yml` (build + test backend with Testcontainers, lint + typecheck + test frontend).
+DoD: `docker compose up` runs everything; CI file valid; a sample test passes in both stacks.
+
+## PHASE 1 — Tenancy, auth, roles, plans, feature switches (the SaaS core)
+Implement A4, A5, A6, A7 completely on the backend:
+- Entities: Tenant, Branch, User, Role, Permission, RefreshToken, Plan, PlanFeature, PlanLimit, Subscription (status: Trial/Active/Expired/Suspended, start/end dates), TenantFeatureSetting, TenantFeatureOverride, AuditLog.
+- Tenant resolution middleware, global query filters, auto TenantId stamping, soft delete.
+- Auth endpoints: login, refresh (rotation + reuse detection), logout, change password, forgot/reset password (email token), invite user. Lockout after repeated failures, password policy, rate limiting.
+- Super Admin API: tenants CRUD (create tenant with subdomain + first admin + trial subscription), plans CRUD, assign plan, activate/suspend/extend subscription, feature overrides, impersonate-as-read-only (audited).
+- `IFeatureService`, `[RequireFeature]`, `ILimitService`, subscription guard (expired -> read-only; suspended -> blocked with clear code).
+- Seed: 4 plans from A7, a Super Admin from env vars, one demo tenant.
+Tests: tenant isolation (tenant A can never read/write tenant B in any endpoint tested via reflection over all tenant entities), feature ON/OFF behaviour, plan limits, subscription states, refresh-token rotation, permission policies.
+DoD: all above tests green.
+
+## PHASE 2 — Frontend foundation, design system, branding, i18n
+Implement A9 and A10 on the frontend:
+- Tokens, Tailwind config, shadcn component set restyled to the tokens, AppShell (sidebar, topbar, breadcrumbs), DataTable component (TanStack Table) with sorting/filter/pagination/column toggle/CSV export, FormField components with RHF + Zod, EmptyState, Skeletons, ConfirmDialog, Toast, PageHeader, StatCard, FeatureGate component (`<FeatureGate feature="ParentPortal" fallback={...}>`) and `useFeature()` hook, PermissionGate.
+- Auth screens (login, forgot password, accept invite), API client with refresh handling, route guards per role.
+- Branding runtime: fetch public branding, generate color scale, inject CSS vars, Branding settings page with live preview, dark mode toggle.
+- i18n (en/ta/si) with language switcher and persisted preference; Tamil/Sinhala fonts load correctly.
+- Super Admin shell: Tenants list/detail, Plans editor, Subscription actions (using Phase 1 API).
+- Settings -> Features & Notifications page UI (switches wired to the API from Phase 1; notification part wired in Phase 4).
+Tests: component tests for DataTable, FeatureGate, branding color-scale generation (contrast assertions), route guards.
+DoD: it looks like a real product at 360px and 1440px; changing the primary color re-themes the whole app instantly.
+
+## PHASE 3 — Academic core: levels, batches, subjects, students, staff, barcode cards
+Backend + UI:
+- Education levels (5 seeded, per-tenant selection limited by plan), Batches (with batch groups for Pro+), Subjects, Classes/schedules (weekday, time, room, teacher).
+- Students: full profile (photo, guardian name + phones, address, level, batch enrollments, status), auto-generated unique `StudentCode`, bulk import from Excel/CSV with validation report, search and filters, plan-limit enforcement.
+- Barcode: Code128 from `StudentCode`; single and bulk ID-card PDF (QuestPDF, tenant brand, photo, barcode, layout 8-up A4) and barcode label sheet; Growth+ only via feature/plan.
+- Staff and teachers: create with permissions, role templates, enable/disable.
+- Exports (PDF/CSV/Excel) gated by plan.
+Tests: limits, import validation, barcode uniqueness per tenant, permission checks.
+DoD: admin can onboard a whole institute from an Excel file and print ID cards.
+
+## PHASE 4 — Notification engine + Settings page
+Implement A8 completely (outbox, dispatcher, retries, providers with Fake + one real SMS adapter + SMTP/Brevo email + WhatsApp adapter, templates, segment calculator, quotas, quiet hours, message log).
+UI: Settings -> **Features & Notifications**: per-message-type switch, channel selector, template editor with variables and live preview, timing options (reminder days), SMS usage bar, message log page with retry, test-send button.
+Tests: segment calculator (English, Tamil, Sinhala, multipart boundaries), switch OFF => nothing enqueued AND queued item skipped at send time, idempotency, retry/dead-letter, quota counters, quiet hours.
+DoD: with `FakeSmsProvider`, triggering a test event produces correct messages in the log; toggling OFF stops them.
+
+## PHASE 5 — Attendance and class sessions
+- Class session lifecycle: Scheduled -> Started -> Stopped / Cancelled (teacher or admin). Starting a class optionally sends `ClassStarted`; stopping sends `ClassStopped`; cancelling sends `ClassCancelled` to enrolled students' parents (all controlled by switches).
+- Scan endpoint: barcode -> mark Present (late if after threshold), idempotent, duplicate scan returns friendly "already marked at 4:02 PM", unknown or not-enrolled barcode handled clearly, optional manual mark/undo with reason.
+- On stop: students not scanned become Absent (setting-controlled) and `AttendanceAbsent` messages are enqueued; present messages are sent on scan (switchable).
+- SignalR live board (present count, last scans).
+- UI: **Scanner page** (mobile-first, full-screen camera scanner + USB scanner input auto-focus, big green/red result card, sound/vibration, recent scans list), Attendance register (by batch/date, edit), attendance reports with charts, student attendance history.
+- Online attendance (Enterprise): attendance via join link/code, behind `OnlineAttendance` feature.
+Tests: lifecycle state machine, duplicate scans, absent finalization, switch OFF paths, tenant isolation on scan, SignalR hub auth.
+DoD: end-to-end flow works with the Fake SMS provider and the live board updates.
+
+## PHASE 6 — Fees and PayHere
+- Fee structures per batch/level (monthly, one-time, admission), concessions/discounts, generated monthly invoices by Hangfire job (idempotent), due dates, partial payments, manual payment entry (cash/bank slip with attachment), receipt PDF with tenant brand and sequential receipt numbers per tenant, refunds/void with audit.
+- Fee reminders job (before due / on due / overdue) using the notification engine; `PaymentReceivedParent` and `PaymentReceivedAdmin` messages on payment.
+- PayHere integration (`OnlinePayments` feature, Enterprise or override): per-tenant encrypted merchant credentials (Data Protection API), checkout initiation, **webhook with md5sig verification**, amount/order validation, idempotent processing, sandbox mode switch, payment status page for parents.
+- Fee dashboard: collected vs expected, overdue aging, by batch, top defaulters, export.
+- Platform subscription billing for the product itself is manual in v1 (Super Admin marks invoice paid and extends subscription; invoice PDF generated).
+Tests: invoice generation idempotency, partial payments math (decimal), webhook signature (valid/invalid/replay), reminder schedule, receipt numbering concurrency.
+DoD: paying through PayHere sandbox marks the invoice paid and sends parent + admin messages (Fake provider).
+
+## PHASE 7 — Exams, marks, rank lists, report cards
+- Exams (term/unit/test), subjects, max marks, grading scheme per tenant, schedule (date/time/room), marks entry grid (keyboard friendly, bulk paste), validations, lock/unlock, publish results.
+- Rank lists (batch/level/subject), ties handled, grade distribution, performance trends per student.
+- Report cards PDF (Pro+): brand, photo, marks, grades, rank, attendance %, teacher/principal remarks.
+- Notifications: `ExamScheduled`, `ExamReminder` (configurable days/hours before), `MarksReleased` (switchable, can include marks or just "results published").
+Tests: ranking with ties, grade boundaries, publish flow triggers messages once, switch OFF path.
+DoD: complete exam cycle works and produces report cards.
+
+## PHASE 8 — Parent portal
+- Parent accounts linked to one or more students (siblings); created by admin or via invite link/SMS; login with mobile number + password, forgot password.
+- Mobile-first PWA (installable, manifest, offline shell): dashboard per child -> today's attendance, attendance history, upcoming classes and exams, marks and report cards, fee invoices, payment history, pay online (PayHere if enabled), announcements/messages history.
+- **Controlled by the `ParentPortal` switch**: OFF => login and every `/api/parent/*` endpoint returns `FEATURE_DISABLED`, UI shows a friendly disabled screen; ON => works. Sub-switches: `ParentCanPayOnline`, `ParentCanSeeMarks`.
+- Parent data access strictly limited to their own linked children (tested).
+Tests: parent can never access another child's data, switch ON/OFF behaviour, sibling switching, payment flow.
+DoD: Lighthouse PWA/accessibility score >= 90 on the parent dashboard.
+
+## PHASE 9 — Backup, reports cleanup, Super Admin completeness
+- **Institute-level backup** (switch `AutoBackup`): scheduled export of the tenant's data (zipped JSON/CSV + uploaded files manifest) to cloud storage via `IFileStorage`, retention setting, "Backup now", history, download, email result to admin (`BackupResultAdmin`), restore-by-support only (Super Admin tool) with dry-run validation.
+- **Platform-level backup** (Super Admin): nightly `BACKUP DATABASE` job to S3-compatible storage, retention 14-30 days, restore runbook in `docs/DEPLOYMENT.md`.
+- Report cleanup (Pro+): archive/purge old logs, messages, soft-deleted records by policy.
+- Super Admin dashboard: tenants count/status, MRR, trials expiring, SMS usage per tenant, storage per tenant, failed jobs, recent errors, audit log viewer, announcements to all tenants, maintenance mode switch.
+- Staff and leave management, timetable management (Enterprise features): implement basic but complete versions behind their feature keys (staff attendance, leave requests/approval, weekly timetable grid with clash detection).
+Tests: backup produces valid archive and tenant isolation inside it, retention, feature OFF stops scheduled backup, timetable clash detection.
+
+## PHASE 10 — Marketing site, demo, onboarding
+- Public landing page on the root domain (non-tenant host): hero with real product screenshot, feature sections (attendance, fees, exams, messages, parent portal, backups), live **pricing section loaded from the Plans API** with the 4 plans, comparison table, FAQ, free-trial CTA, **#demo section with a request-demo form** (stored + emailed to Super Admin), contact, footer. Same design system, brand-neutral, SEO tags, OG image, sitemap, fast (Lighthouse >= 90).
+- Self-service signup: institute name, subdomain availability check, admin account, plan choice, starts 14-day trial, onboarding checklist (add logo -> add batches -> add students -> print cards -> enable messages).
+- Demo tenant: realistic Sri Lankan seed data (Tamil/Sinhala/English names, batches, 6 months attendance, fees, exams), read-mostly demo login button, Hangfire job resets it nightly.
+- In-app guidance chatbot (FAQ-based help widget with searchable articles; no external AI cost).
+- Transactional email templates (welcome, trial ending in 3 days, trial expired, invoice, password reset) branded per tenant where applicable.
+
+## PHASE 11 — Hardening, testing, deployment
+- Security: OWASP review checklist, rate limiting, security headers, input sanitization, file upload validation (type/size/AV hook), secrets via env, audit log coverage, PII minimization in logs, CSRF for cookie flows, dependency audit in CI.
+- Performance: indexes on `(TenantId, ...)` for hot queries, pagination everywhere, EF query review (no N+1), response caching for public endpoints, load test script (k6) for scan endpoint (target p95 < 300 ms).
+- Testing completion: coverage gate (backend >= 70% on Application layer, frontend >= 60%), **Playwright E2E**: (1) signup -> add students -> print cards, (2) start class -> scan -> parent SMS in log -> stop class -> absent messages, (3) invoice -> PayHere sandbox -> receipt, (4) switch OFF parent portal -> parent blocked, switch ON -> works, (5) branding color change reflects on login page, (6) tenant isolation UI check, (7) plan limit reached message. `docs/TESTING.md` with how to run everything.
+- Deployment: production Dockerfiles (multi-stage), `docker-compose.prod.yml` (api + nginx/caddy reverse proxy with wildcard subdomain + auto TLS, SQL Server container with persistent volume and memory limit, or connection string to managed SQL), `docs/DEPLOYMENT.md` for a single VPS (min 4 GB RAM because of SQL Server) and an Azure upgrade path, wildcard DNS setup (`*.eduflow.lk`), environment variable table, backup/restore runbook, monitoring (health checks, Serilog to file/Seq), zero-downtime update steps.
+- Final: README with screenshots, `docs/ARCHITECTURE.md`, seed/demo instructions, a launch checklist.
+DoD: full CI green, all E2E pass, a fresh clone can be deployed following `docs/DEPLOYMENT.md` only.
