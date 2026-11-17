@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using DotNetEnv;
 using EduFlow.Api.Authorization;
@@ -12,8 +13,11 @@ using EduFlow.Domain.Enums;
 using EduFlow.Infrastructure;
 using EduFlow.Infrastructure.Persistence;
 using EduFlow.Infrastructure.Security;
+using EduFlow.Infrastructure.Storage;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Options;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -29,6 +33,10 @@ builder.Host.UseSerilog((context, services, configuration) =>
         .ReadFrom.Services(services)
         .Enrich.FromLogContext());
 
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+});
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddHealthChecks();
@@ -150,6 +158,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("Frontend");
+UseBrandingFiles(app);
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseMiddleware<TenantResolutionMiddleware>();
@@ -166,6 +175,7 @@ app.MapGet("/api/info", () => Results.Ok(new { product = ProductName.Value }))
 app.MapAuthEndpoints();
 app.MapSuperAdminEndpoints();
 app.MapTenantEndpoints();
+app.MapBrandingEndpoints();
 
 if (builder.Configuration.GetValue<bool>("Diagnostics:ThrowOnGet"))
 {
@@ -177,6 +187,26 @@ if (builder.Configuration.GetValue<bool>("Diagnostics:ThrowOnGet"))
 app.Run();
 
 static IResult ThrowDiagnostic() => throw new InvalidOperationException("diagnostic failure");
+
+static void UseBrandingFiles(WebApplication app)
+{
+    var storage = app.Services.GetRequiredService<IOptions<FileStorageOptions>>().Value;
+    if (string.IsNullOrWhiteSpace(storage.Root))
+    {
+        storage.Root = Path.Combine(app.Environment.ContentRootPath, "storage");
+    }
+    else if (!Path.IsPathRooted(storage.Root))
+    {
+        storage.Root = Path.Combine(app.Environment.ContentRootPath, storage.Root);
+    }
+
+    Directory.CreateDirectory(storage.Root);
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        FileProvider = new PhysicalFileProvider(storage.Root),
+        RequestPath = storage.PublicPath
+    });
+}
 
 static async Task InitializeDatabaseAsync(IServiceProvider services)
 {

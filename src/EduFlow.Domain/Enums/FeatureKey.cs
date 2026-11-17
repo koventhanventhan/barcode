@@ -22,5 +22,6 @@ public enum FeatureKey
     MultiBranch = 18,
     BatchGroups = 19,
     ReportCleanup = 20,
-    PrioritySupport = 21
+    PrioritySupport = 21,
+    RemoveProductBranding = 22
 }

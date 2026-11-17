@@ -6,6 +6,7 @@
 | GET | `/health` | Public | Process liveness |
 | GET | `/api/info` | Public | Product metadata |
 | GET | `/api/plans` | Public | Active subscription plans with features and limits |
+| GET | `/api/public/branding` | Public | Institute or platform branding. Uses host subdomain or `X-Tenant`. |
 
 ## Authentication (`/api/auth`)
 | Method | Path | Auth | Description |
@@ -31,7 +32,9 @@ Requires `SuperAdmin` role:
 
 ## Institute Tenant Endpoints
 - `GET /api/subscription` — Subscription status, features, and plan limit usage
-- `GET /api/settings/features`, `PUT /api/settings/features/{featureKey}` (`settings.manage`)
+- `GET /api/settings/features`, `PUT /api/settings/features/{featureKey}` (`settings.manage` to change)
+- `GET/PUT /api/settings/branding`, `POST /api/settings/branding/reset`, `POST /api/settings/branding/assets` (`settings.manage` to change)
+- `GET/PUT /api/super-admin/branding`, `POST /api/super-admin/branding/reset`, `POST /api/super-admin/branding/assets`
 - `GET/POST/PUT/DELETE /api/branches` (`branches.view`, `branches.manage`)
 - `GET /api/permissions`, `GET/POST/PUT/DELETE /api/roles` (`roles.view`, `roles.manage`)
 - `GET/POST/DELETE /api/users`, `PUT /api/users/{id}/role` (`users.view`, `users.manage`)

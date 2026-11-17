@@ -1,5 +1,6 @@
 using EduFlow.Application.Common.Interfaces;
 using EduFlow.Application.Common.Security;
+using EduFlow.Domain;
 using EduFlow.Domain.Constants;
 using EduFlow.Domain.Entities;
 using EduFlow.Domain.Enums;
@@ -21,6 +22,8 @@ public sealed class DbSeeder(
             await SeedPlansAsync(cancellationToken);
             await SeedSuperAdminAsync(cancellationToken);
             await SeedDemoTenantAsync(cancellationToken);
+            await EnsureEnterpriseRemoveBrandingAsync(cancellationToken);
+            await EnsurePlatformBrandingAsync(cancellationToken);
         }
     }
 
@@ -92,7 +95,8 @@ public sealed class DbSeeder(
                 FeatureKey.StaffLeave,
                 FeatureKey.Timetable,
                 FeatureKey.WhatsAppMessaging,
-                FeatureKey.OnlineAttendance
+                FeatureKey.OnlineAttendance,
+                FeatureKey.RemoveProductBranding
             ])
             .ToArray();
 
@@ -321,6 +325,59 @@ public sealed class DbSeeder(
 
             await db.SaveChangesAsync(cancellationToken);
         }
+    }
+
+    private async Task EnsureEnterpriseRemoveBrandingAsync(CancellationToken cancellationToken)
+    {
+        var planId = await db.Plans
+            .IgnoreQueryFilters()
+            .Where(p => !p.IsDeleted && p.Code == "Enterprise")
+            .Select(p => p.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (planId == Guid.Empty)
+        {
+            return;
+        }
+
+        var exists = await db.PlanFeatures
+            .IgnoreQueryFilters()
+            .AnyAsync(
+                f => !f.IsDeleted && f.PlanId == planId && f.FeatureKey == FeatureKey.RemoveProductBranding,
+                cancellationToken);
+
+        if (exists)
+        {
+            return;
+        }
+
+        db.PlanFeatures.Add(new PlanFeature
+        {
+            PlanId = planId,
+            FeatureKey = FeatureKey.RemoveProductBranding,
+            IsIncluded = true
+        });
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task EnsurePlatformBrandingAsync(CancellationToken cancellationToken)
+    {
+        var exists = await db.BrandingProfiles
+            .IgnoreQueryFilters()
+            .AnyAsync(b => !b.IsDeleted && b.TenantId == Guid.Empty, cancellationToken);
+
+        if (exists)
+        {
+            return;
+        }
+
+        db.BrandingProfiles.Add(new BrandingProfile
+        {
+            TenantId = Guid.Empty,
+            InstituteDisplayName = ProductName.Value,
+            Tagline = "Student records, attendance, and fees for Sri Lankan institutes."
+        });
+        await db.SaveChangesAsync(cancellationToken);
     }
 
     private static Plan BuildPlan(

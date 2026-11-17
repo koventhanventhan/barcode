@@ -10,10 +10,19 @@ describe("ProductName", () => {
   });
 });
 
+function leafKeys(value: unknown, prefix = ""): string[] {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return Object.entries(value as Record<string, unknown>).flatMap(([key, child]) =>
+      key === "_status" ? [] : leafKeys(child, prefix ? `${prefix}.${key}` : key),
+    );
+  }
+  return [prefix];
+}
+
 describe("locale catalogs", () => {
-  it("share the home strings", () => {
-    expect(Object.keys(ta.home).sort()).toEqual(Object.keys(en.home).sort());
-    expect(Object.keys(si.home).sort()).toEqual(Object.keys(en.home).sort());
+  it("share every string key", () => {
+    expect(leafKeys(ta).sort()).toEqual(leafKeys(en).sort());
+    expect(leafKeys(si).sort()).toEqual(leafKeys(en).sort());
     expect(ta._status).toBe("TODO-i18n");
     expect(si._status).toBe("TODO-i18n");
   });

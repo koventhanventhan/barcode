@@ -18,10 +18,12 @@ export default defineConfig({
     proxy: {
       "/api": "http://localhost:8080",
       "/health": "http://localhost:8080",
+      "/files": "http://localhost:8080",
     },
   },
   test: {
-    environment: "node",
-    include: ["src/**/*.test.ts"],
+    environment: "jsdom",
+    include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    setupFiles: ["./src/test/setup.ts"],
   },
 });

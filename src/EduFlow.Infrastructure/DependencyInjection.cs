@@ -1,4 +1,5 @@
 using EduFlow.Application.Auth;
+using EduFlow.Application.Branding;
 using EduFlow.Application.Common.Interfaces;
 using EduFlow.Application.Features;
 using EduFlow.Application.Limits;
@@ -7,6 +8,7 @@ using EduFlow.Application.Tenancy;
 using EduFlow.Infrastructure.Persistence;
 using EduFlow.Infrastructure.Security;
 using EduFlow.Infrastructure.Services;
+using EduFlow.Infrastructure.Storage;
 using EduFlow.Infrastructure.Tenancy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -58,6 +60,13 @@ public static class DependencyInjection
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<ISuperAdminService, SuperAdminService>();
         services.AddScoped<ITenantManagementService, TenantManagementService>();
+        services.AddScoped<IBrandingService, BrandingService>();
+        services.Configure<FileStorageOptions>(opts =>
+        {
+            opts.Root = configuration["FileStorage:Root"] ?? string.Empty;
+            opts.PublicPath = configuration["FileStorage:PublicPath"] ?? "/files";
+        });
+        services.AddSingleton<IFileStorage, LocalFileStorage>();
         services.AddScoped<DbSeeder>();
 
         return services;

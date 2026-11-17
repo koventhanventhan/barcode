@@ -19,6 +19,7 @@ public interface IAppDbContext
     DbSet<TenantFeatureSetting> TenantFeatureSettings { get; }
     DbSet<TenantFeatureOverride> TenantFeatureOverrides { get; }
     DbSet<AuditLog> AuditLogs { get; }
+    DbSet<BrandingProfile> BrandingProfiles { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

@@ -29,6 +29,7 @@ public sealed class AppDbContext(
     public DbSet<TenantFeatureSetting> TenantFeatureSettings => Set<TenantFeatureSetting>();
     public DbSet<TenantFeatureOverride> TenantFeatureOverrides => Set<TenantFeatureOverride>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<BrandingProfile> BrandingProfiles => Set<BrandingProfile>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -39,6 +40,12 @@ public sealed class AppDbContext(
         foreach (var entityType in modelBuilder.Model.GetEntityTypes().ToList())
         {
             var clrType = entityType.ClrType;
+            if (clrType == typeof(BrandingProfile))
+            {
+                ConfigureBrandingProfile(modelBuilder);
+                continue;
+            }
+
             if (typeof(ITenantEntity).IsAssignableFrom(clrType))
             {
                 var method = typeof(AppDbContext)
@@ -316,6 +323,27 @@ public sealed class AppDbContext(
             b.Property(x => x.Action).HasMaxLength(150).IsRequired();
             b.Property(x => x.EntityName).HasMaxLength(100).IsRequired();
             b.HasIndex(x => new { x.TenantId, x.CreatedAt });
+        });
+
+    }
+
+    private void ConfigureBrandingProfile(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<BrandingProfile>(b =>
+        {
+            b.Property(x => x.PrimaryColor).HasMaxLength(7).IsRequired();
+            b.Property(x => x.AccentColor).HasMaxLength(7).IsRequired();
+            b.Property(x => x.LogoUrl).HasMaxLength(500);
+            b.Property(x => x.FaviconUrl).HasMaxLength(500);
+            b.Property(x => x.LoginBackgroundUrl).HasMaxLength(500);
+            b.Property(x => x.InstituteDisplayName).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Tagline).HasMaxLength(300);
+            b.Property(x => x.FontPreference).HasMaxLength(20).IsRequired();
+            b.Property(x => x.ThemeMode).HasMaxLength(20).IsRequired();
+            b.HasIndex(x => x.TenantId).IsUnique();
+            b.HasQueryFilter(x => !x.IsDeleted
+                && ((!CurrentTenantId.HasValue && x.TenantId == Guid.Empty)
+                    || (CurrentTenantId.HasValue && x.TenantId == CurrentTenantId.Value)));
         });
     }
 }
