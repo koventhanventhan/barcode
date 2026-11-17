@@ -11,6 +11,7 @@ using EduFlow.Domain;
 using EduFlow.Domain.Constants;
 using EduFlow.Domain.Enums;
 using EduFlow.Infrastructure;
+using EduFlow.Infrastructure.Fees;
 using EduFlow.Infrastructure.Notifications;
 using EduFlow.Infrastructure.Persistence;
 using EduFlow.Infrastructure.Security;
@@ -196,6 +197,7 @@ app.MapBrandingEndpoints();
 app.MapAcademicEndpoints();
 app.MapNotificationEndpoints();
 app.MapAttendanceEndpoints();
+app.MapFeeEndpoints();
 app.MapHub<EduFlow.Api.Hubs.AttendanceHub>("/hubs/attendance");
 
 if (builder.Configuration.GetValue("Hangfire:EnableRecurringJobs", false))
@@ -205,6 +207,14 @@ if (builder.Configuration.GetValue("Hangfire:EnableRecurringJobs", false))
         NotificationOutboxHangfireJob.RecurringJobId,
         job => job.ExecuteAsync(CancellationToken.None),
         Cron.Minutely());
+    recurringJobs?.AddOrUpdate<MonthlyFeeInvoiceHangfireJob>(
+        MonthlyFeeInvoiceHangfireJob.RecurringJobId,
+        job => job.ExecuteAsync(null, CancellationToken.None),
+        Cron.Daily(1, 0));
+    recurringJobs?.AddOrUpdate<FeeReminderHangfireJob>(
+        FeeReminderHangfireJob.RecurringJobId,
+        job => job.ExecuteAsync(null, CancellationToken.None),
+        Cron.Hourly());
 }
 
 if (builder.Configuration.GetValue<bool>("Diagnostics:ThrowOnGet"))

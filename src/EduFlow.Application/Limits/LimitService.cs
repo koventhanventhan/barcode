@@ -146,10 +146,15 @@ public sealed class LimitService(IAppDbContext db) : ILimitService
 
     private async Task<int> CloudGigabytesAsync(Guid tenantId, CancellationToken cancellationToken)
     {
-        var bytes = await db.Students
+        var studentBytes = await db.Students
             .IgnoreQueryFilters()
             .Where(student => !student.IsDeleted && student.TenantId == tenantId)
             .SumAsync(student => (long?)student.PhotoBytes, cancellationToken) ?? 0;
+        var paymentBytes = await db.FeePayments
+            .IgnoreQueryFilters()
+            .Where(payment => !payment.IsDeleted && payment.TenantId == tenantId)
+            .SumAsync(payment => (long?)payment.AttachmentBytes, cancellationToken) ?? 0;
+        var bytes = studentBytes + paymentBytes;
         return (int)(bytes / (1024L * 1024L * 1024L));
     }
 }

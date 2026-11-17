@@ -1,6 +1,7 @@
 using EduFlow.Application.Academics;
 using EduFlow.Application.Common.Interfaces;
 using EduFlow.Application.Common.Security;
+using EduFlow.Application.Fees;
 using EduFlow.Domain;
 using EduFlow.Domain.Constants;
 using EduFlow.Domain.Entities;
@@ -13,6 +14,7 @@ namespace EduFlow.Infrastructure.Persistence;
 public sealed class DbSeeder(
     AppDbContext db,
     ITenantContext tenantContext,
+    IPaymentGateway paymentGateway,
     IConfiguration configuration)
 {
     public async Task SeedAsync(CancellationToken cancellationToken = default)
@@ -30,6 +32,7 @@ public sealed class DbSeeder(
             await EnsureEnterpriseRemoveBrandingAsync(cancellationToken);
             await EnsurePlatformBrandingAsync(cancellationToken);
             await EnsureDemoNotificationsAsync(cancellationToken);
+            await EnsureDemoFeesAsync(cancellationToken);
         }
     }
 
@@ -679,6 +682,190 @@ public sealed class DbSeeder(
         }
 
         await db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task EnsureDemoFeesAsync(CancellationToken cancellationToken)
+    {
+        var demo = await db.Tenants
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(t => !t.IsDeleted && t.Subdomain == "demo", cancellationToken);
+
+        if (demo is null)
+        {
+            return;
+        }
+
+        var hasStructure = await db.FeeStructures
+            .IgnoreQueryFilters()
+            .AnyAsync(f => !f.IsDeleted && f.TenantId == demo.Id, cancellationToken);
+
+        if (hasStructure)
+        {
+            return;
+        }
+
+        var batch = await db.AcademicBatches
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(b => !b.IsDeleted && b.TenantId == demo.Id, cancellationToken);
+
+        if (batch is null)
+        {
+            return;
+        }
+
+        var students = await db.Students
+            .IgnoreQueryFilters()
+            .Where(s => !s.IsDeleted && s.TenantId == demo.Id)
+            .OrderBy(s => s.StudentCode)
+            .ToListAsync(cancellationToken);
+
+        var structure = new FeeStructure
+        {
+            TenantId = demo.Id,
+            Name = "2026 O/L Monthly Tuition Fee",
+            Frequency = FeeFrequency.Monthly,
+            Amount = 3500m,
+            Currency = "LKR",
+            EducationLevelId = batch.EducationLevelId,
+            BatchId = batch.Id,
+            DueDayOfMonth = 10,
+            Description = "Standard monthly tuition fee for 2026 O/L Combined Maths batch.",
+            IsActive = true
+        };
+        db.FeeStructures.Add(structure);
+
+        var hasOnlineOverride = await db.TenantFeatureOverrides
+            .IgnoreQueryFilters()
+            .AnyAsync(o => !o.IsDeleted && o.TenantId == demo.Id && o.FeatureKey == FeatureKey.OnlinePayments, cancellationToken);
+        if (!hasOnlineOverride)
+        {
+            db.TenantFeatureOverrides.Add(new TenantFeatureOverride
+            {
+                TenantId = demo.Id,
+                FeatureKey = FeatureKey.OnlinePayments,
+                IsEnabled = true,
+                Reason = "Demo PayHere sandbox enabled"
+            });
+        }
+
+        var hasOnlineSetting = await db.TenantFeatureSettings
+            .IgnoreQueryFilters()
+            .AnyAsync(s => !s.IsDeleted && s.TenantId == demo.Id && s.FeatureKey == FeatureKey.OnlinePayments, cancellationToken);
+        if (!hasOnlineSetting)
+        {
+            db.TenantFeatureSettings.Add(new TenantFeatureSetting
+            {
+                TenantId = demo.Id,
+                FeatureKey = FeatureKey.OnlinePayments,
+                IsEnabled = true
+            });
+        }
+
+        var hasGateway = await db.TenantPaymentGatewayConfigs
+            .IgnoreQueryFilters()
+            .AnyAsync(g => !g.IsDeleted && g.TenantId == demo.Id, cancellationToken);
+        if (!hasGateway)
+        {
+            db.TenantPaymentGatewayConfigs.Add(new TenantPaymentGatewayConfig
+            {
+                TenantId = demo.Id,
+                MerchantId = "1211149",
+                EncryptedMerchantSecret = paymentGateway.ProtectSecret("SANDBOX_DEMO_SECRET_2026"),
+                IsSandbox = true,
+                IsEnabled = true
+            });
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+
+        if (students.Count >= 2)
+        {
+            var nimal = students[0];
+            var amaya = students[1];
+            var today = ColomboClock.Today();
+            var period = FeeRules.NormalizeMonthlyPeriod(null, today);
+
+            var concession = new StudentConcession
+            {
+                TenantId = demo.Id,
+                StudentId = amaya.Id,
+                FeeStructureId = structure.Id,
+                Name = "Merit Scholarship 10%",
+                DiscountType = DiscountType.Percentage,
+                Value = 10m,
+                Reason = "Top term test score",
+                IsActive = true
+            };
+            db.StudentConcessions.Add(concession);
+            await db.SaveChangesAsync(cancellationToken);
+
+            var inv1 = new FeeInvoice
+            {
+                TenantId = demo.Id,
+                InvoiceNumber = "INV-000001",
+                StudentId = nimal.Id,
+                FeeStructureId = structure.Id,
+                BatchId = batch.Id,
+                EducationLevelId = batch.EducationLevelId,
+                BillingPeriod = period,
+                Title = $"{structure.Name} ({period})",
+                GrossAmount = 3500m,
+                DiscountAmount = 0m,
+                NetAmount = 3500m,
+                PaidAmount = 3500m,
+                BalanceAmount = 0m,
+                Currency = "LKR",
+                IssueDate = today.AddDays(-5),
+                DueDate = today.AddDays(5),
+                Status = FeeInvoiceStatus.Paid,
+                PaidAt = DateTimeOffset.UtcNow.AddDays(-2)
+            };
+
+            var inv2 = new FeeInvoice
+            {
+                TenantId = demo.Id,
+                InvoiceNumber = "INV-000002",
+                StudentId = amaya.Id,
+                FeeStructureId = structure.Id,
+                BatchId = batch.Id,
+                EducationLevelId = batch.EducationLevelId,
+                BillingPeriod = period,
+                Title = $"{structure.Name} ({period})",
+                GrossAmount = 3500m,
+                DiscountAmount = 350m,
+                ConcessionId = concession.Id,
+                ConcessionDescription = "Merit Scholarship 10% (10%)",
+                NetAmount = 3150m,
+                PaidAmount = 0m,
+                BalanceAmount = 3150m,
+                Currency = "LKR",
+                IssueDate = today.AddDays(-5),
+                DueDate = today.AddDays(5),
+                Status = FeeInvoiceStatus.Pending
+            };
+
+            db.FeeInvoices.AddRange(inv1, inv2);
+            await db.SaveChangesAsync(cancellationToken);
+
+            db.FeePayments.Add(new FeePayment
+            {
+                TenantId = demo.Id,
+                InvoiceId = inv1.Id,
+                StudentId = nimal.Id,
+                ReceiptSequence = 1,
+                ReceiptNumber = "RCP-000001",
+                Amount = 3500m,
+                RefundedAmount = 0m,
+                Currency = "LKR",
+                Method = PaymentMethod.Cash,
+                Status = PaymentRecordStatus.Completed,
+                PaidAt = DateTimeOffset.UtcNow.AddDays(-2),
+                Notes = "Cash payment at main office",
+                ParentNotified = true,
+                AdminNotified = true
+            });
+            await db.SaveChangesAsync(cancellationToken);
+        }
     }
 
     private static Plan BuildPlan(

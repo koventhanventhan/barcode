@@ -332,6 +332,105 @@ public sealed class TenantIsolationTests(ApiFactory factory) : IClassFixture<Api
                 IdempotencyKey = $"idem-{suffix}-{Guid.NewGuid():N}",
                 SmsSegments = 1
             });
+
+            var feeStructure = new FeeStructure
+            {
+                TenantId = tenantId,
+                Name = $"Tuition Fee {suffix}",
+                Frequency = FeeFrequency.Monthly,
+                Amount = 3500m,
+                Currency = "LKR",
+                EducationLevelId = level.Id,
+                BatchId = batch.Id,
+                DueDayOfMonth = 10,
+                IsActive = true
+            };
+            db.FeeStructures.Add(feeStructure);
+            await db.SaveChangesAsync();
+
+            var concession = new StudentConcession
+            {
+                TenantId = tenantId,
+                StudentId = student.Id,
+                FeeStructureId = feeStructure.Id,
+                Name = $"Scholarship {suffix}",
+                DiscountType = DiscountType.Percentage,
+                Value = 10m,
+                IsActive = true
+            };
+            var feeInvoice = new FeeInvoice
+            {
+                TenantId = tenantId,
+                InvoiceNumber = $"INV-{suffix}-0001",
+                StudentId = student.Id,
+                FeeStructureId = feeStructure.Id,
+                BatchId = batch.Id,
+                EducationLevelId = level.Id,
+                BillingPeriod = "2026-11",
+                Title = $"Tuition Fee {suffix} (2026-11)",
+                GrossAmount = 3500m,
+                DiscountAmount = 350m,
+                NetAmount = 3150m,
+                PaidAmount = 1000m,
+                BalanceAmount = 2150m,
+                Currency = "LKR",
+                IssueDate = new DateOnly(2026, 11, 1),
+                DueDate = new DateOnly(2026, 11, 10),
+                Status = FeeInvoiceStatus.PartiallyPaid
+            };
+            db.AddRange(concession, feeInvoice);
+            await db.SaveChangesAsync();
+
+            var feePayment = new FeePayment
+            {
+                TenantId = tenantId,
+                InvoiceId = feeInvoice.Id,
+                StudentId = student.Id,
+                ReceiptSequence = 1,
+                ReceiptNumber = $"RCP-{suffix}-0001",
+                Amount = 1000m,
+                RefundedAmount = 0m,
+                Currency = "LKR",
+                Method = PaymentMethod.Cash,
+                Status = PaymentRecordStatus.Completed,
+                PaidAt = DateTimeOffset.UtcNow
+            };
+            var gatewayConfig = new TenantPaymentGatewayConfig
+            {
+                TenantId = tenantId,
+                MerchantId = $"M-{suffix}",
+                EncryptedMerchantSecret = $"ENC-{suffix}",
+                IsSandbox = true,
+                IsEnabled = true
+            };
+            var checkoutSession = new PayHereCheckoutSession
+            {
+                TenantId = tenantId,
+                OrderId = $"PH-{suffix}-{Guid.NewGuid():N}",
+                InvoiceId = feeInvoice.Id,
+                StudentId = student.Id,
+                Amount = 2150m,
+                Currency = "LKR",
+                IsSandbox = true,
+                Status = PayHereCheckoutStatus.Initiated
+            };
+            var sub = await db.Subscriptions.IgnoreQueryFilters().FirstAsync(s => s.TenantId == tenantId);
+            var platformInvoice = new PlatformSubscriptionInvoice
+            {
+                TenantId = tenantId,
+                InvoiceNumber = $"PLAT-{suffix}-{Guid.NewGuid().ToString("N")[..6]}",
+                SubscriptionId = sub.Id,
+                PlanId = sub.PlanId,
+                PlanName = "Pro",
+                Amount = 15000m,
+                Currency = "LKR",
+                PeriodMonths = 1,
+                DaysToExtend = 30,
+                IssueDate = new DateOnly(2026, 11, 1),
+                DueDate = new DateOnly(2026, 11, 15),
+                Status = PlatformInvoiceStatus.Pending
+            };
+            db.AddRange(feePayment, gatewayConfig, checkoutSession, platformInvoice);
             await db.SaveChangesAsync();
         }
     }

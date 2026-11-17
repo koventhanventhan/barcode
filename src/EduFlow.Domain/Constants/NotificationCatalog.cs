@@ -186,7 +186,7 @@ public static class NotificationCatalog
         new(
             NotificationMessageType.PaymentReceivedAdmin,
             FeatureKey.PaymentConfirmationSms,
-            DefaultSmsEnabled: false,
+            DefaultSmsEnabled: true,
             DefaultEmailEnabled: true,
             DefaultWhatsAppEnabled: false,
             ExemptFromQuietHours: true,

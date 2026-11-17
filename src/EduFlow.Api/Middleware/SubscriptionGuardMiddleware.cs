@@ -108,6 +108,8 @@ public sealed class SubscriptionGuardMiddleware(RequestDelegate next)
             || path.StartsWith("/api/super-admin", StringComparison.OrdinalIgnoreCase)
             || path.StartsWith("/api/plans", StringComparison.OrdinalIgnoreCase)
             || path.StartsWith("/api/public", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith("/api/fees/payhere/webhook", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith("/api/payments/payhere/webhook", StringComparison.OrdinalIgnoreCase)
             || path.StartsWith("/swagger", StringComparison.OrdinalIgnoreCase);
     }
 }

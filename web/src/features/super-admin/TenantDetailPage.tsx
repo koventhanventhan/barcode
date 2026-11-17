@@ -11,7 +11,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FEATURE_KEYS } from "@/domain/catalog";
 import { useAuth } from "@/features/auth/AuthProvider";
+import { formatMoney, type PlatformSubscriptionInvoiceDto } from "@/features/fees/api";
 import { api } from "@/lib/api";
+import { downloadApi } from "@/lib/download";
 import type { Plan, TenantDetail } from "@/lib/types";
 
 export function TenantDetailPage() {
@@ -27,16 +29,25 @@ export function TenantDetailPage() {
   const [months, setMonths] = useState(1);
   const [days, setDays] = useState(30);
   const [reason, setReason] = useState("");
+  const [invoiceAmount, setInvoiceAmount] = useState("15000");
+  const [invoiceMonths, setInvoiceMonths] = useState(1);
+  const [invoiceDays, setInvoiceDays] = useState(30);
+  const [paymentRef, setPaymentRef] = useState("");
   const tenant = useQuery({
     queryKey: ["tenant", id],
     queryFn: () => api<TenantDetail>(`/api/super-admin/tenants/${id}`),
   });
   const plans = useQuery({ queryKey: ["plans"], queryFn: () => api<Plan[]>("/api/super-admin/plans") });
+  const platformInvoices = useQuery({
+    queryKey: ["platform-invoices", id],
+    queryFn: () => api<PlatformSubscriptionInvoiceDto[]>(`/api/super-admin/tenants/${id}/invoices`),
+  });
 
   function refresh() {
     return Promise.all([
       queryClient.invalidateQueries({ queryKey: ["tenant", id] }),
       queryClient.invalidateQueries({ queryKey: ["tenants"] }),
+      queryClient.invalidateQueries({ queryKey: ["platform-invoices", id] }),
     ]);
   }
 
@@ -150,6 +161,102 @@ export function TenantDetailPage() {
           <Input id="reason" value={reason} onChange={(event) => setReason(event.target.value)} required />
           <Button type="submit" size="sm" variant="danger">{t("tenants.suspend")}</Button>
         </form>
+      </section>
+      <section className="mt-4 rounded-lg border border-border bg-card p-4">
+        <h2 className="text-sm font-semibold">{t("tenants.billingTitle")}</h2>
+        <p className="mb-3 text-xs text-muted">{t("tenants.billingDescription")}</p>
+        <form
+          className="mb-4 grid gap-2 sm:grid-cols-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            action.mutate({
+              path: `/api/super-admin/tenants/${id}/invoices`,
+              body: {
+                amount: Number(invoiceAmount),
+                periodMonths: invoiceMonths,
+                daysToExtend: invoiceDays,
+              },
+            });
+          }}
+        >
+          <Input
+            type="number"
+            min="1"
+            step="0.01"
+            value={invoiceAmount}
+            onChange={(event) => setInvoiceAmount(event.target.value)}
+            aria-label={t("fees.amount")}
+            required
+          />
+          <Input
+            type="number"
+            min="1"
+            value={invoiceMonths}
+            onChange={(event) => setInvoiceMonths(Number(event.target.value))}
+            aria-label={t("tenants.months")}
+            required
+          />
+          <Input
+            type="number"
+            min="1"
+            value={invoiceDays}
+            onChange={(event) => setInvoiceDays(Number(event.target.value))}
+            aria-label={t("tenants.days")}
+            required
+          />
+          <Button type="submit" size="sm" disabled={action.isPending}>
+            {t("tenants.createInvoice")}
+          </Button>
+        </form>
+        {(platformInvoices.data ?? []).length > 0 ? (
+          <div className="mb-3">
+            <Input
+              value={paymentRef}
+              onChange={(event) => setPaymentRef(event.target.value)}
+              placeholder={t("tenants.paymentReferencePlaceholder")}
+              className="max-w-xs text-xs"
+            />
+          </div>
+        ) : null}
+        <ul className="divide-y divide-border">
+          {(platformInvoices.data ?? []).map((inv) => (
+            <li key={inv.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5 text-sm">
+              <div>
+                <span className="font-mono font-medium">{inv.invoiceNumber}</span>
+                <span className="ml-2 text-xs text-muted">
+                  {inv.planName} · {formatMoney(inv.amount, inv.currency)} · +{inv.daysToExtend}d · {inv.status}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {inv.status === "Pending" ? (
+                  <Button
+                    size="sm"
+                    onClick={() =>
+                      action.mutate({
+                        path: `/api/super-admin/invoices/${inv.id}/mark-paid`,
+                        body: { paymentReference: paymentRef || undefined },
+                      })
+                    }
+                  >
+                    {t("tenants.markPaidExtend")}
+                  </Button>
+                ) : null}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    void downloadApi(
+                      `/api/super-admin/invoices/${inv.id}/pdf`,
+                      `${inv.invoiceNumber.toLowerCase()}.pdf`,
+                    )
+                  }
+                >
+                  {t("students.exportPdf")}
+                </Button>
+              </div>
+            </li>
+          ))}
+        </ul>
       </section>
       <section className="mt-4 rounded-lg border border-border bg-card">
         <h2 className="border-b border-border px-4 py-3 text-sm font-semibold">{t("tenants.overrides")}</h2>

@@ -2,6 +2,8 @@ using System.Text.RegularExpressions;
 using EduFlow.Application.Academics;
 using EduFlow.Application.Common.Interfaces;
 using EduFlow.Application.Common.Security;
+using EduFlow.Application.Fees;
+using EduFlow.Domain;
 using EduFlow.Domain.Constants;
 using EduFlow.Domain.Entities;
 using EduFlow.Domain.Enums;
@@ -35,6 +37,11 @@ public interface ISuperAdminService
 
     Task<ImpersonationResponse> ImpersonateTenantAsync(Guid tenantId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<AuditLogDto>> GetAuditLogsAsync(Guid? tenantId = null, string? action = null, int take = 100, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<PlatformSubscriptionInvoiceDto>> GetPlatformInvoicesAsync(Guid? tenantId = null, CancellationToken cancellationToken = default);
+    Task<PlatformSubscriptionInvoiceDto> CreatePlatformInvoiceAsync(Guid tenantId, CreatePlatformInvoiceRequest request, CancellationToken cancellationToken = default);
+    Task<PlatformSubscriptionInvoiceDto> MarkPlatformInvoicePaidAsync(Guid invoiceId, MarkPlatformInvoicePaidRequest request, CancellationToken cancellationToken = default);
+    Task<StoredDownload> GetPlatformInvoicePdfAsync(Guid invoiceId, CancellationToken cancellationToken = default);
 }
 
 public sealed partial class SuperAdminService(
@@ -42,7 +49,8 @@ public sealed partial class SuperAdminService(
     ITenantContext tenantContext,
     IFeatureService featureService,
     ITokenService tokenService,
-    IAuditService auditService) : ISuperAdminService
+    IAuditService auditService,
+    IFeeDocumentService feeDocuments) : ISuperAdminService
 {
     [GeneratedRegex("^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")]
     private static partial Regex SubdomainRegex();
@@ -915,6 +923,240 @@ public sealed partial class SuperAdminService(
                 a.DetailsJson,
                 a.CreatedAt))
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<PlatformSubscriptionInvoiceDto>> GetPlatformInvoicesAsync(
+        Guid? tenantId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var query = db.PlatformSubscriptionInvoices
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(i => !i.IsDeleted);
+
+        if (tenantId.HasValue)
+        {
+            query = query.Where(i => i.TenantId == tenantId.Value);
+        }
+
+        var invoices = await query
+            .OrderByDescending(i => i.IssueDate)
+            .ThenByDescending(i => i.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        return await MapPlatformInvoicesAsync(invoices, cancellationToken);
+    }
+
+    public async Task<PlatformSubscriptionInvoiceDto> CreatePlatformInvoiceAsync(
+        Guid tenantId,
+        CreatePlatformInvoiceRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var amount = FeeRules.RoundMoney(request.Amount);
+        if (amount <= 0m)
+        {
+            throw new DomainValidationException("INVALID_AMOUNT", "Subscription invoice amount must be greater than zero.");
+        }
+
+        var periodMonths = Math.Clamp(request.PeriodMonths, 1, 60);
+        var daysToExtend = request.DaysToExtend > 0 ? request.DaysToExtend : periodMonths * 30;
+
+        var subscription = await GetOrCreateSubscriptionEntityAsync(tenantId, cancellationToken);
+        var plan = await db.Plans
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .FirstAsync(p => p.Id == subscription.PlanId, cancellationToken);
+
+        var existingCodes = await db.PlatformSubscriptionInvoices
+            .IgnoreQueryFilters()
+            .Select(i => i.InvoiceNumber)
+            .ToListAsync(cancellationToken);
+        var nextSeq = (existingCodes.Count == 0 ? 0 : existingCodes.Max(FeeRules.ParseSequence)) + 1;
+
+        var today = ColomboClock.Today();
+        var dueDate = request.DueDate ?? today.AddDays(14);
+        var currency = string.IsNullOrWhiteSpace(request.Currency) ? "LKR" : request.Currency.Trim().ToUpperInvariant();
+
+        var invoice = new PlatformSubscriptionInvoice
+        {
+            TenantId = tenantId,
+            InvoiceNumber = FeeRules.FormatPlatformInvoiceNumber(nextSeq),
+            SubscriptionId = subscription.Id,
+            PlanId = plan.Id,
+            PlanName = plan.Name,
+            Amount = amount,
+            Currency = currency,
+            PeriodMonths = periodMonths,
+            DaysToExtend = daysToExtend,
+            IssueDate = today,
+            DueDate = dueDate,
+            Status = PlatformInvoiceStatus.Pending,
+            Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim()
+        };
+
+        using (tenantContext.BeginSystemScope(tenantId))
+        {
+            db.PlatformSubscriptionInvoices.Add(invoice);
+            await auditService.LogAsync(
+                "SuperAdmin.PlatformInvoiceCreated",
+                nameof(PlatformSubscriptionInvoice),
+                invoice.Id.ToString(),
+                new { invoice.InvoiceNumber, invoice.PlanName, invoice.Amount, invoice.DaysToExtend },
+                tenantIdOverride: tenantId,
+                cancellationToken: cancellationToken);
+
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
+        return (await MapPlatformInvoicesAsync([invoice], cancellationToken)).Single();
+    }
+
+    public async Task<PlatformSubscriptionInvoiceDto> MarkPlatformInvoicePaidAsync(
+        Guid invoiceId,
+        MarkPlatformInvoicePaidRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var invoice = await db.PlatformSubscriptionInvoices
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(i => !i.IsDeleted && i.Id == invoiceId, cancellationToken)
+            ?? throw new EntityNotFoundException(nameof(PlatformSubscriptionInvoice), invoiceId.ToString());
+
+        if (invoice.Status == PlatformInvoiceStatus.Paid)
+        {
+            return (await MapPlatformInvoicesAsync([invoice], cancellationToken)).Single();
+        }
+
+        if (invoice.Status == PlatformInvoiceStatus.Voided)
+        {
+            throw new DomainValidationException("INVOICE_VOIDED", "Cannot mark a voided platform invoice as paid.");
+        }
+
+        var subscription = await GetOrCreateSubscriptionEntityAsync(invoice.TenantId, cancellationToken);
+        var now = DateTimeOffset.UtcNow;
+        var baseDate = subscription.EndDate.HasValue && subscription.EndDate.Value > now
+            ? subscription.EndDate.Value
+            : now;
+        var newEndDate = baseDate.AddDays(Math.Max(1, invoice.DaysToExtend));
+
+        using (tenantContext.BeginSystemScope(invoice.TenantId))
+        {
+            invoice.Status = PlatformInvoiceStatus.Paid;
+            invoice.PaidAt = now;
+            invoice.PaymentReference = string.IsNullOrWhiteSpace(request.PaymentReference)
+                ? $"MANUAL-{now:yyyyMMdd}"
+                : request.PaymentReference.Trim();
+            if (!string.IsNullOrWhiteSpace(request.Notes))
+            {
+                invoice.Notes = request.Notes.Trim();
+            }
+
+            subscription.Status = SubscriptionStatus.Active;
+            subscription.EndDate = newEndDate;
+            subscription.SuspendedReason = null;
+
+            await auditService.LogAsync(
+                "SuperAdmin.PlatformInvoiceMarkedPaid",
+                nameof(PlatformSubscriptionInvoice),
+                invoice.Id.ToString(),
+                new
+                {
+                    invoice.InvoiceNumber,
+                    invoice.Amount,
+                    invoice.PaymentReference,
+                    NewSubscriptionEndDate = newEndDate
+                },
+                tenantIdOverride: invoice.TenantId,
+                cancellationToken: cancellationToken);
+
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
+        featureService.InvalidateTenantCache(invoice.TenantId);
+        return (await MapPlatformInvoicesAsync([invoice], cancellationToken)).Single();
+    }
+
+    public async Task<StoredDownload> GetPlatformInvoicePdfAsync(
+        Guid invoiceId,
+        CancellationToken cancellationToken = default)
+    {
+        var invoice = await db.PlatformSubscriptionInvoices
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(i => !i.IsDeleted && i.Id == invoiceId, cancellationToken)
+            ?? throw new EntityNotFoundException(nameof(PlatformSubscriptionInvoice), invoiceId.ToString());
+
+        var tenant = await db.Tenants
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .FirstAsync(t => t.Id == invoice.TenantId, cancellationToken);
+
+        var platformBrand = await db.BrandingProfiles
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(b => !b.IsDeleted && b.TenantId == Guid.Empty, cancellationToken);
+
+        var content = new PlatformInvoicePdfContent(
+            PlatformName: platformBrand?.InstituteDisplayName ?? ProductName.Value,
+            PrimaryHex: platformBrand?.PrimaryColor ?? BrandingProfile.DefaultPrimaryColor,
+            InvoiceNumber: invoice.InvoiceNumber,
+            TenantName: tenant.Name,
+            TenantSubdomain: tenant.Subdomain,
+            TenantEmail: tenant.ContactEmail,
+            PlanName: invoice.PlanName,
+            PeriodMonths: invoice.PeriodMonths,
+            DaysToExtend: invoice.DaysToExtend,
+            Amount: invoice.Amount,
+            Currency: invoice.Currency,
+            IssueDate: invoice.IssueDate,
+            DueDate: invoice.DueDate,
+            Status: invoice.Status.ToString(),
+            PaidAt: invoice.PaidAt,
+            PaymentReference: invoice.PaymentReference,
+            Notes: invoice.Notes);
+
+        var pdf = feeDocuments.BuildPlatformInvoicePdf(content);
+        return new StoredDownload(pdf, "application/pdf", $"{invoice.InvoiceNumber.ToLowerInvariant()}.pdf");
+    }
+
+    private async Task<IReadOnlyList<PlatformSubscriptionInvoiceDto>> MapPlatformInvoicesAsync(
+        IReadOnlyList<PlatformSubscriptionInvoice> invoices,
+        CancellationToken cancellationToken)
+    {
+        if (invoices.Count == 0)
+        {
+            return [];
+        }
+
+        var tenantIds = invoices.Select(i => i.TenantId).Distinct().ToList();
+        var tenants = await db.Tenants
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(t => tenantIds.Contains(t.Id))
+            .ToDictionaryAsync(t => t.Id, cancellationToken);
+
+        return invoices.Select(i =>
+        {
+            tenants.TryGetValue(i.TenantId, out var tenant);
+            return new PlatformSubscriptionInvoiceDto(
+                i.Id,
+                i.TenantId,
+                tenant?.Name ?? "Institute",
+                tenant?.Subdomain ?? string.Empty,
+                i.InvoiceNumber,
+                i.PlanId,
+                i.PlanName,
+                i.Amount,
+                i.Currency,
+                i.PeriodMonths,
+                i.DaysToExtend,
+                i.IssueDate,
+                i.DueDate,
+                i.Status.ToString(),
+                i.PaidAt,
+                i.PaymentReference,
+                i.Notes,
+                i.CreatedAt);
+        }).ToList();
     }
 
     private async Task<Subscription> GetOrCreateSubscriptionEntityAsync(

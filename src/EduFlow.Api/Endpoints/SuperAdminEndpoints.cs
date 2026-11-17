@@ -1,4 +1,5 @@
 using EduFlow.Api.Authorization;
+using EduFlow.Application.Fees;
 using EduFlow.Application.SuperAdmin;
 using EduFlow.Domain.Enums;
 using EduFlow.Domain.Exceptions;
@@ -146,6 +147,47 @@ public static class SuperAdminEndpoints
             CancellationToken ct) =>
             Results.Ok(await service.GetAuditLogsAsync(tenantId, action, take ?? 100, ct)))
             .WithName("SuperAdminGetAuditLogs");
+
+        group.MapGet("/invoices", async (
+            [FromQuery] Guid? tenantId,
+            ISuperAdminService service,
+            CancellationToken ct) =>
+            Results.Ok(await service.GetPlatformInvoicesAsync(tenantId, ct)))
+            .WithName("SuperAdminGetPlatformInvoices");
+
+        group.MapGet("/tenants/{id:guid}/invoices", async (
+            Guid id,
+            ISuperAdminService service,
+            CancellationToken ct) =>
+            Results.Ok(await service.GetPlatformInvoicesAsync(id, ct)))
+            .WithName("SuperAdminGetTenantPlatformInvoices");
+
+        group.MapPost("/tenants/{id:guid}/invoices", async (
+            Guid id,
+            [FromBody] CreatePlatformInvoiceRequest request,
+            ISuperAdminService service,
+            CancellationToken ct) =>
+        {
+            var created = await service.CreatePlatformInvoiceAsync(id, request, ct);
+            return Results.Created($"/api/super-admin/invoices/{created.Id}", created);
+        }).WithName("SuperAdminCreatePlatformInvoice");
+
+        group.MapPost("/invoices/{invoiceId:guid}/mark-paid", async (
+            Guid invoiceId,
+            [FromBody] MarkPlatformInvoicePaidRequest request,
+            ISuperAdminService service,
+            CancellationToken ct) =>
+            Results.Ok(await service.MarkPlatformInvoicePaidAsync(invoiceId, request, ct)))
+            .WithName("SuperAdminMarkPlatformInvoicePaid");
+
+        group.MapGet("/invoices/{invoiceId:guid}/pdf", async (
+            Guid invoiceId,
+            ISuperAdminService service,
+            CancellationToken ct) =>
+        {
+            var pdf = await service.GetPlatformInvoicePdfAsync(invoiceId, ct);
+            return Results.File(pdf.Content, pdf.ContentType, pdf.FileName);
+        }).WithName("SuperAdminGetPlatformInvoicePdf");
 
         return app;
     }

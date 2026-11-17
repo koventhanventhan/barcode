@@ -35,6 +35,13 @@ public interface IAppDbContext
     DbSet<AttendancePolicy> AttendancePolicies { get; }
     DbSet<ClassSession> ClassSessions { get; }
     DbSet<AttendanceMark> AttendanceMarks { get; }
+    DbSet<FeeStructure> FeeStructures { get; }
+    DbSet<StudentConcession> StudentConcessions { get; }
+    DbSet<FeeInvoice> FeeInvoices { get; }
+    DbSet<FeePayment> FeePayments { get; }
+    DbSet<TenantPaymentGatewayConfig> TenantPaymentGatewayConfigs { get; }
+    DbSet<PayHereCheckoutSession> PayHereCheckoutSessions { get; }
+    DbSet<PlatformSubscriptionInvoice> PlatformSubscriptionInvoices { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

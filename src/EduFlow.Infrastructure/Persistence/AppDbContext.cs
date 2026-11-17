@@ -45,6 +45,13 @@ public sealed class AppDbContext(
     public DbSet<AttendancePolicy> AttendancePolicies => Set<AttendancePolicy>();
     public DbSet<ClassSession> ClassSessions => Set<ClassSession>();
     public DbSet<AttendanceMark> AttendanceMarks => Set<AttendanceMark>();
+    public DbSet<FeeStructure> FeeStructures => Set<FeeStructure>();
+    public DbSet<StudentConcession> StudentConcessions => Set<StudentConcession>();
+    public DbSet<FeeInvoice> FeeInvoices => Set<FeeInvoice>();
+    public DbSet<FeePayment> FeePayments => Set<FeePayment>();
+    public DbSet<TenantPaymentGatewayConfig> TenantPaymentGatewayConfigs => Set<TenantPaymentGatewayConfig>();
+    public DbSet<PayHereCheckoutSession> PayHereCheckoutSessions => Set<PayHereCheckoutSession>();
+    public DbSet<PlatformSubscriptionInvoice> PlatformSubscriptionInvoices => Set<PlatformSubscriptionInvoice>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -468,6 +475,103 @@ public sealed class AppDbContext(
             b.Property(x => x.StatusReason).HasMaxLength(500);
             b.HasIndex(x => new { x.TenantId, x.Channel, x.IdempotencyKey }).IsUnique();
             b.HasIndex(x => new { x.TenantId, x.Status, x.NextAttemptAt });
+        });
+
+        modelBuilder.Entity<FeeStructure>(b =>
+        {
+            b.Property(x => x.Name).HasMaxLength(150).IsRequired();
+            b.Property(x => x.Amount).HasPrecision(18, 2);
+            b.Property(x => x.Currency).HasMaxLength(10).IsRequired();
+            b.Property(x => x.Description).HasMaxLength(500);
+            b.HasIndex(x => new { x.TenantId, x.IsActive });
+            b.HasOne<EducationLevel>().WithMany().HasForeignKey(x => x.EducationLevelId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<AcademicBatch>().WithMany().HasForeignKey(x => x.BatchId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<StudentConcession>(b =>
+        {
+            b.Property(x => x.Name).HasMaxLength(150).IsRequired();
+            b.Property(x => x.Value).HasPrecision(18, 2);
+            b.Property(x => x.Reason).HasMaxLength(300);
+            b.HasIndex(x => new { x.TenantId, x.StudentId, x.IsActive });
+            b.HasOne<Student>().WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<FeeStructure>().WithMany().HasForeignKey(x => x.FeeStructureId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<FeeInvoice>(b =>
+        {
+            b.Property(x => x.InvoiceNumber).HasMaxLength(40).IsRequired();
+            b.Property(x => x.BillingPeriod).HasMaxLength(20).IsRequired();
+            b.Property(x => x.Title).HasMaxLength(200).IsRequired();
+            b.Property(x => x.GrossAmount).HasPrecision(18, 2);
+            b.Property(x => x.DiscountAmount).HasPrecision(18, 2);
+            b.Property(x => x.ConcessionDescription).HasMaxLength(200);
+            b.Property(x => x.NetAmount).HasPrecision(18, 2);
+            b.Property(x => x.PaidAmount).HasPrecision(18, 2);
+            b.Property(x => x.BalanceAmount).HasPrecision(18, 2);
+            b.Property(x => x.Currency).HasMaxLength(10).IsRequired();
+            b.Property(x => x.VoidReason).HasMaxLength(300);
+            b.Property(x => x.Notes).HasMaxLength(500);
+            b.HasIndex(x => new { x.TenantId, x.InvoiceNumber }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.StudentId, x.FeeStructureId, x.BillingPeriod });
+            b.HasIndex(x => new { x.TenantId, x.Status, x.DueDate });
+            b.HasOne<Student>().WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<FeeStructure>().WithMany().HasForeignKey(x => x.FeeStructureId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<AcademicBatch>().WithMany().HasForeignKey(x => x.BatchId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<EducationLevel>().WithMany().HasForeignKey(x => x.EducationLevelId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<FeePayment>(b =>
+        {
+            b.Property(x => x.ReceiptNumber).HasMaxLength(40).IsRequired();
+            b.Property(x => x.Amount).HasPrecision(18, 2);
+            b.Property(x => x.RefundedAmount).HasPrecision(18, 2);
+            b.Property(x => x.Currency).HasMaxLength(10).IsRequired();
+            b.Property(x => x.ReferenceNumber).HasMaxLength(120);
+            b.Property(x => x.AttachmentUrl).HasMaxLength(500);
+            b.Property(x => x.Notes).HasMaxLength(500);
+            b.Property(x => x.VoidOrRefundReason).HasMaxLength(300);
+            b.HasIndex(x => new { x.TenantId, x.ReceiptSequence }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.ReceiptNumber }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.InvoiceId });
+            b.HasOne<FeeInvoice>().WithMany().HasForeignKey(x => x.InvoiceId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<Student>().WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<TenantPaymentGatewayConfig>(b =>
+        {
+            b.Property(x => x.MerchantId).HasMaxLength(120).IsRequired();
+            b.Property(x => x.EncryptedMerchantSecret).HasMaxLength(1000).IsRequired();
+            b.Property(x => x.NotifyUrlOverride).HasMaxLength(500);
+            b.Property(x => x.ReturnUrlOverride).HasMaxLength(500);
+            b.Property(x => x.CancelUrlOverride).HasMaxLength(500);
+            b.HasIndex(x => x.TenantId).IsUnique();
+        });
+
+        modelBuilder.Entity<PayHereCheckoutSession>(b =>
+        {
+            b.Property(x => x.OrderId).HasMaxLength(80).IsRequired();
+            b.Property(x => x.Amount).HasPrecision(18, 2);
+            b.Property(x => x.Currency).HasMaxLength(10).IsRequired();
+            b.Property(x => x.PayHerePaymentId).HasMaxLength(120);
+            b.Property(x => x.StatusMessage).HasMaxLength(500);
+            b.HasIndex(x => x.OrderId).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.InvoiceId });
+            b.HasOne<FeeInvoice>().WithMany().HasForeignKey(x => x.InvoiceId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<Student>().WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<PlatformSubscriptionInvoice>(b =>
+        {
+            b.Property(x => x.InvoiceNumber).HasMaxLength(40).IsRequired();
+            b.Property(x => x.PlanName).HasMaxLength(100).IsRequired();
+            b.Property(x => x.Amount).HasPrecision(18, 2);
+            b.Property(x => x.Currency).HasMaxLength(10).IsRequired();
+            b.Property(x => x.PaymentReference).HasMaxLength(150);
+            b.Property(x => x.Notes).HasMaxLength(500);
+            b.HasIndex(x => x.InvoiceNumber).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.Status });
+            b.HasOne<Plan>().WithMany().HasForeignKey(x => x.PlanId).OnDelete(DeleteBehavior.Restrict);
         });
     }
 

@@ -29,6 +29,7 @@ Requires `SuperAdmin` role:
 - `GET/PUT/DELETE /api/super-admin/tenants/{id}/feature-overrides/{featureKey}`
 - `POST /api/super-admin/tenants/{id}/impersonate` (read-only audited token)
 - `GET /api/super-admin/audit-logs`
+- `GET /api/super-admin/invoices`, `GET/POST /api/super-admin/tenants/{id}/invoices`, `POST /api/super-admin/invoices/{invoiceId}/mark-paid`, `GET /api/super-admin/invoices/{invoiceId}/pdf` (manual platform subscription billing & PDF)
 
 ## Institute Tenant Endpoints
 - `GET /api/subscription` — Subscription status, features, and plan limit usage
@@ -72,4 +73,17 @@ Requires `SuperAdmin` role:
 - `GET /api/attendance/reports` (`reports.view`)
 - `GET /api/attendance/students/{studentId}` (`students.view`)
 - `POST /api/attendance/join` (`[RequireFeature(FeatureKey.OnlineAttendance)]`, tenant header, no staff login)
+
+## Fees & PayHere (`/api/fees`)
+- `GET/POST/PUT/DELETE /api/fees/structures` (`fees.view` / `fees.collect`) — Monthly, OneTime, and Admission fee structures per batch/level
+- `GET/POST/PUT/DELETE /api/fees/concessions` (`fees.view` / `fees.collect`) — Percentage and fixed-amount student concessions
+- `GET /api/fees/invoices`, `GET /api/fees/invoices/{id}`, `POST /api/fees/invoices`, `POST /api/fees/invoices/generate`, `POST /api/fees/invoices/{id}/void` (`fees.view` / `fees.collect`) — Idempotent monthly invoice generation, single invoice creation, and voiding with reason
+- `GET/POST /api/fees/payments`, `POST /api/fees/payments/{id}/attachment`, `POST /api/fees/payments/{id}/refund-or-void`, `GET /api/fees/payments/{id}/receipt` (`fees.view` / `fees.collect`) — Partial & full manual payments, bank slip upload, refund/void with audit, and branded sequential receipt PDFs (`RCP-000001`)
+- `POST /api/fees/reminders/run` (`fees.collect`) — Evaluate and enqueue `FeeDueReminder` messages (`BeforeDue`, `OnDueDate`, `Overdue`)
+- `GET /api/fees/dashboard`, `GET /api/fees/export?format=csv|xlsx|pdf` (`fees.view`, export gated by `[RequireFeature(FeatureKey.DataExport)]`)
+- `GET/PUT /api/fees/payhere/settings` (`settings.manage`, update gated by `[RequireFeature(FeatureKey.OnlinePayments)]`) — Per-tenant encrypted PayHere credentials
+- `POST /api/fees/payhere/checkout` (`[RequireFeature(FeatureKey.OnlinePayments)]`) — Initiate PayHere checkout session
+- `GET /api/fees/payhere/orders/{orderId}`, `GET /api/fees/payhere/orders/{orderId}/receipt`, `POST /api/fees/payhere/sandbox-complete` — Parent/student payment status page, receipt download, and sandbox simulation
+- `POST /api/fees/payhere/webhook` (and `/api/payments/payhere/webhook`) — PayHere payment notification webhook with `md5sig` verification and replay idempotency
+
 
