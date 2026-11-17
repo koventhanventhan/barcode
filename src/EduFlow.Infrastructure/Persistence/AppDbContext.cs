@@ -52,6 +52,12 @@ public sealed class AppDbContext(
     public DbSet<TenantPaymentGatewayConfig> TenantPaymentGatewayConfigs => Set<TenantPaymentGatewayConfig>();
     public DbSet<PayHereCheckoutSession> PayHereCheckoutSessions => Set<PayHereCheckoutSession>();
     public DbSet<PlatformSubscriptionInvoice> PlatformSubscriptionInvoices => Set<PlatformSubscriptionInvoice>();
+    public DbSet<GradingScheme> GradingSchemes => Set<GradingScheme>();
+    public DbSet<GradeBoundary> GradeBoundaries => Set<GradeBoundary>();
+    public DbSet<Exam> Exams => Set<Exam>();
+    public DbSet<ExamSubject> ExamSubjects => Set<ExamSubject>();
+    public DbSet<ExamMark> ExamMarks => Set<ExamMark>();
+    public DbSet<ExamResult> ExamResults => Set<ExamResult>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -577,6 +583,67 @@ public sealed class AppDbContext(
 
     private void ConfigureBrandingProfile(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<GradingScheme>(b =>
+        {
+            b.Property(x => x.Name).HasMaxLength(150).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.Name });
+        });
+
+        modelBuilder.Entity<GradeBoundary>(b =>
+        {
+            b.Property(x => x.Grade).HasMaxLength(8).IsRequired();
+            b.Property(x => x.MinPercent).HasPrecision(5, 2);
+            b.Property(x => x.MaxPercent).HasPrecision(5, 2);
+            b.Property(x => x.GradePoint).HasPrecision(4, 2);
+            b.HasIndex(x => new { x.TenantId, x.GradingSchemeId, x.SortOrder });
+            b.HasOne<GradingScheme>().WithMany().HasForeignKey(x => x.GradingSchemeId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Exam>(b =>
+        {
+            b.Property(x => x.Name).HasMaxLength(150).IsRequired();
+            b.Property(x => x.SeriesKey).HasMaxLength(80).IsRequired();
+            b.Property(x => x.Room).HasMaxLength(80);
+            b.HasIndex(x => new { x.TenantId, x.BatchId, x.Status });
+            b.HasIndex(x => new { x.TenantId, x.SeriesKey, x.EducationLevelId });
+            b.HasOne<AcademicBatch>().WithMany().HasForeignKey(x => x.BatchId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<EducationLevel>().WithMany().HasForeignKey(x => x.EducationLevelId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<GradingScheme>().WithMany().HasForeignKey(x => x.GradingSchemeId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<ExamSubject>(b =>
+        {
+            b.Property(x => x.MaxMarks).HasPrecision(8, 2);
+            b.Property(x => x.Room).HasMaxLength(80);
+            b.HasIndex(x => new { x.TenantId, x.ExamId, x.SubjectId });
+            b.HasOne<Exam>().WithMany().HasForeignKey(x => x.ExamId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<Subject>().WithMany().HasForeignKey(x => x.SubjectId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<ExamMark>(b =>
+        {
+            b.Property(x => x.Marks).HasPrecision(8, 2);
+            b.Property(x => x.Grade).HasMaxLength(8);
+            b.HasIndex(x => new { x.TenantId, x.ExamSubjectId, x.StudentId });
+            b.HasOne<Exam>().WithMany().HasForeignKey(x => x.ExamId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<ExamSubject>().WithMany().HasForeignKey(x => x.ExamSubjectId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<Student>().WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<ExamResult>(b =>
+        {
+            b.Property(x => x.TotalMarks).HasPrecision(8, 2);
+            b.Property(x => x.MaxMarks).HasPrecision(8, 2);
+            b.Property(x => x.Percentage).HasPrecision(5, 2);
+            b.Property(x => x.Grade).HasMaxLength(8).IsRequired();
+            b.Property(x => x.AttendancePercent).HasPrecision(5, 2);
+            b.Property(x => x.TeacherRemarks).HasMaxLength(500);
+            b.Property(x => x.PrincipalRemarks).HasMaxLength(500);
+            b.HasIndex(x => new { x.TenantId, x.ExamId, x.StudentId });
+            b.HasOne<Exam>().WithMany().HasForeignKey(x => x.ExamId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<Student>().WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Restrict);
+        });
+
         modelBuilder.Entity<BrandingProfile>(b =>
         {
             b.Property(x => x.PrimaryColor).HasMaxLength(7).IsRequired();

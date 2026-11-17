@@ -432,6 +432,66 @@ public sealed class TenantIsolationTests(ApiFactory factory) : IClassFixture<Api
             };
             db.AddRange(feePayment, gatewayConfig, checkoutSession, platformInvoice);
             await db.SaveChangesAsync();
+
+            var gradingScheme = new GradingScheme
+            {
+                TenantId = tenantId,
+                Name = $"Scheme {suffix}",
+                IsDefault = true
+            };
+            db.GradingSchemes.Add(gradingScheme);
+            await db.SaveChangesAsync();
+            var exam = new Exam
+            {
+                TenantId = tenantId,
+                Name = $"Exam {suffix}",
+                Kind = ExamKind.Term,
+                BatchId = batch.Id,
+                EducationLevelId = level.Id,
+                GradingSchemeId = gradingScheme.Id,
+                SeriesKey = $"series-{suffix}",
+                Status = ExamStatus.Draft
+            };
+            db.Exams.Add(exam);
+            await db.SaveChangesAsync();
+            var examSubject = new ExamSubject
+            {
+                TenantId = tenantId,
+                ExamId = exam.Id,
+                SubjectId = subject.Id,
+                MaxMarks = 100m,
+                SortOrder = 1
+            };
+            db.ExamSubjects.Add(examSubject);
+            db.GradeBoundaries.Add(new GradeBoundary
+            {
+                TenantId = tenantId,
+                GradingSchemeId = gradingScheme.Id,
+                Grade = "A",
+                MinPercent = 0m,
+                MaxPercent = 100m,
+                SortOrder = 1
+            });
+            await db.SaveChangesAsync();
+            db.ExamMarks.Add(new ExamMark
+            {
+                TenantId = tenantId,
+                ExamId = exam.Id,
+                ExamSubjectId = examSubject.Id,
+                StudentId = student.Id,
+                Marks = 80m
+            });
+            db.ExamResults.Add(new ExamResult
+            {
+                TenantId = tenantId,
+                ExamId = exam.Id,
+                StudentId = student.Id,
+                TotalMarks = 80m,
+                MaxMarks = 100m,
+                Percentage = 80m,
+                Grade = "A"
+            });
+            await db.SaveChangesAsync();
         }
     }
 

@@ -12,6 +12,7 @@ public sealed record TenantNotificationConfigDto(
     bool FeeReminderOnDueDate,
     int FeeReminderDaysAfterOverdue,
     int ExamReminderDaysBefore,
+    int ExamReminderHoursBefore,
     string SmsOverQuotaPolicy,
     string DefaultLanguage);
 
@@ -24,7 +25,8 @@ public sealed record UpdateNotificationConfigRequest(
     int FeeReminderDaysAfterOverdue,
     int ExamReminderDaysBefore,
     SmsOverQuotaPolicy SmsOverQuotaPolicy = SmsOverQuotaPolicy.AllowAndRecordExtra,
-    string DefaultLanguage = "en");
+    string DefaultLanguage = "en",
+    int ExamReminderHoursBefore = 0);
 
 public sealed record NotificationTypeConfigDto(
     string MessageType,

@@ -12,4 +12,5 @@ EduFlow is a multi-tenant student management SaaS built on .NET 8 Clean Architec
 - Branding files are written by `IFileStorage` (`LocalFileStorage`) and served from `/files`.
 - `tests` — `EduFlow.UnitTests` and `EduFlow.IntegrationTests`.
 - Class sessions and attendance marks are tenant entities. Starting, stopping, or cancelling a session enqueues parent messages through the notification outbox. The scanner publishes a live board on `/hubs/attendance`.
+- Exams, grading schemes, marks, and published results are tenant entities. Publishing calculates batch and level ranks and enqueues `MarksReleased` once per student. Report cards are QuestPDF documents behind `PerformanceReports`.
 - Academic records (levels, batches, subjects, class schedules, students, enrollments) are tenant entities. The five education levels are a shared catalog. ID cards and spreadsheets are produced in Infrastructure behind `IAcademicDocumentService`, `IBarcodeEncoder`, and `IWorkbookFile`.

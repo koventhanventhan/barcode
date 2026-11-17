@@ -20,6 +20,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
     private string? _sqlServerConnectionString;
     private SqliteConnection? _sqliteConnection;
+    private readonly string _sqliteConnectionString = $"Data Source=EduFlow_{Guid.NewGuid():N};Mode=Memory;Cache=Shared;Default Timeout=30";
 
     public async Task InitializeAsync()
     {
@@ -59,7 +60,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         }
         else
         {
-            _sqliteConnection = new SqliteConnection("DataSource=:memory:");
+            _sqliteConnection = new SqliteConnection(_sqliteConnectionString);
             await _sqliteConnection.OpenAsync();
         }
     }
@@ -68,7 +69,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     {
         if (_sqlServerConnectionString is null && _sqliteConnection is null)
         {
-            _sqliteConnection = new SqliteConnection("DataSource=:memory:");
+            _sqliteConnection = new SqliteConnection(_sqliteConnectionString);
             _sqliteConnection.Open();
         }
 
@@ -87,7 +88,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
                 }
                 else
                 {
-                    options.UseSqlite(_sqliteConnection!);
+                    options.UseSqlite(_sqliteConnectionString);
                 }
             });
         });

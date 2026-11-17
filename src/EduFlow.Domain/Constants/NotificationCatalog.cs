@@ -255,13 +255,13 @@ public static class NotificationCatalog
             {
                 ["en"] = new(
                     "Results published for {examName}",
-                    "{instituteName}: {studentName} scored {marks} ({grade}) in {examName}."),
+                    "{instituteName}: {examName} results for {studentName}: {marks}."),
                 ["ta"] = new(
                     "{examName} பெறுபேறுகள் வெளியிடப்பட்டன",
-                    "{instituteName}: {studentName} {examName} பரீட்சையில் {marks} ({grade}) பெற்றுள்ளார்."),
+                    "{instituteName}: {studentName} — {examName}: {marks}."),
                 ["si"] = new(
                     "{examName} ප්‍රතිඵල නිකුත් කර ඇත",
-                    "{instituteName}: {studentName} {examName} විභාගයෙන් {marks} ({grade}) ලබාගෙන ඇත.")
+                    "{instituteName}: {studentName} — {examName}: {marks}.")
             }),
         new(
             NotificationMessageType.Broadcast,

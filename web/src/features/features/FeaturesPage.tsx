@@ -816,6 +816,24 @@ export function FeaturesPage() {
                     }
                   />
                 </label>
+                <label className="grid gap-1 text-xs">
+                  <span className="font-medium text-muted">
+                    {t("notifications.examReminderHoursBefore")}
+                  </span>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={23}
+                    disabled={!canManage}
+                    value={configDraft.examReminderHoursBefore ?? 0}
+                    onChange={(e) =>
+                      setConfigDraft({
+                        ...configDraft,
+                        examReminderHoursBefore: Number(e.target.value) || 0,
+                      })
+                    }
+                  />
+                </label>
               </div>
 
               <div className="mt-3">

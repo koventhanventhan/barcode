@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import type { Branch, SmsQuotaSummary, SubscriptionSummary } from "@/lib/types";
 import { useAuth } from "@/features/auth/AuthProvider";
+import { type ExamSummary } from "@/features/exams/api";
 import { SmsQuotaCard } from "@/features/features/SmsQuotaCard";
 
 export function DashboardPage() {
@@ -25,6 +26,11 @@ export function DashboardPage() {
   const smsQuota = useQuery({
     queryKey: ["sms-quota"],
     queryFn: () => api<SmsQuotaSummary>("/api/notifications/quota"),
+  });
+  const exams = useQuery({
+    queryKey: ["exam-summary"],
+    enabled: hasPermission("reports.view") || hasPermission("exams.manage"),
+    queryFn: () => api<ExamSummary>("/api/exams/summary"),
   });
 
   if (subscription.isLoading) return <PageSkeleton />;
@@ -56,6 +62,7 @@ export function DashboardPage() {
         <StatCard label={t("dashboard.status")} value={data.status} />
         <StatCard label={t("dashboard.featuresOn")} value={`${enabled}`} hint={`${inPlan} ${t("dashboard.inPlan").toLowerCase()}`} />
         <StatCard label={t("dashboard.branches")} value={branches.data ? String(branches.data.length) : "—"} />
+        {exams.data ? <StatCard label={t("dashboard.upcomingExams")} value={String(exams.data.upcomingCount)} hint={exams.data.upcoming[0]?.name} /> : null}
       </div>
       {smsQuota.data ? (
         <div className="mt-4">

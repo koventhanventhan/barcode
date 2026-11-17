@@ -12,6 +12,7 @@ public sealed class TenantNotificationConfig : TenantEntity
     public bool FeeReminderOnDueDate { get; set; } = true;
     public int FeeReminderDaysAfterOverdue { get; set; } = 3;
     public int ExamReminderDaysBefore { get; set; } = 1;
+    public int ExamReminderHoursBefore { get; set; }
     public SmsOverQuotaPolicy SmsOverQuotaPolicy { get; set; } = SmsOverQuotaPolicy.AllowAndRecordExtra;
     public string DefaultLanguage { get; set; } = "en";
 }

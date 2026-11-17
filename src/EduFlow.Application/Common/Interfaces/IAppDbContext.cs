@@ -42,6 +42,12 @@ public interface IAppDbContext
     DbSet<TenantPaymentGatewayConfig> TenantPaymentGatewayConfigs { get; }
     DbSet<PayHereCheckoutSession> PayHereCheckoutSessions { get; }
     DbSet<PlatformSubscriptionInvoice> PlatformSubscriptionInvoices { get; }
+    DbSet<GradingScheme> GradingSchemes { get; }
+    DbSet<GradeBoundary> GradeBoundaries { get; }
+    DbSet<Exam> Exams { get; }
+    DbSet<ExamSubject> ExamSubjects { get; }
+    DbSet<ExamMark> ExamMarks { get; }
+    DbSet<ExamResult> ExamResults { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

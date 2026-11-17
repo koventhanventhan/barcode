@@ -49,7 +49,8 @@ public sealed class NotificationService(
 
         if (request.FeeReminderDaysBefore is < 0 or > 60
             || request.FeeReminderDaysAfterOverdue is < 0 or > 90
-            || request.ExamReminderDaysBefore is < 0 or > 60)
+            || request.ExamReminderDaysBefore is < 0 or > 60
+            || request.ExamReminderHoursBefore is < 0 or > 23)
         {
             throw new DomainValidationException("INVALID_REMINDER_DAYS", "Reminder days must be within valid bounds.");
         }
@@ -75,6 +76,7 @@ public sealed class NotificationService(
         config.FeeReminderOnDueDate = request.FeeReminderOnDueDate;
         config.FeeReminderDaysAfterOverdue = request.FeeReminderDaysAfterOverdue;
         config.ExamReminderDaysBefore = request.ExamReminderDaysBefore;
+        config.ExamReminderHoursBefore = request.ExamReminderHoursBefore;
         config.SmsOverQuotaPolicy = request.SmsOverQuotaPolicy;
         config.DefaultLanguage = normalizedLang;
 
@@ -91,6 +93,7 @@ public sealed class NotificationService(
                 request.FeeReminderOnDueDate,
                 request.FeeReminderDaysAfterOverdue,
                 request.ExamReminderDaysBefore,
+                request.ExamReminderHoursBefore,
                 SmsOverQuotaPolicy = request.SmsOverQuotaPolicy.ToString(),
                 DefaultLanguage = normalizedLang
             },
@@ -1011,6 +1014,7 @@ public sealed class NotificationService(
             FeeReminderOnDueDate: config?.FeeReminderOnDueDate ?? true,
             FeeReminderDaysAfterOverdue: config?.FeeReminderDaysAfterOverdue ?? 3,
             ExamReminderDaysBefore: config?.ExamReminderDaysBefore ?? 1,
+            ExamReminderHoursBefore: config?.ExamReminderHoursBefore ?? 0,
             SmsOverQuotaPolicy: (config?.SmsOverQuotaPolicy ?? SmsOverQuotaPolicy.AllowAndRecordExtra).ToString(),
             DefaultLanguage: config?.DefaultLanguage ?? "en");
     }

@@ -165,6 +165,7 @@ export type TenantNotificationConfig = {
   feeReminderOnDueDate: boolean;
   feeReminderDaysAfterOverdue: number;
   examReminderDaysBefore: number;
+  examReminderHoursBefore: number;
   smsOverQuotaPolicy: "AllowAndRecordExtra" | "Block";
   defaultLanguage: string;
 };

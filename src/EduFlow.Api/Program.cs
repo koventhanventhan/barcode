@@ -198,6 +198,7 @@ app.MapAcademicEndpoints();
 app.MapNotificationEndpoints();
 app.MapAttendanceEndpoints();
 app.MapFeeEndpoints();
+app.MapExamEndpoints();
 app.MapHub<EduFlow.Api.Hubs.AttendanceHub>("/hubs/attendance");
 
 if (builder.Configuration.GetValue("Hangfire:EnableRecurringJobs", false))
@@ -213,6 +214,10 @@ if (builder.Configuration.GetValue("Hangfire:EnableRecurringJobs", false))
         Cron.Daily(1, 0));
     recurringJobs?.AddOrUpdate<FeeReminderHangfireJob>(
         FeeReminderHangfireJob.RecurringJobId,
+        job => job.ExecuteAsync(null, CancellationToken.None),
+        Cron.Hourly());
+    recurringJobs?.AddOrUpdate<EduFlow.Infrastructure.Exams.ExamReminderHangfireJob>(
+        EduFlow.Infrastructure.Exams.ExamReminderHangfireJob.RecurringJobId,
         job => job.ExecuteAsync(null, CancellationToken.None),
         Cron.Hourly());
 }

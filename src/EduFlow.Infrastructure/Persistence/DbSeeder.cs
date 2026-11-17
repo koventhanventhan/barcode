@@ -653,6 +653,7 @@ public sealed class DbSeeder(
                 FeeReminderOnDueDate = true,
                 FeeReminderDaysAfterOverdue = 3,
                 ExamReminderDaysBefore = 1,
+                ExamReminderHoursBefore = 0,
                 SmsOverQuotaPolicy = SmsOverQuotaPolicy.AllowAndRecordExtra,
                 DefaultLanguage = "en"
             });

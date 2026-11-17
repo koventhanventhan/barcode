@@ -5,6 +5,7 @@ using EduFlow.Application.Branding;
 using EduFlow.Application.Common.Interfaces;
 using EduFlow.Application.Features;
 using EduFlow.Application.Fees;
+using EduFlow.Application.Exams;
 using EduFlow.Application.Limits;
 using EduFlow.Application.Notifications;
 using EduFlow.Application.Staff;
@@ -12,6 +13,7 @@ using EduFlow.Application.Students;
 using EduFlow.Application.SuperAdmin;
 using EduFlow.Application.Tenancy;
 using EduFlow.Infrastructure.Documents;
+using EduFlow.Infrastructure.Exams;
 using EduFlow.Infrastructure.Fees;
 using EduFlow.Infrastructure.Notifications;
 using EduFlow.Infrastructure.Payments;
@@ -155,17 +157,20 @@ public static class DependencyInjection
         services.AddScoped<IStaffDirectoryService, StaffDirectoryService>();
         services.AddScoped<IAttendanceService, AttendanceService>();
         services.AddScoped<IFeeService, FeeService>();
+        services.AddScoped<IExamService, ExamService>();
         services.AddScoped<NotificationService>();
         services.AddScoped<INotificationService>(sp => sp.GetRequiredService<NotificationService>());
         services.AddScoped<INotificationDispatcher>(sp => sp.GetRequiredService<NotificationService>());
         services.AddScoped<NotificationOutboxHangfireJob>();
         services.AddScoped<MonthlyFeeInvoiceHangfireJob>();
         services.AddScoped<FeeReminderHangfireJob>();
+        services.AddScoped<ExamReminderHangfireJob>();
 
         services.AddSingleton<IPaymentGateway, PayHerePaymentGateway>();
         services.AddSingleton<IBarcodeEncoder, ZxingBarcodeEncoder>();
         services.AddSingleton<IAcademicDocumentService, AcademicPdfService>();
         services.AddSingleton<IFeeDocumentService, FeePdfService>();
+        services.AddSingleton<IExamDocumentService, ExamPdfService>();
         services.AddSingleton<IWorkbookFile, ClosedXmlWorkbookFile>();
         services.Configure<FileStorageOptions>(opts =>
         {

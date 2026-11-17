@@ -86,4 +86,15 @@ Requires `SuperAdmin` role:
 - `GET /api/fees/payhere/orders/{orderId}`, `GET /api/fees/payhere/orders/{orderId}/receipt`, `POST /api/fees/payhere/sandbox-complete` — Parent/student payment status page, receipt download, and sandbox simulation
 - `POST /api/fees/payhere/webhook` (and `/api/payments/payhere/webhook`) — PayHere payment notification webhook with `md5sig` verification and replay idempotency
 
+## Exams (`/api/exams`)
+- `GET/POST/PUT/DELETE /api/exams/grading-schemes` (`exams.manage`) — Tenant grading boundaries. The first read creates the standard A–F scheme.
+- `GET/POST/PUT/DELETE /api/exams` (`exams.manage`) — Term, unit, and test papers for a batch, with max marks and an optional series key.
+- `POST /api/exams/{id}/schedule|lock|unlock|publish|unpublish` (`exams.manage`) — Schedule sends `ExamScheduled` once. Publish ranks the cohort and sends `MarksReleased` once per student.
+- `GET/PUT /api/exams/{id}/marks` (`exams.manage`) — Keyboard grid and bulk paste. Locked and published exams reject edits.
+- `GET /api/exams/{id}/ranks?scope=batch|level|subject` and `GET /api/exams/{id}/distribution` (`reports.view`) — Competition ranking, ties share a place.
+- `GET /api/exams/students/{studentId}/trends` (`reports.view`) — Published percentages over time.
+- `GET /api/exams/summary` (`reports.view`) — Upcoming and published counts for the dashboard.
+- `GET /api/exams/{id}/report-cards` (`reports.view`, `[RequireFeature(FeatureKey.PerformanceReports)]`) — Branded report-card PDF.
+- `POST /api/exams/reminders/run` (`exams.manage`) — Enqueue `ExamReminder` using tenant days plus hours, overridable per exam.
+
 

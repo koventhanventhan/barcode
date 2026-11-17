@@ -646,13 +646,14 @@ public sealed class FeeService(
                 request.PaidAt ?? DateTimeOffset.UtcNow,
                 request.Notes,
                 cancellationToken);
+
+            await NotifyPaymentReceivedAsync(tenantId, invoice, payment, cancellationToken);
         }
         finally
         {
             sem.Release();
         }
 
-        await NotifyPaymentReceivedAsync(tenantId, invoice, payment, cancellationToken);
         return (await MapPaymentsAsync([payment], tenantId, cancellationToken)).Single();
     }
 

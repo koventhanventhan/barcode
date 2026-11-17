@@ -20,6 +20,7 @@ import { LevelsPage } from "@/features/academics/LevelsPage";
 import { SubjectsPage } from "@/features/academics/SubjectsPage";
 import { DashboardPage } from "@/features/dashboard/DashboardPage";
 import { FeesPage } from "@/features/fees/FeesPage";
+import { ExamsPage } from "@/features/exams/ExamsPage";
 import { PaymentStatusPage } from "@/features/fees/PaymentStatusPage";
 import { StaffPage } from "@/features/staff/StaffPage";
 import { ImportStudentsPage } from "@/features/students/ImportStudentsPage";
@@ -65,6 +66,7 @@ export default function App() {
                     <Route path="/app/attendance/register" element={<RequireRole roles={INSTITUTE_ROLES}><RegisterPage /></RequireRole>} />
                     <Route path="/app/attendance/reports" element={<RequireRole roles={INSTITUTE_ROLES}><ReportsPage /></RequireRole>} />
                     <Route path="/app/fees" element={<RequireRole roles={INSTITUTE_ROLES}><FeesPage /></RequireRole>} />
+                    <Route path="/app/exams" element={<RequireRole roles={INSTITUTE_ROLES}><ExamsPage /></RequireRole>} />
                     <Route path="/app/fees/pay/:orderId" element={<RequireRole roles={INSTITUTE_ROLES}><PaymentStatusPage /></RequireRole>} />
                     <Route path="/app/settings/features" element={<RequireRole roles={INSTITUTE_ROLES}><FeaturesPage /></RequireRole>} />
                     <Route path="/app/settings/messages" element={<RequireRole roles={INSTITUTE_ROLES}><MessageLogPage /></RequireRole>} />
