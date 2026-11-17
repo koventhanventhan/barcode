@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
+import { BranchSwitcher } from "@/components/layout/BranchSwitcher";
 import { FeatureGate } from "@/components/feature-gate";
 import { DataTable, type DataColumn } from "@/components/data-table/DataTable";
 import { EmptyState } from "@/components/empty-state";
@@ -27,6 +28,8 @@ export type StudentListItem = {
   status: string;
   batchNames: string;
   photoUrl: string | null;
+  branchId?: string | null;
+  branchName?: string | null;
 };
 
 type StudentPage = { items: StudentListItem[]; total: number; page: number; pageSize: number };
@@ -81,12 +84,14 @@ export function StudentsPage() {
     { id: "guardian", header: t("students.guardian"), cell: (row) => row.guardianName, exportValue: (row) => row.guardianName },
     { id: "phone", header: t("students.phone"), cell: (row) => <span className="tabular-nums">{row.guardianPhone}</span>, exportValue: (row) => row.guardianPhone },
     { id: "level", header: t("students.level"), cell: (row) => row.educationLevelName, exportValue: (row) => row.educationLevelName },
+    { id: "branch", header: t("students.branch"), cell: (row) => row.branchName || t("common.none"), exportValue: (row) => row.branchName ?? "" },
     { id: "batches", header: t("students.batches"), cell: (row) => row.batchNames || t("common.none"), exportValue: (row) => row.batchNames },
     { id: "status", header: t("students.status"), cell: (row) => t(`students.${row.status.toLowerCase()}`, { defaultValue: row.status }), exportValue: (row) => row.status },
   ];
 
   return (
     <div>
+      <BranchSwitcher />
       <PageHeader
         title={t("students.title")}
         description={t("students.description")}

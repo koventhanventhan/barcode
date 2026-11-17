@@ -222,6 +222,7 @@ app.UseMiddleware<CookieCsrfMiddleware>();
 app.UseMiddleware<InputSanitizationMiddleware>();
 app.UseAuthentication();
 app.UseMiddleware<TenantResolutionMiddleware>();
+app.UseMiddleware<BranchScopeMiddleware>();
 app.UseMiddleware<SubscriptionGuardMiddleware>();
 app.UseAuthorization();
 

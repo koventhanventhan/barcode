@@ -28,6 +28,7 @@ public interface ITenantManagementService
     Task<TenantUserDto> CreateUserAsync(CreateTenantUserRequest request, CancellationToken cancellationToken = default);
     Task<TenantUserDto> UpdateUserRoleAsync(Guid id, UpdateTenantUserRoleRequest request, CancellationToken cancellationToken = default);
     Task DeleteUserAsync(Guid id, CancellationToken cancellationToken = default);
+    Task SetUserBranchesAsync(Guid id, IReadOnlyList<Guid> branchIds, CancellationToken cancellationToken = default);
 
     Task<TenantSubscriptionSummaryDto> GetSubscriptionSummaryAsync(CancellationToken cancellationToken = default);
 }
@@ -35,14 +36,21 @@ public interface ITenantManagementService
 public sealed class TenantManagementService(
     IAppDbContext db,
     ITenantContext tenantContext,
+    IBranchScope branchScope,
     IFeatureService featureService,
     ILimitService limitService,
     IAuditService auditService) : ITenantManagementService
 {
     public async Task<IReadOnlyList<BranchDto>> GetBranchesAsync(CancellationToken cancellationToken = default)
     {
-        return await db.Branches
-            .AsNoTracking()
+        var query = db.Branches.AsNoTracking();
+        if (!branchScope.Unrestricted)
+        {
+            var allowed = branchScope.AllowedBranchIds;
+            query = query.Where(b => allowed.Contains(b.Id));
+        }
+
+        return await query
             .OrderByDescending(b => b.IsMain)
             .ThenBy(b => b.Name)
             .Select(b => new BranchDto(b.Id, b.Name, b.Code, b.Address, b.Phone, b.IsMain, b.IsActive, b.CreatedAt))
@@ -51,6 +59,11 @@ public sealed class TenantManagementService(
 
     public async Task<BranchDto> GetBranchByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
+        if (!branchScope.Unrestricted && !branchScope.AllowedBranchIds.Contains(id))
+        {
+            throw new EntityNotFoundException(nameof(Branch), id.ToString());
+        }
+
         var branch = await db.Branches
             .AsNoTracking()
             .FirstOrDefaultAsync(b => b.Id == id, cancellationToken)
@@ -62,6 +75,14 @@ public sealed class TenantManagementService(
     public async Task<BranchDto> CreateBranchAsync(CreateBranchRequest request, CancellationToken cancellationToken = default)
     {
         var code = request.Code.Trim().ToUpperInvariant();
+        var tenantId = tenantContext.TenantId
+            ?? throw new DomainValidationException("TENANT_REQUIRED", "Tenant context is required.");
+        if (await db.Branches.AnyAsync(cancellationToken)
+            && !await featureService.IsEnabledAsync(tenantId, FeatureKey.MultiBranch, cancellationToken))
+        {
+            throw new FeatureNotInPlanException(FeatureKey.MultiBranch);
+        }
+
         var duplicate = await db.Branches.AnyAsync(b => b.Code == code, cancellationToken);
         if (duplicate)
         {
@@ -313,19 +334,41 @@ public sealed class TenantManagementService(
                 ?? throw new EntityNotFoundException(nameof(Role), request.CustomRoleId.Value.ToString());
         }
 
+        var branchIds = await ResolveBranchIdsAsync(
+            tenantId,
+            request.RoleType,
+            request.BranchIds is { Count: > 0 } ? request.BranchIds : request.BranchId is Guid one ? [one] : [],
+            cancellationToken);
+
         var user = new User
         {
+            Id = Guid.NewGuid(),
             Email = normalizedEmail,
             FullName = request.FullName.Trim(),
             Phone = request.Phone,
             PasswordHash = PasswordHasher.HashPassword(request.Password),
             RoleType = request.RoleType,
             CustomRoleId = request.CustomRoleId,
-            BranchId = request.BranchId,
+            BranchId = branchIds.FirstOrDefault() is Guid first && first != Guid.Empty ? first : request.BranchId,
             IsActive = true
         };
+        if (branchIds.Count > 0)
+        {
+            user.BranchId = branchIds[0];
+        }
 
         db.Users.Add(user);
+        if (request.RoleType is RoleType.Staff or RoleType.Teacher)
+        {
+            foreach (var branchId in branchIds)
+            {
+                db.StaffBranchAssignments.Add(new StaffBranchAssignment
+                {
+                    UserId = user.Id,
+                    BranchId = branchId
+                });
+            }
+        }
 
         await auditService.LogAsync(
             "User.Created",
@@ -450,4 +493,72 @@ public sealed class TenantManagementService(
             role.IsSystemRole,
             role.Permissions.Where(p => !p.IsDeleted).Select(p => p.PermissionKey).OrderBy(p => p).ToList(),
             role.CreatedAt);
+
+    public async Task SetUserBranchesAsync(Guid id, IReadOnlyList<Guid> branchIds, CancellationToken cancellationToken = default)
+    {
+        var tenantId = tenantContext.TenantId
+            ?? throw new DomainValidationException("TENANT_REQUIRED", "Tenant context is required.");
+        if (!await featureService.IsEnabledAsync(tenantId, FeatureKey.MultiBranch, cancellationToken))
+        {
+            throw new FeatureNotInPlanException(FeatureKey.MultiBranch);
+        }
+
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == id, cancellationToken)
+            ?? throw new EntityNotFoundException(nameof(User), id.ToString());
+        if (user.RoleType is not (RoleType.Staff or RoleType.Teacher))
+        {
+            throw new DomainValidationException("BRANCH_ROLE", "Only staff and teachers can be limited to branches.");
+        }
+
+        var resolved = await ResolveBranchIdsAsync(tenantId, user.RoleType, branchIds, cancellationToken);
+        if (resolved.Count == 0)
+        {
+            throw new DomainValidationException("BRANCH_REQUIRED", "Choose at least one branch.");
+        }
+
+        var existing = await db.StaffBranchAssignments.Where(item => item.UserId == user.Id).ToListAsync(cancellationToken);
+        foreach (var row in existing)
+        {
+            row.IsDeleted = !resolved.Contains(row.BranchId);
+        }
+
+        foreach (var branchId in resolved)
+        {
+            if (existing.All(row => row.BranchId != branchId))
+            {
+                db.StaffBranchAssignments.Add(new StaffBranchAssignment { UserId = user.Id, BranchId = branchId });
+            }
+        }
+
+        user.BranchId = resolved[0];
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task<List<Guid>> ResolveBranchIdsAsync(
+        Guid tenantId,
+        RoleType roleType,
+        IReadOnlyList<Guid> branchIds,
+        CancellationToken cancellationToken)
+    {
+        var distinct = branchIds.Where(id => id != Guid.Empty).Distinct().ToList();
+        if (distinct.Count == 0)
+        {
+            return [];
+        }
+
+        if (distinct.Count > 1
+            && roleType is RoleType.Staff or RoleType.Teacher
+            && !await featureService.IsEnabledAsync(tenantId, FeatureKey.MultiBranch, cancellationToken))
+        {
+            throw new FeatureNotInPlanException(FeatureKey.MultiBranch);
+        }
+
+        var found = await db.Branches.CountAsync(branch => distinct.Contains(branch.Id), cancellationToken);
+        if (found != distinct.Count)
+        {
+            throw new EntityNotFoundException(nameof(Branch));
+        }
+
+        return distinct;
+    }
 }

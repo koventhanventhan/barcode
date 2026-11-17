@@ -1,4 +1,4 @@
-import { getAccessToken, getTenantSlug, setSession } from "./session";
+import { getAccessToken, getSelectedBranch, getTenantSlug, setSession } from "./session";
 import type { ApiErrorBody, AuthResponse } from "./types";
 
 export class ApiError extends Error {
@@ -27,6 +27,8 @@ export async function api<T>(path: string, init: RequestInit = {}, retry = true)
   if (token) headers.set("Authorization", `Bearer ${token}`);
   const tenant = getTenantSlug();
   if (tenant) headers.set("X-Tenant", tenant);
+  const branch = getSelectedBranch();
+  if (branch) headers.set("X-Branch", branch);
   if (init.body && !(init.body instanceof FormData) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }

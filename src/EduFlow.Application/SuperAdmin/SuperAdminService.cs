@@ -423,12 +423,23 @@ public sealed partial class SuperAdminService(
             throw new DomainValidationException("PLAN_CODE_EXISTS", $"Plan with code '{code}' already exists.", 409);
         }
 
+        PlanPriceRules.EnsureValid(
+            request.PriceMonthlyLkr,
+            request.PriceYearlyLkr,
+            request.SetupFeeLkr,
+            request.ExtraSmsPerSegmentLkr,
+            request.ExtraStoragePerGbLkr);
+
         var plan = new Plan
         {
             Code = code,
             Name = request.Name.Trim(),
             Description = request.Description,
-            PriceMonthly = request.PriceMonthly,
+            PriceMonthlyLkr = request.PriceMonthlyLkr,
+            PriceYearlyLkr = request.PriceYearlyLkr,
+            SetupFeeLkr = request.SetupFeeLkr,
+            ExtraSmsPerSegmentLkr = request.ExtraSmsPerSegmentLkr,
+            ExtraStoragePerGbLkr = request.ExtraStoragePerGbLkr,
             Currency = string.IsNullOrWhiteSpace(request.Currency) ? "LKR" : request.Currency.Trim(),
             SortOrder = request.SortOrder,
             IsActive = true,
@@ -450,7 +461,7 @@ public sealed partial class SuperAdminService(
                 "SuperAdmin.PlanCreated",
                 nameof(Plan),
                 plan.Id.ToString(),
-                new { plan.Code, plan.Name, plan.PriceMonthly },
+                new { plan.Code, plan.Name, plan.PriceMonthlyLkr, plan.PriceYearlyLkr },
                 cancellationToken: cancellationToken);
 
             await db.SaveChangesAsync(cancellationToken);
@@ -472,11 +483,22 @@ public sealed partial class SuperAdminService(
             .FirstOrDefaultAsync(p => !p.IsDeleted && p.Id == planId, cancellationToken)
             ?? throw new EntityNotFoundException(nameof(Plan), planId.ToString());
 
+        PlanPriceRules.EnsureValid(
+            request.PriceMonthlyLkr,
+            request.PriceYearlyLkr,
+            request.SetupFeeLkr,
+            request.ExtraSmsPerSegmentLkr,
+            request.ExtraStoragePerGbLkr);
+
         using (tenantContext.BeginSystemScope())
         {
             plan.Name = request.Name.Trim();
             plan.Description = request.Description;
-            plan.PriceMonthly = request.PriceMonthly;
+            plan.PriceMonthlyLkr = request.PriceMonthlyLkr;
+            plan.PriceYearlyLkr = request.PriceYearlyLkr;
+            plan.SetupFeeLkr = request.SetupFeeLkr;
+            plan.ExtraSmsPerSegmentLkr = request.ExtraSmsPerSegmentLkr;
+            plan.ExtraStoragePerGbLkr = request.ExtraStoragePerGbLkr;
             plan.IsActive = request.IsActive;
             plan.SortOrder = request.SortOrder;
 
@@ -514,7 +536,7 @@ public sealed partial class SuperAdminService(
                 "SuperAdmin.PlanUpdated",
                 nameof(Plan),
                 plan.Id.ToString(),
-                new { plan.Code, plan.Name, plan.PriceMonthly, plan.IsActive },
+                new { plan.Code, plan.Name, plan.PriceMonthlyLkr, plan.PriceYearlyLkr, plan.IsActive },
                 cancellationToken: cancellationToken);
 
             await db.SaveChangesAsync(cancellationToken);
@@ -1226,7 +1248,7 @@ public sealed partial class SuperAdminService(
             else if (sub.Status == SubscriptionStatus.Active)
             {
                 activeCount++;
-                mrr += sub.Plan?.PriceMonthly ?? 0m;
+                mrr += sub.Plan?.PriceMonthlyLkr ?? 0m;
             }
         }
 
@@ -1656,12 +1678,16 @@ public sealed partial class SuperAdminService(
             plan.Code,
             plan.Name,
             plan.Description,
-            plan.PriceMonthly,
+            plan.PriceMonthlyLkr,
             plan.Currency,
             plan.IsActive,
             plan.SortOrder,
             features,
-            limits);
+            limits,
+            plan.PriceYearlyLkr,
+            plan.SetupFeeLkr,
+            plan.ExtraSmsPerSegmentLkr,
+            plan.ExtraStoragePerGbLkr);
     }
 
     private static SubscriptionDto MapSubscription(Subscription s, string planCode, string planName) =>

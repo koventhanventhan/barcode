@@ -3,7 +3,7 @@ using EduFlow.Domain.Enums;
 
 namespace EduFlow.Domain.Entities;
 
-public sealed class Student : TenantEntity
+public sealed class Student : TenantEntity, IBranchOwned
 {
     public string StudentCode { get; set; } = string.Empty;
     public string FullName { get; set; } = string.Empty;

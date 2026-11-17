@@ -3,8 +3,9 @@ using EduFlow.Domain.Enums;
 
 namespace EduFlow.Domain.Entities;
 
-public sealed class AttendanceMark : TenantEntity
+public sealed class AttendanceMark : TenantEntity, IBranchOwned
 {
+    public Guid? BranchId { get; set; }
     public Guid ClassSessionId { get; set; }
     public Guid StudentId { get; set; }
     public AttendanceMarkStatus Status { get; set; }

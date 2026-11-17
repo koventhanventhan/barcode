@@ -47,6 +47,7 @@ const schema = z.object({
   phone: z.string().trim().max(40),
   templateKey: z.string(),
   branchId: z.string(),
+  branchIds: z.array(z.string()),
 });
 
 export function StaffPage() {
@@ -115,7 +116,8 @@ export function StaffPage() {
         body: JSON.stringify({
           ...body,
           phone: body.phone || null,
-          branchId: body.branchId || null,
+          branchId: body.branchIds[0] || body.branchId || null,
+          branchIds: body.branchIds.length > 0 ? body.branchIds : body.branchId ? [body.branchId] : [],
           templateKey: body.templateKey || null,
         }),
       }),
@@ -558,6 +560,7 @@ function StaffDialog({
       phone: "",
       templateKey: templates[0]?.key ?? "front-desk",
       branchId: "",
+      branchIds: [],
     },
   });
   const template = templates.find((item) => item.key === form.watch("templateKey"));
@@ -586,16 +589,30 @@ function StaffDialog({
           </select>
         </FormField>
         {template ? <p className="text-[13px] text-muted">{template.permissions.join(", ")}</p> : null}
-        <FormField label={t("staff.branch")} htmlFor="staff-branch">
-          <select id="staff-branch" className={fieldClass} {...form.register("branchId")}>
-            <option value="">{t("common.none")}</option>
-            {branches.map((branch) => (
-              <option key={branch.id} value={branch.id}>
-                {branch.name}
-              </option>
-            ))}
-          </select>
-        </FormField>
+        <fieldset>
+          <legend className="mb-1 text-[13px] font-medium">{t("staff.branch")}</legend>
+          <div className="grid gap-1">
+            {branches.map((branch) => {
+              const selected = form.watch("branchIds");
+              return (
+                <label key={branch.id} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={selected.includes(branch.id)}
+                    onChange={(event) => {
+                      const next = event.target.checked
+                        ? [...selected, branch.id]
+                        : selected.filter((id) => id !== branch.id);
+                      form.setValue("branchIds", next);
+                      form.setValue("branchId", next[0] ?? "");
+                    }}
+                  />
+                  {branch.name}
+                </label>
+              );
+            })}
+          </div>
+        </fieldset>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             {t("common.cancel")}

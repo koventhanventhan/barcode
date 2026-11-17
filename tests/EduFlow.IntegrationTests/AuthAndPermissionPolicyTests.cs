@@ -107,7 +107,7 @@ public sealed class AuthAndPermissionPolicyTests(ApiFactory factory) : IClassFix
     {
         var client = factory.CreateClient();
         var superAdmin = await IntegrationTestHelpers.LoginAsSuperAdminAsync(client);
-        var tenant = await IntegrationTestHelpers.CreateTestTenantAsync(client, superAdmin.AccessToken, "perm-tenant", "Growth");
+        var tenant = await IntegrationTestHelpers.CreateTestTenantAsync(client, superAdmin.AccessToken, "perm-tenant", "Pro");
 
         var adminAuth = await IntegrationTestHelpers.LoginTenantUserAsync(
             client,

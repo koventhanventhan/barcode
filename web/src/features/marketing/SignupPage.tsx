@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { z } from "zod";
 import { FormField, fieldError } from "@/components/form-field";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ import { formatMonthlyPrice } from "./price";
 type PublicPlan = {
   code: string;
   name: string;
-  priceMonthly: number | null;
+  priceMonthlyLkr: number | null;
   currency: string;
 };
 
@@ -35,6 +35,7 @@ export function SignupPage() {
   const { t } = useTranslation();
   const auth = useAuth();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const plans = useQuery({ queryKey: ["public-plans"], queryFn: () => api<PublicPlan[]>("/api/plans") });
   const schema = useMemo(
     () =>
@@ -57,7 +58,7 @@ export function SignupPage() {
       adminFullName: "",
       adminEmail: "",
       adminPassword: "",
-      planCode: "Starter",
+      planCode: params.get("plan") || "Starter",
       phone: "",
     },
   });
@@ -123,9 +124,9 @@ export function SignupPage() {
           </FormField>
           <FormField label={t("signup.plan")} htmlFor="planCode" error={fieldError(form, "planCode")}>
             <select id="planCode" className="h-9 rounded-md border border-border bg-card px-2 text-sm" {...form.register("planCode")}>
-              {(plans.data ?? [{ code: "Starter", name: "Starter", priceMonthly: null, currency: "LKR" }]).map((plan) => (
+              {(plans.data ?? [{ code: "Starter", name: "Starter", priceMonthlyLkr: null, currency: "LKR" }]).map((plan) => (
                 <option key={plan.code} value={plan.code}>
-                  {plan.name} — {formatMonthlyPrice(plan.priceMonthly, plan.currency) ?? t("marketing.contactUs")}
+                  {plan.name} — {formatMonthlyPrice(plan.priceMonthlyLkr, plan.currency) ?? t("marketing.contactUs")}
                 </option>
               ))}
             </select>

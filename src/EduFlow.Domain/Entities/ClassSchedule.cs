@@ -2,8 +2,9 @@ using EduFlow.Domain.Common;
 
 namespace EduFlow.Domain.Entities;
 
-public sealed class ClassSchedule : TenantEntity
+public sealed class ClassSchedule : TenantEntity, IBranchOwned
 {
+    public Guid? BranchId { get; set; }
     public string Name { get; set; } = string.Empty;
     public Guid BatchId { get; set; }
     public Guid SubjectId { get; set; }

@@ -17,7 +17,8 @@ public sealed record CreateStaffRequest(
     Guid? BranchId = null,
     string? RoleType = null,
     IReadOnlyList<string>? Permissions = null,
-    string? RoleName = null);
+    string? RoleName = null,
+    IReadOnlyList<Guid>? BranchIds = null);
 
 public sealed record SetUserActiveRequest(bool IsActive);
 

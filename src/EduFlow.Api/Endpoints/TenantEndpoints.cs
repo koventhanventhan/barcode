@@ -179,6 +179,21 @@ public static class TenantEndpoints
         .RequirePermission(Permissions.UsersManage)
         .WithName("CreateUser");
 
+        usersGroup.MapPut("/{id:guid}/branches", async (Guid id, [FromBody] SetUserBranchesRequest request, ITenantManagementService service, CancellationToken ct) =>
+        {
+            await service.SetUserBranchesAsync(id, request.BranchIds, ct);
+            return Results.NoContent();
+        })
+        .RequirePermission(Permissions.UsersManage)
+        .RequireFeature(FeatureKey.MultiBranch)
+        .WithName("SetUserBranches");
+
+        app.MapGet("/api/me/branches", async (ITenantManagementService service, IBranchScope scope, CancellationToken ct) =>
+            Results.Ok(new BranchScopeDto(scope.Unrestricted, await service.GetBranchesAsync(ct))))
+            .RequireAuthorization()
+            .WithTags("Branches")
+            .WithName("GetMyBranches");
+
         usersGroup.MapPut("/{id:guid}/role", async (Guid id, [FromBody] UpdateTenantUserRoleRequest request, ITenantManagementService service, CancellationToken ct) =>
             Results.Ok(await service.UpdateUserRoleAsync(id, request, ct)))
             .RequirePermission(Permissions.UsersManage)

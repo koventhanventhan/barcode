@@ -64,7 +64,12 @@ public sealed record CreateTenantUserRequest(
     RoleType RoleType,
     string? Phone = null,
     Guid? CustomRoleId = null,
-    Guid? BranchId = null);
+    Guid? BranchId = null,
+    IReadOnlyList<Guid>? BranchIds = null);
+
+public sealed record SetUserBranchesRequest(IReadOnlyList<Guid> BranchIds);
+
+public sealed record BranchScopeDto(bool CanViewAll, IReadOnlyList<BranchDto> Branches);
 
 public sealed record UpdateTenantUserRoleRequest(
     RoleType RoleType,

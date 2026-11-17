@@ -8,6 +8,8 @@ export type Session = {
 };
 
 const TENANT_KEY = "eduflow.tenant";
+const BRANCH_KEY = "eduflow.branch";
+const branchListeners = new Set<() => void>();
 const slugListeners = new Set<() => void>();
 const THEME_KEY = "eduflow.theme";
 const ACTOR_KEY = "eduflow.actor";
@@ -25,7 +27,32 @@ export function getAccessToken(): string | null {
 
 export function setSession(next: Session | null): void {
   session = next;
+  if (!next) setSelectedBranch(null);
   listeners.forEach((listener) => listener());
+}
+
+export function getSelectedBranch(): string | null {
+  try {
+    const value = sessionStorage.getItem(BRANCH_KEY);
+    return value && value !== "all" ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setSelectedBranch(id: string | null): void {
+  try {
+    if (!id) sessionStorage.removeItem(BRANCH_KEY);
+    else sessionStorage.setItem(BRANCH_KEY, id);
+  } catch {
+    /* private mode */
+  }
+  branchListeners.forEach((listener) => listener());
+}
+
+export function subscribeBranch(listener: () => void): () => void {
+  branchListeners.add(listener);
+  return () => branchListeners.delete(listener);
 }
 
 export function subscribeSession(listener: () => void): () => void {

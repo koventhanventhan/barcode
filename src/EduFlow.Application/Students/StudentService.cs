@@ -607,6 +607,7 @@ public sealed class StudentService(
         var batches = await db.AcademicBatches.AsNoTracking()
             .Where(batch => batchIds.Contains(batch.Id))
             .ToDictionaryAsync(batch => batch.Id, cancellationToken);
+        var branchRows = await db.Branches.AsNoTracking().ToDictionaryAsync(branch => branch.Id, cancellationToken);
 
         return students.Select(student =>
         {
@@ -616,6 +617,9 @@ public sealed class StudentService(
                 .Where(name => name is not null)
                 .ToList();
             levels.TryGetValue(student.EducationLevelId, out var level);
+            var branchName = student.BranchId is Guid branchId && branchRows.TryGetValue(branchId, out var branchRow)
+                ? branchRow.Name
+                : null;
             return new StudentListItemDto(
                 student.Id,
                 student.StudentCode,
@@ -626,7 +630,9 @@ public sealed class StudentService(
                 level?.Name ?? string.Empty,
                 student.Status.ToString(),
                 string.Join(", ", names),
-                student.PhotoUrl);
+                student.PhotoUrl,
+                student.BranchId,
+                branchName);
         }).ToList();
     }
 

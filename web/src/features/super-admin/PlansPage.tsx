@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
@@ -15,28 +15,47 @@ import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { FEATURE_KEYS, LIMIT_KEYS } from "@/domain/catalog";
+import { formatMonthlyPrice, monthsFree, parseOptionalMoney } from "@/features/marketing/price";
 import { api } from "@/lib/api";
 import type { Plan } from "@/lib/types";
 
-const schema = z.object({
-  code: z.string().min(2).max(50),
-  name: z.string().min(2),
-  description: z.string(),
-  priceMonthly: z.string(),
-  sortOrder: z.coerce.number().int(),
-  isActive: z.boolean(),
-  features: z.array(z.string()),
-  limits: z.record(z.string()),
-});
+function moneyField(message: string) {
+  return z.string().refine((value) => !Number.isNaN(parseOptionalMoney(value)), { message });
+}
 
-type PlanForm = z.infer<typeof schema>;
+function buildSchema(invalidPrice: string) {
+  return z.object({
+    code: z.string().min(2).max(50),
+    name: z.string().min(2),
+    description: z.string(),
+    priceMonthlyLkr: moneyField(invalidPrice),
+    priceYearlyLkr: moneyField(invalidPrice),
+    setupFeeLkr: moneyField(invalidPrice),
+    extraSmsPerSegmentLkr: moneyField(invalidPrice),
+    extraStoragePerGbLkr: moneyField(invalidPrice),
+    sortOrder: z.coerce.number().int(),
+    isActive: z.boolean(),
+    features: z.array(z.string()),
+    limits: z.record(z.string()),
+  });
+}
+
+type PlanForm = z.infer<ReturnType<typeof buildSchema>>;
+
+function moneyText(value: number | null | undefined) {
+  return value === null || value === undefined ? "" : String(value);
+}
 
 function emptyForm(): PlanForm {
   return {
     code: "",
     name: "",
     description: "",
-    priceMonthly: "",
+    priceMonthlyLkr: "",
+    priceYearlyLkr: "",
+    setupFeeLkr: "",
+    extraSmsPerSegmentLkr: "",
+    extraStoragePerGbLkr: "",
     sortOrder: 10,
     isActive: true,
     features: [],
@@ -49,7 +68,11 @@ function fromPlan(plan: Plan): PlanForm {
     code: plan.code,
     name: plan.name,
     description: plan.description ?? "",
-    priceMonthly: plan.priceMonthly === null ? "" : String(plan.priceMonthly),
+    priceMonthlyLkr: moneyText(plan.priceMonthlyLkr),
+    priceYearlyLkr: moneyText(plan.priceYearlyLkr),
+    setupFeeLkr: moneyText(plan.setupFeeLkr),
+    extraSmsPerSegmentLkr: moneyText(plan.extraSmsPerSegmentLkr),
+    extraStoragePerGbLkr: moneyText(plan.extraStoragePerGbLkr),
     sortOrder: plan.sortOrder,
     isActive: plan.isActive,
     features: plan.features,
@@ -65,6 +88,7 @@ export function PlansPage() {
   const [creating, setCreating] = useState(false);
   const [removeId, setRemoveId] = useState<Plan | null>(null);
   const plans = useQuery({ queryKey: ["plans"], queryFn: () => api<Plan[]>("/api/super-admin/plans") });
+  const schema = useMemo(() => buildSchema(t("plans.priceInvalid")), [t]);
   const form = useForm<PlanForm>({ resolver: zodResolver(schema), defaultValues: emptyForm() });
 
   function openCreate() {
@@ -81,7 +105,6 @@ export function PlansPage() {
 
   const save = useMutation({
     mutationFn: (values: PlanForm) => {
-      const price = values.priceMonthly.trim() === "" ? null : Number(values.priceMonthly);
       const limits = LIMIT_KEYS.map((key) => ({
         limitKey: key,
         maxValue: values.limits[key]?.trim() ? Number(values.limits[key]) : null,
@@ -89,7 +112,11 @@ export function PlansPage() {
       const body = {
         name: values.name,
         description: values.description || null,
-        priceMonthly: price,
+        priceMonthlyLkr: parseOptionalMoney(values.priceMonthlyLkr),
+        priceYearlyLkr: parseOptionalMoney(values.priceYearlyLkr),
+        setupFeeLkr: parseOptionalMoney(values.setupFeeLkr),
+        extraSmsPerSegmentLkr: parseOptionalMoney(values.extraSmsPerSegmentLkr),
+        extraStoragePerGbLkr: parseOptionalMoney(values.extraStoragePerGbLkr),
         isActive: values.isActive,
         sortOrder: values.sortOrder,
         features: values.features,
@@ -129,9 +156,9 @@ export function PlansPage() {
     {
       id: "price",
       header: t("plans.price"),
-      sortValue: (row) => row.priceMonthly ?? -1,
-      exportValue: (row) => (row.priceMonthly === null ? "" : String(row.priceMonthly)),
-      cell: (row) => (row.priceMonthly === null ? t("common.none") : `${row.priceMonthly} ${row.currency}`),
+      sortValue: (row) => row.priceMonthlyLkr ?? -1,
+      exportValue: (row) => (row.priceMonthlyLkr === null ? "" : String(row.priceMonthlyLkr)),
+      cell: (row) => (row.priceMonthlyLkr === null ? t("marketing.contactUs") : `${row.priceMonthlyLkr} ${row.currency}`),
     },
     {
       id: "active",
@@ -159,6 +186,14 @@ export function PlansPage() {
   ];
 
   const selectedFeatures = form.watch("features");
+  const preview = form.watch();
+  const previewMonthly = parseOptionalMoney(preview.priceMonthlyLkr || "");
+  const previewYearly = parseOptionalMoney(preview.priceYearlyLkr || "");
+  const previewPrice = formatMonthlyPrice(Number.isNaN(previewMonthly) ? null : previewMonthly, "LKR");
+  const previewFree = monthsFree(
+    Number.isNaN(previewMonthly) ? null : previewMonthly,
+    Number.isNaN(previewYearly) ? null : previewYearly,
+  );
 
   return (
     <div>
@@ -180,9 +215,35 @@ export function PlansPage() {
           <FormField label={t("plans.descriptionLabel")} htmlFor="description">
             <Textarea id="description" {...form.register("description")} />
           </FormField>
-          <FormField label={t("plans.price")} hint={t("plans.priceHint")} htmlFor="price">
-            <Input id="price" inputMode="decimal" {...form.register("priceMonthly")} />
+          <FormField label={t("plans.price")} hint={t("plans.priceHint")} htmlFor="price" error={fieldError(form, "priceMonthlyLkr")}>
+            <Input id="price" inputMode="decimal" {...form.register("priceMonthlyLkr")} />
           </FormField>
+          <FormField label={t("plans.priceYearly")} hint={t("plans.priceHint")} htmlFor="priceYearly" error={fieldError(form, "priceYearlyLkr")}>
+            <Input id="priceYearly" inputMode="decimal" {...form.register("priceYearlyLkr")} />
+          </FormField>
+          <FormField label={t("plans.setupFee")} hint={t("plans.priceHint")} htmlFor="setupFee" error={fieldError(form, "setupFeeLkr")}>
+            <Input id="setupFee" inputMode="decimal" {...form.register("setupFeeLkr")} />
+          </FormField>
+          <FormField label={t("plans.extraSms")} hint={t("plans.priceHint")} htmlFor="extraSms" error={fieldError(form, "extraSmsPerSegmentLkr")}>
+            <Input id="extraSms" inputMode="decimal" {...form.register("extraSmsPerSegmentLkr")} />
+          </FormField>
+          <FormField label={t("plans.extraStorage")} hint={t("plans.priceHint")} htmlFor="extraStorage" error={fieldError(form, "extraStoragePerGbLkr")}>
+            <Input id="extraStorage" inputMode="decimal" {...form.register("extraStoragePerGbLkr")} />
+          </FormField>
+          <div className="rounded-lg border border-border bg-background p-4" aria-live="polite">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">{t("plans.preview")}</p>
+            <div className="mt-2 flex items-start justify-between gap-2">
+              <p className="font-heading text-lg font-bold">{preview.name || t("plans.name")}</p>
+              {preview.code === "Pro" ? (
+                <span className="rounded bg-brand-50 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-primary">
+                  {t("marketing.mostPopular")}
+                </span>
+              ) : null}
+            </div>
+            <p className="mt-1 text-xs leading-5 text-muted">{preview.description || t("plans.previewHint")}</p>
+            <p className="mt-2 font-heading text-2xl font-extrabold tabular">{previewPrice ?? t("marketing.contactUs")}</p>
+            {previewFree ? <p className="text-xs font-semibold text-primary">{t("marketing.monthsFree", { count: previewFree })}</p> : null}
+          </div>
           <FormField label={t("plans.sort")} htmlFor="sort">
             <Input id="sort" type="number" {...form.register("sortOrder")} />
           </FormField>

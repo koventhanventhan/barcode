@@ -47,7 +47,9 @@ Requires `SuperAdmin` role:
 - `GET /api/settings/features`, `PUT /api/settings/features/{featureKey}` (`settings.manage` to change)
 - `GET/PUT /api/settings/branding`, `POST /api/settings/branding/reset`, `POST /api/settings/branding/assets` (`settings.manage` to change)
 - `GET/PUT /api/super-admin/branding`, `POST /api/super-admin/branding/reset`, `POST /api/super-admin/branding/assets`
-- `GET/POST/PUT/DELETE /api/branches` (`branches.view`, `branches.manage`)
+- `GET/POST/PUT/DELETE /api/branches` (`branches.view`, `branches.manage`). A second branch requires `MultiBranch` (`FEATURE_NOT_IN_PLAN` otherwise).
+- `GET /api/me/branches` — branches the signed-in user may select, and `canViewAll` for the institute-admin consolidated view. Send `X-Branch` (or `all`) on later requests.
+- `PUT /api/users/{id}/branches` (`users.manage`, `MultiBranch`) — limit a staff or teacher account to specific branches.
 - `GET /api/permissions`, `GET/POST/PUT/DELETE /api/roles` (`roles.view`, `roles.manage`)
 - `GET/POST/DELETE /api/users`, `PUT /api/users/{id}/role` (`users.view`, `users.manage`)
 - `GET/POST /api/parents`, `PUT /api/parents/{id}/students`, `POST /api/parents/{id}/invite`, `POST /api/parents/{id}/deactivate` (`students.view` / `students.edit`) — parent accounts linked to one or more students, created with a password or an SMS invite

@@ -29,6 +29,7 @@ import {
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { BranchSwitcher } from "@/components/layout/BranchSwitcher";
 import { ProductName } from "@/config/brand";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { HelpWidget } from "@/features/help/HelpWidget";
@@ -206,6 +207,7 @@ export function AppShell() {
               </div>
             ) : null}
           </div>
+          <BranchSwitcher />
           <label className="hidden items-center gap-1 text-xs text-muted sm:flex">
             <Languages className="h-4 w-4" aria-hidden="true" />
             <span className="sr-only">{t("shell.language")}</span>

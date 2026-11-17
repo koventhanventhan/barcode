@@ -207,6 +207,12 @@ public sealed class TenantIsolationTests(ApiFactory factory) : IClassFixture<Api
 
             var level = await db.EducationLevels.IgnoreQueryFilters().OrderBy(item => item.SortOrder).FirstAsync();
             var branch = await db.Branches.IgnoreQueryFilters().FirstAsync(item => !item.IsDeleted && item.TenantId == tenantId);
+            db.StaffBranchAssignments.Add(new StaffBranchAssignment
+            {
+                TenantId = tenantId,
+                UserId = user.Id,
+                BranchId = branch.Id
+            });
             var group = new BatchGroup
             {
                 TenantId = tenantId,

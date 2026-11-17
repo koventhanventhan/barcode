@@ -3,8 +3,9 @@ using EduFlow.Domain.Enums;
 
 namespace EduFlow.Domain.Entities;
 
-public sealed class ClassSession : TenantEntity
+public sealed class ClassSession : TenantEntity, IBranchOwned
 {
+    public Guid? BranchId { get; set; }
     public Guid ClassScheduleId { get; set; }
     public DateOnly SessionDate { get; set; }
     public ClassSessionStatus Status { get; set; } = ClassSessionStatus.Scheduled;

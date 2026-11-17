@@ -7,6 +7,7 @@ public interface IAppDbContext
 {
     DbSet<Tenant> Tenants { get; }
     DbSet<Branch> Branches { get; }
+    DbSet<StaffBranchAssignment> StaffBranchAssignments { get; }
     DbSet<User> Users { get; }
     DbSet<Role> Roles { get; }
     DbSet<RolePermission> RolePermissions { get; }

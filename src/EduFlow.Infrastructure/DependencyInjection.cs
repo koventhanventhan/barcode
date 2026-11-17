@@ -128,6 +128,7 @@ public static class DependencyInjection
 
         services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<AppDbContext>());
         services.AddScoped<ITenantContext, TenantContext>();
+        services.AddScoped<IBranchScope, BranchScope>();
         services.AddScoped<IAuditService, AuditService>();
         services.AddSingleton<InMemoryEmailStore>();
         services.AddSingleton<FakeSmsStore>();

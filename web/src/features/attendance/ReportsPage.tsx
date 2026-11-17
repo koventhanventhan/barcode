@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { BranchSwitcher } from "@/components/layout/BranchSwitcher";
 import { PageHeader } from "@/components/page-header";
 import { PageSkeleton } from "@/components/skeletons";
 import { StatCard } from "@/components/stat-card";
@@ -27,6 +28,7 @@ export function ReportsPage() {
   const data = report.data;
   return (
     <div className="grid gap-4">
+      <BranchSwitcher />
       <PageHeader
         title={t("attendance.reportsTitle")}
         description={t("attendance.reportsDescription")}

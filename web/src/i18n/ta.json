@@ -84,7 +84,9 @@
     "demoReadOnly": "This is the shared demo. You can look around. Changes are not saved.",
     "impersonating": "You are viewing {{name}} as a read-only super admin.",
     "exitImpersonation": "Return to platform",
-    "skip": "Skip to content"
+    "skip": "Skip to content",
+    "branch": "Branch",
+    "allBranches": "All branches"
   },
   "lang": {
     "en": "English",
@@ -293,8 +295,15 @@
     "create": "New plan",
     "code": "Code",
     "name": "Name",
-    "price": "Monthly price",
+    "price": "Monthly price (LKR)",
+    "priceYearly": "Yearly price (LKR)",
+    "setupFee": "PayHere setup fee (LKR)",
+    "extraSms": "Extra SMS segment (LKR)",
+    "extraStorage": "Extra storage per GB (LKR)",
+    "priceInvalid": "Enter a blank or an amount with up to 2 decimals.",
     "priceHint": "Leave empty to show contact us.",
+    "preview": "Plan card preview",
+    "previewHint": "One-line audience shown on the public card.",
     "descriptionLabel": "Description",
     "sort": "Sort order",
     "features": "Included features",
@@ -514,6 +523,45 @@
     "pricingBody": "Limits and features are enforced server-side from live plan settings. When a monthly price is blank, contact our team for an institute quote.",
     "pricingError": "Plans could not be loaded.",
     "compare": "Included",
+    "currencyLabel": "LKR",
+    "billingLabel": "Billing period",
+    "billingMonthly": "Monthly",
+    "billingYearly": "Yearly",
+    "perMonth": "per month",
+    "perYear": "per year",
+    "monthsFree": "{{count}} months free",
+    "monthsFreeUpTo": "Up to {{count}} months free",
+    "mostPopular": "Most popular",
+    "talkToUs": "Talk to us",
+    "startTrialCta": "Start 14-day free trial",
+    "compareTitle": "Compare plans",
+    "includedMark": "Included",
+    "notIncludedMark": "Not included",
+    "addonsTitle": "Add-ons",
+    "addonsBody": "Extra SMS, storage, and students are added by the platform owner. Prices below come from the plan record.",
+    "addonSms": "Extra SMS segments",
+    "addonSmsUnit": "per segment",
+    "addonStorage": "Extra storage",
+    "addonStorageUnit": "per GB",
+    "addonStudents": "Extra students",
+    "addonStudentsOn": "On {{plan}}",
+    "addonWhatsapp": "WhatsApp messaging",
+    "addonWhatsappOn": "Included on {{plans}}",
+    "addonPayhere": "PayHere setup help",
+    "addonFrom": "From {{price}}",
+    "goodToKnowTitle": "Good to know",
+    "goodTrial": "14-day trial, no card. After that the institute stays read-only until a subscription is activated.",
+    "goodSoftware": "Software only. Use your own PC, tablet, USB scanner, or phone camera.",
+    "goodSms": "One English SMS segment is 160 characters. Tamil or Sinhala is 70 characters.",
+    "finalCtaTitle": "Start with a free trial",
+    "finalCtaBody": "Create the institute, pick a plan, and turn modules on when you are ready.",
+    "group": {
+      "core": "Core",
+      "messaging": "Messaging",
+      "reports": "Reports",
+      "payments": "Payments",
+      "admin": "Admin"
+    },
     "contactUs": "Contact us",
     "demoTitle": "Explore a live working institute",
     "demoBody": "Open Royal Vidyalaya in read-only demo mode to inspect seeded Colombo batches, 6 months of attendance, fee receipts, and published term results.",
@@ -628,9 +676,21 @@
       }
     },
     "faq": {
+      "payment": {
+        "q": "How do we pay for EduFlow?",
+        "a": "Platform invoices are handled by the product owner. Online student fees use PayHere only when that feature is on the plan."
+      },
       "trial": {
         "q": "How does the free trial work?",
         "a": "14 days, no card. When it ends, the institute can still be viewed and stays read-only until a subscription is activated."
+      },
+      "export": {
+        "q": "Can we export our data?",
+        "a": "Growth and above can export PDF, CSV, and Excel. An institute backup is a zip of that tenant’s records when backups are enabled."
+      },
+      "cancel": {
+        "q": "What happens if we cancel?",
+        "a": "Ask the product owner to end the subscription. The institute becomes read-only. Your records stay until a support restore or retention job removes them."
       },
       "price": {
         "q": "Where do the prices come from?",
@@ -638,7 +698,15 @@
       },
       "sms": {
         "q": "What happens when SMS quota runs out?",
-        "a": "The default is to send and record the extra segments. An institute can switch that to block instead."
+        "a": "The default is to send and record the extra segments. An institute can switch that to block instead. Extra segments are priced on the plan."
+      },
+      "domain": {
+        "q": "Can we use our own web address?",
+        "a": "Each institute gets a subdomain. A custom domain is arranged with the product owner."
+      },
+      "languages": {
+        "q": "Do you support Tamil and Sinhala?",
+        "a": "The app, message templates, and SMS length rules support English, Tamil, and Sinhala."
       },
       "portal": {
         "q": "Can parents be turned off?",
@@ -790,6 +858,7 @@
     "city": "City",
     "level": "Education level",
     "batches": "Batches",
+    "branch": "Branch",
     "status": "Status",
     "gender": "Gender",
     "dob": "Date of birth",

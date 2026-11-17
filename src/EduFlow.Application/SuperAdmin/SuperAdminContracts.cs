@@ -58,31 +58,43 @@ public sealed record PlanDto(
     string Code,
     string Name,
     string? Description,
-    decimal? PriceMonthly,
+    decimal? PriceMonthlyLkr,
     string Currency,
     bool IsActive,
     int SortOrder,
     IReadOnlyList<string> Features,
-    IReadOnlyDictionary<string, int?> Limits);
+    IReadOnlyDictionary<string, int?> Limits,
+    decimal? PriceYearlyLkr,
+    decimal? SetupFeeLkr,
+    decimal? ExtraSmsPerSegmentLkr,
+    decimal? ExtraStoragePerGbLkr);
 
 public sealed record CreatePlanRequest(
     string Code,
     string Name,
     string? Description,
-    decimal? PriceMonthly,
+    decimal? PriceMonthlyLkr,
     string Currency,
     int SortOrder,
     IReadOnlyList<FeatureKey> Features,
-    IReadOnlyList<PlanLimitInput> Limits);
+    IReadOnlyList<PlanLimitInput> Limits,
+    decimal? PriceYearlyLkr = null,
+    decimal? SetupFeeLkr = null,
+    decimal? ExtraSmsPerSegmentLkr = null,
+    decimal? ExtraStoragePerGbLkr = null);
 
 public sealed record UpdatePlanRequest(
     string Name,
     string? Description,
-    decimal? PriceMonthly,
+    decimal? PriceMonthlyLkr,
     bool IsActive,
     int SortOrder,
     IReadOnlyList<FeatureKey> Features,
-    IReadOnlyList<PlanLimitInput> Limits);
+    IReadOnlyList<PlanLimitInput> Limits,
+    decimal? PriceYearlyLkr = null,
+    decimal? SetupFeeLkr = null,
+    decimal? ExtraSmsPerSegmentLkr = null,
+    decimal? ExtraStoragePerGbLkr = null);
 
 public sealed record SubscriptionDto(
     Guid Id,

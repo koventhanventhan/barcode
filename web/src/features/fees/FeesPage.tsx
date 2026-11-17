@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { BranchSwitcher } from "@/components/layout/BranchSwitcher";
 import { useFeature } from "@/components/feature-gate";
 import { PageHeader } from "@/components/page-header";
 import { PageSkeleton } from "@/components/skeletons";
@@ -407,6 +408,7 @@ export function FeesPage() {
 
   return (
     <div>
+      <BranchSwitcher />
       <PageHeader
         title={t("fees.title")}
         description={t("fees.description")}

@@ -29,8 +29,9 @@ public sealed class StudentConcession : TenantEntity
     public bool IsActive { get; set; } = true;
 }
 
-public sealed class FeeInvoice : TenantEntity
+public sealed class FeeInvoice : TenantEntity, IBranchOwned
 {
+    public Guid? BranchId { get; set; }
     public string InvoiceNumber { get; set; } = string.Empty;
     public Guid StudentId { get; set; }
     public Guid FeeStructureId { get; set; }
@@ -59,8 +60,9 @@ public sealed class FeeInvoice : TenantEntity
     public DateTimeOffset? OverdueReminderSentAt { get; set; }
 }
 
-public sealed class FeePayment : TenantEntity
+public sealed class FeePayment : TenantEntity, IBranchOwned
 {
+    public Guid? BranchId { get; set; }
     public Guid InvoiceId { get; set; }
     public Guid StudentId { get; set; }
     public int ReceiptSequence { get; set; }

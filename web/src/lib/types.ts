@@ -129,7 +129,11 @@ export type Plan = {
   code: string;
   name: string;
   description: string | null;
-  priceMonthly: number | null;
+  priceMonthlyLkr: number | null;
+  priceYearlyLkr: number | null;
+  setupFeeLkr: number | null;
+  extraSmsPerSegmentLkr: number | null;
+  extraStoragePerGbLkr: number | null;
   currency: string;
   isActive: boolean;
   sortOrder: number;

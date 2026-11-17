@@ -42,7 +42,8 @@ public sealed class StaffDirectoryService(
                 roleType,
                 request.Phone,
                 roleId,
-                request.BranchId),
+                request.BranchId,
+                request.BranchIds),
             cancellationToken);
     }
 

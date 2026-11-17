@@ -94,6 +94,9 @@ namespace EduFlow.Infrastructure.Persistence.Migrations
                     b.Property<bool>("AbsentNotified")
                         .HasColumnType("bit");
 
+                    b.Property<Guid?>("BranchId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("ClassSessionId")
                         .HasColumnType("uniqueidentifier");
 
@@ -145,6 +148,8 @@ namespace EduFlow.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetimeoffset");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("BranchId");
 
                     b.HasIndex("ClassSessionId");
 
@@ -429,6 +434,9 @@ namespace EduFlow.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("BatchId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("BranchId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
 
@@ -475,6 +483,8 @@ namespace EduFlow.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("BatchId");
 
+                    b.HasIndex("BranchId");
+
                     b.HasIndex("SubjectId");
 
                     b.HasIndex("TeacherUserId");
@@ -492,6 +502,9 @@ namespace EduFlow.Infrastructure.Persistence.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("BranchId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("CancelReason")
@@ -548,6 +561,8 @@ namespace EduFlow.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetimeoffset");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("BranchId");
 
                     b.HasIndex("ClassScheduleId");
 
@@ -963,6 +978,9 @@ namespace EduFlow.Infrastructure.Persistence.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
+                    b.Property<Guid?>("BranchId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("ConcessionDescription")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
@@ -1061,6 +1079,8 @@ namespace EduFlow.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("BatchId");
 
+                    b.HasIndex("BranchId");
+
                     b.HasIndex("EducationLevelId");
 
                     b.HasIndex("FeeStructureId");
@@ -1098,6 +1118,9 @@ namespace EduFlow.Infrastructure.Persistence.Migrations
                     b.Property<string>("AttachmentUrl")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid?>("BranchId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
@@ -1171,6 +1194,8 @@ namespace EduFlow.Infrastructure.Persistence.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("BranchId");
 
                     b.HasIndex("InvoiceId");
 
@@ -1719,6 +1744,14 @@ namespace EduFlow.Infrastructure.Persistence.Migrations
                     b.Property<string>("Description")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<decimal?>("ExtraSmsPerSegmentLkr")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("ExtraStoragePerGbLkr")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
@@ -1730,7 +1763,15 @@ namespace EduFlow.Infrastructure.Persistence.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
-                    b.Property<decimal?>("PriceMonthly")
+                    b.Property<decimal?>("PriceMonthlyLkr")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("PriceYearlyLkr")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("SetupFeeLkr")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
@@ -2252,6 +2293,42 @@ namespace EduFlow.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("StaffAttendanceRecords");
+                });
+
+            modelBuilder.Entity("EduFlow.Domain.Entities.StaffBranchAssignment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "UserId", "BranchId");
+
+                    b.ToTable("StaffBranchAssignments");
                 });
 
             modelBuilder.Entity("EduFlow.Domain.Entities.StaffLeaveRequest", b =>

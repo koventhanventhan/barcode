@@ -12,7 +12,9 @@ public sealed record StudentListItemDto(
     string EducationLevelName,
     string Status,
     string BatchNames,
-    string? PhotoUrl);
+    string? PhotoUrl,
+    Guid? BranchId,
+    string? BranchName);
 
 public sealed record StudentDto(
     Guid Id,

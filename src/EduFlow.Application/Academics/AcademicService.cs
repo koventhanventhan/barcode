@@ -357,7 +357,8 @@ public sealed class AcademicService(
             StartMinutes = request.StartMinutes,
             EndMinutes = request.EndMinutes,
             Room = TrimOptional(request.Room, 50),
-            IsActive = request.IsActive
+            IsActive = request.IsActive,
+            BranchId = batch.BranchId
         };
         db.ClassSchedules.Add(schedule);
         await auditService.LogAsync("ClassSchedule.Created", nameof(ClassSchedule), schedule.Id.ToString(), new { schedule.Name }, cancellationToken: cancellationToken);
@@ -379,6 +380,7 @@ public sealed class AcademicService(
         schedule.EndMinutes = request.EndMinutes;
         schedule.Room = TrimOptional(request.Room, 50);
         schedule.IsActive = request.IsActive;
+        schedule.BranchId = batch.BranchId;
         await db.SaveChangesAsync(cancellationToken);
         return (await MapSchedulesAsync([schedule], cancellationToken)).Single();
     }

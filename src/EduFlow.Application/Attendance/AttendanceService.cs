@@ -66,7 +66,8 @@ public sealed class AttendanceService(
             TenantId = tenantId,
             ClassScheduleId = schedule.Id,
             SessionDate = day,
-            Status = ClassSessionStatus.Scheduled
+            Status = ClassSessionStatus.Scheduled,
+            BranchId = schedule.BranchId
         };
         db.ClassSessions.Add(session);
         await audit.LogAsync("Attendance.SessionOpened", nameof(ClassSession), null, new { schedule.Id, day }, cancellationToken: cancellationToken);
@@ -529,11 +530,13 @@ public sealed class AttendanceService(
             {
                 TenantId = session.TenantId == Guid.Empty ? TenantGuard.Require(tenantContext) : session.TenantId,
                 ClassSessionId = session.Id,
-                StudentId = studentId
+                StudentId = studentId,
+                BranchId = session.BranchId
             };
             db.AttendanceMarks.Add(mark);
         }
 
+        mark.BranchId ??= session.BranchId;
         mark.Status = status;
         mark.Source = source;
         mark.MarkedAt = DateTimeOffset.UtcNow;

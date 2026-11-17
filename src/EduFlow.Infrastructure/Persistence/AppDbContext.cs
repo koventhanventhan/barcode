@@ -11,12 +11,19 @@ namespace EduFlow.Infrastructure.Persistence;
 
 public sealed class AppDbContext(
     DbContextOptions<AppDbContext> options,
-    ITenantContext tenantContext) : DbContext(options), IAppDbContext
+    ITenantContext tenantContext,
+    IBranchScope? branchScope = null) : DbContext(options), IAppDbContext
 {
+    private readonly IBranchScope branches = branchScope ?? new BranchScope();
     public Guid? CurrentTenantId => tenantContext.TenantId;
+    private bool BranchOpen => tenantContext.IsSystemScope || branches.Unrestricted;
+    private Guid? ActiveBranchId => tenantContext.IsSystemScope ? null : branches.SelectedBranchId;
+    private Guid MainBranchId => branches.MainBranchId;
+    private List<Guid> AllowedBranchIds => branches.AllowedBranchIds;
 
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<Branch> Branches => Set<Branch>();
+    public DbSet<StaffBranchAssignment> StaffBranchAssignments => Set<StaffBranchAssignment>();
     public DbSet<User> Users => Set<User>();
     public DbSet<Role> Roles => Set<Role>();
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
@@ -85,7 +92,14 @@ public sealed class AppDbContext(
                 continue;
             }
 
-            if (typeof(ITenantEntity).IsAssignableFrom(clrType))
+            if (typeof(IBranchOwned).IsAssignableFrom(clrType))
+            {
+                var method = typeof(AppDbContext)
+                    .GetMethod(nameof(ConfigureBranchOwnedEntity), BindingFlags.NonPublic | BindingFlags.Instance)!
+                    .MakeGenericMethod(clrType);
+                method.Invoke(this, [modelBuilder]);
+            }
+            else if (typeof(ITenantEntity).IsAssignableFrom(clrType))
             {
                 var method = typeof(AppDbContext)
                     .GetMethod(nameof(ConfigureTenantEntity), BindingFlags.NonPublic | BindingFlags.Instance)!
@@ -164,6 +178,7 @@ public sealed class AppDbContext(
                     }
 
                     entry.Entity.CreatedAt = now;
+                    EnsureBranchAccess(entry.Entity);
                     if (!entry.Entity.CreatedBy.HasValue && tenantContext.UserId.HasValue)
                     {
                         entry.Entity.CreatedBy = tenantContext.UserId;
@@ -173,6 +188,7 @@ public sealed class AppDbContext(
 
                 case EntityState.Modified:
                     entry.Entity.UpdatedAt = now;
+                    EnsureBranchAccess(entry.Entity);
                     break;
 
                 case EntityState.Deleted:
@@ -235,6 +251,31 @@ public sealed class AppDbContext(
         }
     }
 
+    private void EnsureBranchAccess(BaseEntity entity)
+    {
+        if (tenantContext.IsSystemScope || entity is not IBranchOwned owned)
+        {
+            return;
+        }
+
+        branches.EnsureCanUse(owned.BranchId);
+    }
+
+    private void ConfigureBranchOwnedEntity<TEntity>(ModelBuilder modelBuilder)
+        where TEntity : BaseEntity, ITenantEntity, IBranchOwned
+    {
+        modelBuilder.Entity<TEntity>(builder =>
+        {
+            builder.HasIndex(e => e.TenantId);
+            builder.HasIndex(e => e.BranchId);
+            builder.HasQueryFilter(e => !e.IsDeleted
+                && CurrentTenantId.HasValue
+                && e.TenantId == CurrentTenantId.Value
+                && (BranchOpen || AllowedBranchIds.Contains(e.BranchId ?? MainBranchId))
+                && (ActiveBranchId == null || (e.BranchId ?? MainBranchId) == ActiveBranchId));
+        });
+    }
+
     private void ConfigureTenantEntity<TEntity>(ModelBuilder modelBuilder)
         where TEntity : BaseEntity, ITenantEntity
     {
@@ -271,6 +312,11 @@ public sealed class AppDbContext(
             b.Property(x => x.Name).HasMaxLength(200).IsRequired();
             b.Property(x => x.Code).HasMaxLength(32).IsRequired();
             b.HasIndex(x => new { x.TenantId, x.Code });
+        });
+
+        modelBuilder.Entity<StaffBranchAssignment>(b =>
+        {
+            b.HasIndex(x => new { x.TenantId, x.UserId, x.BranchId });
         });
 
         modelBuilder.Entity<User>(b =>
@@ -328,7 +374,11 @@ public sealed class AppDbContext(
             b.Property(x => x.Code).HasMaxLength(50).IsRequired();
             b.Property(x => x.Name).HasMaxLength(100).IsRequired();
             b.Property(x => x.Currency).HasMaxLength(10).IsRequired();
-            b.Property(x => x.PriceMonthly).HasPrecision(18, 2);
+            b.Property(x => x.PriceMonthlyLkr).HasPrecision(18, 2);
+            b.Property(x => x.PriceYearlyLkr).HasPrecision(18, 2);
+            b.Property(x => x.SetupFeeLkr).HasPrecision(18, 2);
+            b.Property(x => x.ExtraSmsPerSegmentLkr).HasPrecision(18, 2);
+            b.Property(x => x.ExtraStoragePerGbLkr).HasPrecision(18, 2);
             b.HasIndex(x => x.Code).IsUnique();
             b.HasMany(x => x.Features)
                 .WithOne(x => x.Plan)
