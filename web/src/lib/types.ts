@@ -146,3 +146,126 @@ export type ApiErrorBody = {
   limit?: string;
   max?: number;
 };
+
+export type SmsSegmentCalculation = {
+  encoding: string;
+  isUnicode: boolean;
+  characterCount: number;
+  segments: number;
+  perSegmentLimit: number;
+  remainingInCurrentSegment: number;
+};
+
+export type TenantNotificationConfig = {
+  quietHoursEnabled: boolean;
+  quietHoursStartMinutes: number;
+  quietHoursEndMinutes: number;
+  timeZone: string;
+  feeReminderDaysBefore: number;
+  feeReminderOnDueDate: boolean;
+  feeReminderDaysAfterOverdue: number;
+  examReminderDaysBefore: number;
+  smsOverQuotaPolicy: "AllowAndRecordExtra" | "Block";
+  defaultLanguage: string;
+};
+
+export type NotificationTypeConfig = {
+  messageType: string;
+  parentFeatureKey: string | null;
+  isParentFeatureInPlan: boolean;
+  isParentFeatureEnabled: boolean;
+  isEnabled: boolean;
+  isEffectiveEnabled: boolean;
+  smsEnabled: boolean;
+  emailEnabled: boolean;
+  whatsAppEnabled: boolean;
+  exemptFromQuietHours: boolean;
+  availableVariables: string[];
+};
+
+export type NotificationTemplate = {
+  messageType: string;
+  language: string;
+  subject: string;
+  body: string;
+  isCustom: boolean;
+  previewSubject: string;
+  previewBody: string;
+  smsCalculation: SmsSegmentCalculation;
+  availableVariables: string[];
+};
+
+export type SmsQuotaSummary = {
+  usedSegments: number;
+  monthlyQuota: number | null;
+  remainingSegments: number;
+  extraSegments: number;
+  usagePercentage: number;
+  isWarning80Percent: boolean;
+  isExceeded100Percent: boolean;
+  overQuotaPolicy: string;
+};
+
+export type AllowedNotificationChannels = {
+  sms: boolean;
+  email: boolean;
+  emailInPlan: boolean;
+  whatsApp: boolean;
+  whatsAppInPlan: boolean;
+};
+
+export type NotificationSettingsWorkspace = {
+  config: TenantNotificationConfig;
+  quota: SmsQuotaSummary;
+  allowedChannels: AllowedNotificationChannels;
+  messageTypes: NotificationTypeConfig[];
+  templates: NotificationTemplate[];
+  sampleVariables: Record<string, string>;
+};
+
+export type NotificationMessage = {
+  id: string;
+  messageType: string;
+  channel: string;
+  status: string;
+  language: string;
+  recipient: string;
+  recipientName: string | null;
+  studentId: string | null;
+  studentName: string | null;
+  studentCode: string | null;
+  subject: string | null;
+  body: string;
+  idempotencyKey: string;
+  smsSegments: number;
+  extraSegments: number;
+  attemptCount: number;
+  maxAttempts: number;
+  isDeadLetter: boolean;
+  createdAt: string;
+  nextAttemptAt: string;
+  sentAt: string | null;
+  deliveredAt: string | null;
+  lastAttemptAt: string | null;
+  provider: string | null;
+  providerMessageId: string | null;
+  statusReason: string | null;
+};
+
+export type NotificationMessageLogResponse = {
+  items: NotificationMessage[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  quota: SmsQuotaSummary;
+};
+
+export type TestSendNotificationResult = {
+  enqueuedCount: number;
+  sentCount: number;
+  skippedCount: number;
+  failedCount: number;
+  skippedReason: string | null;
+  messages: NotificationMessage[];
+};
+

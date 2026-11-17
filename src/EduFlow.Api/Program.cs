@@ -11,9 +11,11 @@ using EduFlow.Domain;
 using EduFlow.Domain.Constants;
 using EduFlow.Domain.Enums;
 using EduFlow.Infrastructure;
+using EduFlow.Infrastructure.Notifications;
 using EduFlow.Infrastructure.Persistence;
 using EduFlow.Infrastructure.Security;
 using EduFlow.Infrastructure.Storage;
+using Hangfire;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.FileProviders;
@@ -177,6 +179,16 @@ app.MapSuperAdminEndpoints();
 app.MapTenantEndpoints();
 app.MapBrandingEndpoints();
 app.MapAcademicEndpoints();
+app.MapNotificationEndpoints();
+
+if (builder.Configuration.GetValue("Hangfire:EnableRecurringJobs", false))
+{
+    var recurringJobs = app.Services.GetService<IRecurringJobManager>();
+    recurringJobs?.AddOrUpdate<NotificationOutboxHangfireJob>(
+        NotificationOutboxHangfireJob.RecurringJobId,
+        job => job.ExecuteAsync(CancellationToken.None),
+        Cron.Minutely());
+}
 
 if (builder.Configuration.GetValue<bool>("Diagnostics:ThrowOnGet"))
 {

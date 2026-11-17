@@ -6,8 +6,9 @@ import { PageSkeleton } from "@/components/skeletons";
 import { StatCard } from "@/components/stat-card";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
-import type { Branch, SubscriptionSummary } from "@/lib/types";
+import type { Branch, SmsQuotaSummary, SubscriptionSummary } from "@/lib/types";
 import { useAuth } from "@/features/auth/AuthProvider";
+import { SmsQuotaCard } from "@/features/features/SmsQuotaCard";
 
 export function DashboardPage() {
   const { t } = useTranslation();
@@ -20,6 +21,10 @@ export function DashboardPage() {
     queryKey: ["branches"],
     enabled: hasPermission("branches.view"),
     queryFn: () => api<Branch[]>("/api/branches"),
+  });
+  const smsQuota = useQuery({
+    queryKey: ["sms-quota"],
+    queryFn: () => api<SmsQuotaSummary>("/api/notifications/quota"),
   });
 
   if (subscription.isLoading) return <PageSkeleton />;
@@ -52,6 +57,11 @@ export function DashboardPage() {
         <StatCard label={t("dashboard.featuresOn")} value={`${enabled}`} hint={`${inPlan} ${t("dashboard.inPlan").toLowerCase()}`} />
         <StatCard label={t("dashboard.branches")} value={branches.data ? String(branches.data.length) : "—"} />
       </div>
+      {smsQuota.data ? (
+        <div className="mt-4">
+          <SmsQuotaCard quota={smsQuota.data} showLogLink />
+        </div>
+      ) : null}
       <div className="mt-4 grid gap-3 xl:grid-cols-2">
         <section className="rounded-lg border border-border bg-card p-4">
           <h2 className="text-sm font-semibold">{t("dashboard.limitsTitle")}</h2>

@@ -274,6 +274,40 @@ public sealed class TenantIsolationTests(ApiFactory factory) : IClassFixture<Api
                 EnrolledOn = student.AdmissionDate,
                 IsActive = true
             });
+            db.TenantNotificationConfigs.Add(new TenantNotificationConfig
+            {
+                TenantId = tenantId,
+                QuietHoursEnabled = true,
+                DefaultLanguage = "en"
+            });
+            db.TenantNotificationTypeSettings.Add(new TenantNotificationTypeSetting
+            {
+                TenantId = tenantId,
+                MessageType = NotificationMessageType.AttendancePresent,
+                IsEnabled = true,
+                SmsEnabled = true
+            });
+            db.NotificationTemplates.Add(new NotificationTemplate
+            {
+                TenantId = tenantId,
+                MessageType = NotificationMessageType.AttendancePresent,
+                Language = "en",
+                Subject = $"Subject {suffix}",
+                Body = $"Body {suffix}",
+                IsCustom = true
+            });
+            db.NotificationOutboxes.Add(new NotificationOutbox
+            {
+                TenantId = tenantId,
+                MessageType = NotificationMessageType.AttendancePresent,
+                Channel = NotificationChannel.Sms,
+                Status = NotificationStatus.Queued,
+                Language = "en",
+                Recipient = "0771234567",
+                Body = $"Message {suffix}",
+                IdempotencyKey = $"idem-{suffix}-{Guid.NewGuid():N}",
+                SmsSegments = 1
+            });
             await db.SaveChangesAsync();
         }
     }

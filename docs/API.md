@@ -52,3 +52,15 @@ Requires `SuperAdmin` role:
 - `GET /api/students/{id}/id-card`, `POST /api/students/id-cards`, `POST /api/students/labels` (`[RequireFeature(FeatureKey.BarcodeGenerator)]`)
 - `GET /api/staff/role-templates`, `POST /api/staff` (`users.view` / `users.manage`)
 - `PUT /api/users/{id}/status` (`users.manage`)
+
+## Notifications (`/api/notifications`)
+- `GET /api/notifications/settings` — Workspace with quiet hours, reminder schedule, SMS quota, allowed channels, message type switches, and templates
+- `PUT /api/notifications/settings/config` (`settings.manage`) — Update quiet hours, reminder timing, and over-quota SMS policy
+- `PUT /api/notifications/settings/types/{messageType}` (`settings.manage`) — Toggle per-message-type switch and SMS/Email/WhatsApp channels
+- `GET /api/notifications/templates`, `PUT /api/notifications/templates/{messageType}/{language}`, `POST /api/notifications/templates/{messageType}/{language}/reset` (`settings.manage`)
+- `POST /api/notifications/preview` — Render template with variables and calculate SMS segments (`GSM-7` vs `UCS-2`)
+- `GET /api/notifications/quota` — Monthly SMS segment quota, remaining segments, extra segments, and 80%/100% warning flags
+- `GET /api/notifications/messages` — Filterable message log (`Queued/Sent/Delivered/Failed/Skipped`)
+- `POST /api/notifications/messages/{id}/retry` (`settings.manage`) — Reset and retry a failed or skipped notification
+- `POST /api/notifications/test-send`, `POST /api/notifications/dispatch` (`settings.manage`)
+

@@ -29,6 +29,7 @@ public sealed class DbSeeder(
             await EnsureDefaultRolePermissionsAsync(cancellationToken);
             await EnsureEnterpriseRemoveBrandingAsync(cancellationToken);
             await EnsurePlatformBrandingAsync(cancellationToken);
+            await EnsureDemoNotificationsAsync(cancellationToken);
         }
     }
 
@@ -619,6 +620,64 @@ public sealed class DbSeeder(
             InstituteDisplayName = ProductName.Value,
             Tagline = "Student records, attendance, and fees for Sri Lankan institutes."
         });
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task EnsureDemoNotificationsAsync(CancellationToken cancellationToken)
+    {
+        var demo = await db.Tenants
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(t => !t.IsDeleted && t.Subdomain == "demo", cancellationToken);
+
+        if (demo is null)
+        {
+            return;
+        }
+
+        var hasConfig = await db.TenantNotificationConfigs
+            .IgnoreQueryFilters()
+            .AnyAsync(c => !c.IsDeleted && c.TenantId == demo.Id, cancellationToken);
+
+        if (!hasConfig)
+        {
+            db.TenantNotificationConfigs.Add(new TenantNotificationConfig
+            {
+                TenantId = demo.Id,
+                QuietHoursEnabled = true,
+                QuietHoursStartMinutes = 21 * 60,
+                QuietHoursEndMinutes = 6 * 60,
+                FeeReminderDaysBefore = 3,
+                FeeReminderOnDueDate = true,
+                FeeReminderDaysAfterOverdue = 3,
+                ExamReminderDaysBefore = 1,
+                SmsOverQuotaPolicy = SmsOverQuotaPolicy.AllowAndRecordExtra,
+                DefaultLanguage = "en"
+            });
+        }
+
+        var existingTypes = await db.TenantNotificationTypeSettings
+            .IgnoreQueryFilters()
+            .Where(s => !s.IsDeleted && s.TenantId == demo.Id)
+            .Select(s => s.MessageType)
+            .ToListAsync(cancellationToken);
+
+        var existingSet = existingTypes.ToHashSet();
+        foreach (var def in NotificationCatalog.All)
+        {
+            if (!existingSet.Contains(def.MessageType))
+            {
+                db.TenantNotificationTypeSettings.Add(new TenantNotificationTypeSetting
+                {
+                    TenantId = demo.Id,
+                    MessageType = def.MessageType,
+                    IsEnabled = true,
+                    SmsEnabled = def.DefaultSmsEnabled,
+                    EmailEnabled = def.DefaultEmailEnabled,
+                    WhatsAppEnabled = def.DefaultWhatsAppEnabled
+                });
+            }
+        }
+
         await db.SaveChangesAsync(cancellationToken);
     }
 

@@ -111,10 +111,37 @@ public sealed class LimitService(IAppDbContext db) : ILimitService
                 .IgnoreQueryFilters()
                 .CountAsync(s => !s.IsDeleted && s.TenantId == tenantId, cancellationToken),
 
+            LimitKey.SmsSegmentsPerMonth => await SmsSegmentsThisMonthAsync(tenantId, cancellationToken),
+
             LimitKey.CloudStorageGb => await CloudGigabytesAsync(tenantId, cancellationToken),
 
             _ => 0
         };
+    }
+
+    private async Task<int> SmsSegmentsThisMonthAsync(Guid tenantId, CancellationToken cancellationToken)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var monthStart = new DateTimeOffset(now.Year, now.Month, 1, 0, 0, 0, TimeSpan.Zero);
+        var monthEnd = monthStart.AddMonths(1);
+
+        var rows = await db.NotificationOutboxes
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(o => !o.IsDeleted
+                        && o.TenantId == tenantId
+                        && o.Channel == NotificationChannel.Sms
+                        && (o.Status == NotificationStatus.Sent || o.Status == NotificationStatus.Delivered))
+            .Select(o => new { o.SentAt, o.CreatedAt, o.SmsSegments })
+            .ToListAsync(cancellationToken);
+
+        return rows
+            .Where(o =>
+            {
+                var ts = o.SentAt ?? o.CreatedAt;
+                return ts >= monthStart && ts < monthEnd;
+            })
+            .Sum(o => o.SmsSegments);
     }
 
     private async Task<int> CloudGigabytesAsync(Guid tenantId, CancellationToken cancellationToken)

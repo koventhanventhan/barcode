@@ -38,6 +38,10 @@ public sealed class AppDbContext(
     public DbSet<ClassSchedule> ClassSchedules => Set<ClassSchedule>();
     public DbSet<Student> Students => Set<Student>();
     public DbSet<StudentEnrollment> StudentEnrollments => Set<StudentEnrollment>();
+    public DbSet<TenantNotificationConfig> TenantNotificationConfigs => Set<TenantNotificationConfig>();
+    public DbSet<TenantNotificationTypeSetting> TenantNotificationTypeSettings => Set<TenantNotificationTypeSetting>();
+    public DbSet<NotificationTemplate> NotificationTemplates => Set<NotificationTemplate>();
+    public DbSet<NotificationOutbox> NotificationOutboxes => Set<NotificationOutbox>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -405,6 +409,41 @@ public sealed class AppDbContext(
             b.HasOne<AcademicBatch>().WithMany().HasForeignKey(x => x.BatchId).OnDelete(DeleteBehavior.Restrict);
         });
 
+        modelBuilder.Entity<TenantNotificationConfig>(b =>
+        {
+            b.Property(x => x.DefaultLanguage).HasMaxLength(10).IsRequired();
+            b.HasIndex(x => x.TenantId).IsUnique();
+        });
+
+        modelBuilder.Entity<TenantNotificationTypeSetting>(b =>
+        {
+            b.HasIndex(x => new { x.TenantId, x.MessageType }).IsUnique();
+        });
+
+        modelBuilder.Entity<NotificationTemplate>(b =>
+        {
+            b.Property(x => x.Language).HasMaxLength(10).IsRequired();
+            b.Property(x => x.Subject).HasMaxLength(250).IsRequired();
+            b.Property(x => x.Body).HasMaxLength(2000).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.MessageType, x.Language }).IsUnique();
+        });
+
+        modelBuilder.Entity<NotificationOutbox>(b =>
+        {
+            b.Property(x => x.Language).HasMaxLength(10).IsRequired();
+            b.Property(x => x.Recipient).HasMaxLength(256).IsRequired();
+            b.Property(x => x.RecipientName).HasMaxLength(200);
+            b.Property(x => x.StudentName).HasMaxLength(200);
+            b.Property(x => x.StudentCode).HasMaxLength(32);
+            b.Property(x => x.Subject).HasMaxLength(250);
+            b.Property(x => x.Body).HasMaxLength(2000).IsRequired();
+            b.Property(x => x.IdempotencyKey).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Provider).HasMaxLength(64);
+            b.Property(x => x.ProviderMessageId).HasMaxLength(128);
+            b.Property(x => x.StatusReason).HasMaxLength(500);
+            b.HasIndex(x => new { x.TenantId, x.Channel, x.IdempotencyKey }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.Status, x.NextAttemptAt });
+        });
     }
 
     private void ConfigureBrandingProfile(ModelBuilder modelBuilder)

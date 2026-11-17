@@ -20,6 +20,7 @@ import { ImportStudentsPage } from "@/features/students/ImportStudentsPage";
 import { StudentFormPage } from "@/features/students/StudentFormPage";
 import { StudentsPage } from "@/features/students/StudentsPage";
 import { FeaturesPage } from "@/features/features/FeaturesPage";
+import { MessageLogPage } from "@/features/features/MessageLogPage";
 import { ParentHomePage } from "@/features/parent/ParentHomePage";
 import { PlansPage } from "@/features/super-admin/PlansPage";
 import { TenantDetailPage } from "@/features/super-admin/TenantDetailPage";
@@ -53,6 +54,7 @@ export default function App() {
                     <Route path="/app/academics/classes" element={<RequireRole roles={INSTITUTE_ROLES}><ClassesPage /></RequireRole>} />
                     <Route path="/app/staff" element={<RequireRole roles={INSTITUTE_ROLES}><StaffPage /></RequireRole>} />
                     <Route path="/app/settings/features" element={<RequireRole roles={INSTITUTE_ROLES}><FeaturesPage /></RequireRole>} />
+                    <Route path="/app/settings/messages" element={<RequireRole roles={INSTITUTE_ROLES}><MessageLogPage /></RequireRole>} />
                     <Route path="/app/settings/branding" element={<RequireRole roles={INSTITUTE_ROLES}><BrandingPage /></RequireRole>} />
                     <Route path="/admin/tenants" element={<RequireRole roles={["SuperAdmin"]}><TenantsPage /></RequireRole>} />
                     <Route path="/admin/tenants/:id" element={<RequireRole roles={["SuperAdmin"]}><TenantDetailPage /></RequireRole>} />

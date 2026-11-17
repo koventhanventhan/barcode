@@ -46,3 +46,31 @@ export const LIMIT_KEYS = [
 ] as const;
 
 export const INSTITUTE_ROLES = ["InstituteAdmin", "Staff", "Teacher"] as const;
+
+export const NOTIFICATION_MESSAGE_TYPES = [
+  "AttendancePresent",
+  "AttendanceAbsent",
+  "ClassStarted",
+  "ClassStopped",
+  "ClassCancelled",
+  "FeeDueReminder",
+  "PaymentReceivedParent",
+  "PaymentReceivedAdmin",
+  "ExamScheduled",
+  "ExamReminder",
+  "MarksReleased",
+  "Broadcast",
+  "BackupResultAdmin",
+  "DailySummaryAdmin",
+] as const;
+
+export const NOTIFICATION_CHANNELS = ["Sms", "Email", "WhatsApp"] as const;
+
+export const NOTIFICATION_STATUSES = [
+  "Queued",
+  "Sent",
+  "Delivered",
+  "Failed",
+  "Skipped",
+] as const;
+

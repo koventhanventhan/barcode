@@ -28,6 +28,10 @@ public interface IAppDbContext
     DbSet<ClassSchedule> ClassSchedules { get; }
     DbSet<Student> Students { get; }
     DbSet<StudentEnrollment> StudentEnrollments { get; }
+    DbSet<TenantNotificationConfig> TenantNotificationConfigs { get; }
+    DbSet<TenantNotificationTypeSetting> TenantNotificationTypeSettings { get; }
+    DbSet<NotificationTemplate> NotificationTemplates { get; }
+    DbSet<NotificationOutbox> NotificationOutboxes { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
