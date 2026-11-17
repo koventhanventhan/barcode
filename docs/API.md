@@ -64,3 +64,12 @@ Requires `SuperAdmin` role:
 - `POST /api/notifications/messages/{id}/retry` (`settings.manage`) — Reset and retry a failed or skipped notification
 - `POST /api/notifications/test-send`, `POST /api/notifications/dispatch` (`settings.manage`)
 
+## Attendance
+- `GET/PUT /api/attendance/policy` (`attendance.mark` / `settings.manage`)
+- `GET/POST /api/attendance/sessions`, `POST /api/attendance/sessions/{id}/start|stop|cancel` (`attendance.mark`)
+- `POST /api/attendance/scan`, `GET /api/attendance/register`, `POST /api/attendance/sessions/{id}/marks`, `POST .../undo` (`attendance.mark`)
+- `GET /api/attendance/sessions/{id}/board`, SignalR `/hubs/attendance` event `boardUpdated`
+- `GET /api/attendance/reports` (`reports.view`)
+- `GET /api/attendance/students/{studentId}` (`students.view`)
+- `POST /api/attendance/join` (`[RequireFeature(FeatureKey.OnlineAttendance)]`, tenant header, no staff login)
+

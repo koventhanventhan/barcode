@@ -57,7 +57,10 @@
     "levels": "Education levels",
     "batches": "Batches",
     "subjects": "Subjects",
-    "classes": "Classes"
+    "classes": "Classes",
+    "attendance": "Attendance",
+    "register": "Register",
+    "attendanceReports": "Attendance reports"
   },
   "shell": {
     "search": "Search pages",
@@ -527,5 +530,50 @@
     "disabled": "Account disabled.",
     "empty": "No staff accounts yet.",
     "permissions": "Permissions"
+  },
+  "attendance": {
+    "scannerTitle": "Scan attendance",
+    "scannerDescription": "Point the camera or use a USB scanner. The cursor stays in the code box.",
+    "registerTitle": "Attendance register",
+    "registerDescription": "Review a class and correct a mark. Absent marks need a reason.",
+    "reportsTitle": "Attendance reports",
+    "reportsDescription": "Present, late, and absent counts for stopped classes.",
+    "joinTitle": "Join a class",
+    "joinDescription": "Enter the code on the board and your student code.",
+    "class": "Class",
+    "chooseClass": "Choose a class",
+    "start": "Start class",
+    "stop": "Stop class",
+    "cancel": "Cancel class",
+    "counts": "{{present}} present, {{late}} late, {{absent}} absent",
+    "joinCode": "Join code",
+    "code": "Student code",
+    "cameraOn": "Use camera",
+    "cameraOff": "Stop camera",
+    "waiting": "Ready to scan",
+    "waitingHint": "The last result stays here.",
+    "saved": "Attendance updated.",
+    "date": "Date",
+    "from": "From",
+    "to": "To",
+    "noSessions": "No class was opened on this date.",
+    "unmarked": "Not marked",
+    "present": "Present",
+    "late": "Late",
+    "absent": "Absent",
+    "presentRate": "Attendance",
+    "reason": "Reason",
+    "reasonRequired": "Enter a reason to undo a mark.",
+    "markStatus": "Status for {{name}}",
+    "join": "Mark present",
+    "joinNotInPlan": "Online attendance is not in this institute's plan.",
+    "joinOff": "This institute has turned online attendance off.",
+    "history": "Recent attendance",
+    "status": {
+      "Scheduled": "Scheduled",
+      "Started": "Started",
+      "Stopped": "Stopped",
+      "Cancelled": "Cancelled"
+    }
   }
 }

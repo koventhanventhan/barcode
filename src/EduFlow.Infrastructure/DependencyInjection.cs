@@ -1,4 +1,5 @@
 using EduFlow.Application.Academics;
+using EduFlow.Application.Attendance;
 using EduFlow.Application.Auth;
 using EduFlow.Application.Branding;
 using EduFlow.Application.Common.Interfaces;
@@ -148,6 +149,7 @@ public static class DependencyInjection
         services.AddScoped<IAcademicService, AcademicService>();
         services.AddScoped<IStudentService, StudentService>();
         services.AddScoped<IStaffDirectoryService, StaffDirectoryService>();
+        services.AddScoped<IAttendanceService, AttendanceService>();
         services.AddScoped<NotificationService>();
         services.AddScoped<INotificationService>(sp => sp.GetRequiredService<NotificationService>());
         services.AddScoped<INotificationDispatcher>(sp => sp.GetRequiredService<NotificationService>());

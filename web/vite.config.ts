@@ -19,6 +19,7 @@ export default defineConfig({
       "/api": "http://localhost:8080",
       "/health": "http://localhost:8080",
       "/files": "http://localhost:8080",
+      "/hubs": { target: "http://localhost:8080", ws: true },
     },
   },
   test: {

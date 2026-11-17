@@ -63,7 +63,22 @@ builder.Services
             ValidateLifetime = true,
             ClockSkew = TimeSpan.FromSeconds(30)
         };
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                if (!string.IsNullOrEmpty(accessToken) && context.HttpContext.Request.Path.StartsWithSegments("/hubs/attendance"))
+                {
+                    context.Token = accessToken;
+                }
+
+                return Task.CompletedTask;
+            }
+        };
     });
+builder.Services.AddSignalR();
+builder.Services.AddScoped<EduFlow.Application.Attendance.IAttendanceBoard, EduFlow.Api.Hubs.SignalRAttendanceBoard>();
 
 builder.Services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
 builder.Services.AddAuthorization(options =>
@@ -180,6 +195,8 @@ app.MapTenantEndpoints();
 app.MapBrandingEndpoints();
 app.MapAcademicEndpoints();
 app.MapNotificationEndpoints();
+app.MapAttendanceEndpoints();
+app.MapHub<EduFlow.Api.Hubs.AttendanceHub>("/hubs/attendance");
 
 if (builder.Configuration.GetValue("Hangfire:EnableRecurringJobs", false))
 {

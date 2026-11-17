@@ -11,4 +11,5 @@ EduFlow is a multi-tenant student management SaaS built on .NET 8 Clean Architec
 - `web` — React 18 + TypeScript + Vite client: app shell, auth screens, branded theme (OKLCH-free HSL scale injected as CSS variables), feature and permission gates, and the super-admin console.
 - Branding files are written by `IFileStorage` (`LocalFileStorage`) and served from `/files`.
 - `tests` — `EduFlow.UnitTests` and `EduFlow.IntegrationTests`.
+- Class sessions and attendance marks are tenant entities. Starting, stopping, or cancelling a session enqueues parent messages through the notification outbox. The scanner publishes a live board on `/hubs/attendance`.
 - Academic records (levels, batches, subjects, class schedules, students, enrollments) are tenant entities. The five education levels are a shared catalog. ID cards and spreadsheets are produced in Infrastructure behind `IAcademicDocumentService`, `IBarcodeEncoder`, and `IWorkbookFile`.

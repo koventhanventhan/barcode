@@ -296,6 +296,30 @@ public sealed class TenantIsolationTests(ApiFactory factory) : IClassFixture<Api
                 Body = $"Body {suffix}",
                 IsCustom = true
             });
+            db.AttendancePolicies.Add(new AttendancePolicy
+            {
+                TenantId = tenantId,
+                LateAfterMinutes = 10,
+                MarkAbsentOnStop = true
+            });
+            var classSession = new ClassSession
+            {
+                TenantId = tenantId,
+                ClassScheduleId = schedule.Id,
+                SessionDate = new DateOnly(2026, 11, 17),
+                Status = ClassSessionStatus.Scheduled
+            };
+            db.ClassSessions.Add(classSession);
+            await db.SaveChangesAsync();
+            db.AttendanceMarks.Add(new AttendanceMark
+            {
+                TenantId = tenantId,
+                ClassSessionId = classSession.Id,
+                StudentId = student.Id,
+                Status = AttendanceMarkStatus.Present,
+                Source = AttendanceMarkSource.Manual,
+                MarkedAt = DateTimeOffset.UtcNow
+            });
             db.NotificationOutboxes.Add(new NotificationOutbox
             {
                 TenantId = tenantId,

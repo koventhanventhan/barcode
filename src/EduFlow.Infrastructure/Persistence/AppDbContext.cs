@@ -42,6 +42,9 @@ public sealed class AppDbContext(
     public DbSet<TenantNotificationTypeSetting> TenantNotificationTypeSettings => Set<TenantNotificationTypeSetting>();
     public DbSet<NotificationTemplate> NotificationTemplates => Set<NotificationTemplate>();
     public DbSet<NotificationOutbox> NotificationOutboxes => Set<NotificationOutbox>();
+    public DbSet<AttendancePolicy> AttendancePolicies => Set<AttendancePolicy>();
+    public DbSet<ClassSession> ClassSessions => Set<ClassSession>();
+    public DbSet<AttendanceMark> AttendanceMarks => Set<AttendanceMark>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -407,6 +410,28 @@ public sealed class AppDbContext(
             b.HasIndex(x => new { x.TenantId, x.StudentId, x.BatchId }).IsUnique();
             b.HasOne<Student>().WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Restrict);
             b.HasOne<AcademicBatch>().WithMany().HasForeignKey(x => x.BatchId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<AttendancePolicy>(b =>
+        {
+            b.HasIndex(x => x.TenantId).IsUnique();
+        });
+
+        modelBuilder.Entity<ClassSession>(b =>
+        {
+            b.Property(x => x.JoinCode).HasMaxLength(12);
+            b.Property(x => x.CancelReason).HasMaxLength(300);
+            b.HasIndex(x => new { x.TenantId, x.ClassScheduleId, x.SessionDate }).IsUnique();
+            b.HasOne<ClassSchedule>().WithMany().HasForeignKey(x => x.ClassScheduleId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<AttendanceMark>(b =>
+        {
+            b.Property(x => x.Reason).HasMaxLength(300);
+            b.Property(x => x.UndoReason).HasMaxLength(300);
+            b.HasIndex(x => new { x.TenantId, x.ClassSessionId, x.StudentId }).IsUnique();
+            b.HasOne<ClassSession>().WithMany().HasForeignKey(x => x.ClassSessionId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<Student>().WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<TenantNotificationConfig>(b =>

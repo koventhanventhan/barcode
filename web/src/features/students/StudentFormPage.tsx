@@ -81,6 +81,11 @@ export function StudentFormPage() {
     },
   });
   const levelId = form.watch("educationLevelId");
+  const history = useQuery({
+    queryKey: ["student-attendance", id],
+    enabled: Boolean(id),
+    queryFn: () => api<{ sessionDate: string; className: string; status: string }[]>(`/api/attendance/students/${id}`),
+  });
   const save = useMutation({
     mutationFn: async (values: FormValues) => {
       const payload = {
@@ -219,6 +224,19 @@ export function StudentFormPage() {
           {!isNew && canEdit ? <Button type="button" variant="danger" onClick={() => setConfirmDelete(true)}>{t("common.delete")}</Button> : null}
         </div>
       </form>
+      {!isNew && (history.data?.length ?? 0) > 0 ? (
+        <section className="mt-6 max-w-3xl">
+          <h2 className="mb-2 text-sm font-semibold">{t("attendance.history")}</h2>
+          <ul className="divide-y divide-border rounded-lg border border-border">
+            {history.data?.slice(0, 8).map((item) => (
+              <li key={`${item.sessionDate}-${item.className}`} className="flex items-center justify-between px-3 py-2 text-sm">
+                <span>{item.className}</span>
+                <span className="tabular-nums text-muted">{item.sessionDate} · {item.status}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       <ConfirmDialog
         open={confirmDelete}
         title={t("students.deleteTitle")}

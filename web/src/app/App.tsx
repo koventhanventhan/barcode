@@ -10,6 +10,10 @@ import { AuthProvider } from "@/features/auth/AuthProvider";
 import { GuestOnly, RequireAuth, RequireRole } from "@/features/auth/guards";
 import { BrandingPage } from "@/features/branding/BrandingPage";
 import { BrandingProvider } from "@/features/branding/BrandingProvider";
+import { JoinPage } from "@/features/attendance/JoinPage";
+import { RegisterPage } from "@/features/attendance/RegisterPage";
+import { ReportsPage } from "@/features/attendance/ReportsPage";
+import { ScannerPage } from "@/features/attendance/ScannerPage";
 import { BatchesPage } from "@/features/academics/BatchesPage";
 import { ClassesPage } from "@/features/academics/ClassesPage";
 import { LevelsPage } from "@/features/academics/LevelsPage";
@@ -37,6 +41,7 @@ export default function App() {
             <BrandingProvider>
               <FeatureProvider>
                 <Routes>
+                  <Route path="/join" element={<JoinPage />} />
                   <Route path="/login" element={<GuestOnly><LoginPage /></GuestOnly>} />
                   <Route path="/forgot-password" element={<GuestOnly><ForgotPasswordPage /></GuestOnly>} />
                   <Route path="/reset-password" element={<GuestOnly><ResetPasswordPage /></GuestOnly>} />
@@ -53,6 +58,9 @@ export default function App() {
                     <Route path="/app/academics/subjects" element={<RequireRole roles={INSTITUTE_ROLES}><SubjectsPage /></RequireRole>} />
                     <Route path="/app/academics/classes" element={<RequireRole roles={INSTITUTE_ROLES}><ClassesPage /></RequireRole>} />
                     <Route path="/app/staff" element={<RequireRole roles={INSTITUTE_ROLES}><StaffPage /></RequireRole>} />
+                    <Route path="/app/attendance" element={<RequireRole roles={INSTITUTE_ROLES}><ScannerPage /></RequireRole>} />
+                    <Route path="/app/attendance/register" element={<RequireRole roles={INSTITUTE_ROLES}><RegisterPage /></RequireRole>} />
+                    <Route path="/app/attendance/reports" element={<RequireRole roles={INSTITUTE_ROLES}><ReportsPage /></RequireRole>} />
                     <Route path="/app/settings/features" element={<RequireRole roles={INSTITUTE_ROLES}><FeaturesPage /></RequireRole>} />
                     <Route path="/app/settings/messages" element={<RequireRole roles={INSTITUTE_ROLES}><MessageLogPage /></RequireRole>} />
                     <Route path="/app/settings/branding" element={<RequireRole roles={INSTITUTE_ROLES}><BrandingPage /></RequireRole>} />

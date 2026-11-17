@@ -32,6 +32,9 @@ public interface IAppDbContext
     DbSet<TenantNotificationTypeSetting> TenantNotificationTypeSettings { get; }
     DbSet<NotificationTemplate> NotificationTemplates { get; }
     DbSet<NotificationOutbox> NotificationOutboxes { get; }
+    DbSet<AttendancePolicy> AttendancePolicies { get; }
+    DbSet<ClassSession> ClassSessions { get; }
+    DbSet<AttendanceMark> AttendanceMarks { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
