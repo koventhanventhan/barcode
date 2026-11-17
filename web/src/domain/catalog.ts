@@ -1,5 +1,7 @@
 export const FEATURE_KEYS = [
   "ParentPortal",
+  "ParentCanPayOnline",
+  "ParentCanSeeMarks",
   "AttendanceSms",
   "ClassSessionSms",
   "FeeReminderSms",

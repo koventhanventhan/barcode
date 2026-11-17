@@ -28,7 +28,9 @@ import { StudentFormPage } from "@/features/students/StudentFormPage";
 import { StudentsPage } from "@/features/students/StudentsPage";
 import { FeaturesPage } from "@/features/features/FeaturesPage";
 import { MessageLogPage } from "@/features/features/MessageLogPage";
-import { ParentHomePage } from "@/features/parent/ParentHomePage";
+import { ParentAttendancePage, ParentClassesPage, ParentDashboardPage, ParentFeesPage, ParentMessagesPage, ParentResultsPage } from "@/features/parent/ParentPages";
+import { ParentShell } from "@/features/parent/ParentShell";
+import { ParentsAdminPage } from "@/features/parent/ParentsAdminPage";
 import { PlansPage } from "@/features/super-admin/PlansPage";
 import { TenantDetailPage } from "@/features/super-admin/TenantDetailPage";
 import { TenantsPage } from "@/features/super-admin/TenantsPage";
@@ -62,6 +64,7 @@ export default function App() {
                     <Route path="/app/academics/subjects" element={<RequireRole roles={INSTITUTE_ROLES}><SubjectsPage /></RequireRole>} />
                     <Route path="/app/academics/classes" element={<RequireRole roles={INSTITUTE_ROLES}><ClassesPage /></RequireRole>} />
                     <Route path="/app/staff" element={<RequireRole roles={INSTITUTE_ROLES}><StaffPage /></RequireRole>} />
+                    <Route path="/app/parents" element={<RequireRole roles={INSTITUTE_ROLES}><ParentsAdminPage /></RequireRole>} />
                     <Route path="/app/attendance" element={<RequireRole roles={INSTITUTE_ROLES}><ScannerPage /></RequireRole>} />
                     <Route path="/app/attendance/register" element={<RequireRole roles={INSTITUTE_ROLES}><RegisterPage /></RequireRole>} />
                     <Route path="/app/attendance/reports" element={<RequireRole roles={INSTITUTE_ROLES}><ReportsPage /></RequireRole>} />
@@ -75,7 +78,14 @@ export default function App() {
                     <Route path="/admin/tenants/:id" element={<RequireRole roles={["SuperAdmin"]}><TenantDetailPage /></RequireRole>} />
                     <Route path="/admin/plans" element={<RequireRole roles={["SuperAdmin"]}><PlansPage /></RequireRole>} />
                     <Route path="/admin/branding" element={<RequireRole roles={["SuperAdmin"]}><BrandingPage platform /></RequireRole>} />
-                    <Route path="/parent" element={<RequireRole roles={["Parent"]}><ParentHomePage /></RequireRole>} />
+                  </Route>
+                  <Route element={<RequireAuth><ParentShell /></RequireAuth>}>
+                    <Route path="/parent" element={<RequireRole roles={["Parent"]}><ParentDashboardPage /></RequireRole>} />
+                    <Route path="/parent/attendance" element={<RequireRole roles={["Parent"]}><ParentAttendancePage /></RequireRole>} />
+                    <Route path="/parent/classes" element={<RequireRole roles={["Parent"]}><ParentClassesPage /></RequireRole>} />
+                    <Route path="/parent/results" element={<RequireRole roles={["Parent"]}><ParentResultsPage /></RequireRole>} />
+                    <Route path="/parent/fees" element={<RequireRole roles={["Parent"]}><ParentFeesPage /></RequireRole>} />
+                    <Route path="/parent/messages" element={<RequireRole roles={["Parent"]}><ParentMessagesPage /></RequireRole>} />
                   </Route>
                   <Route path="*" element={<Navigate to="/login" replace />} />
                 </Routes>

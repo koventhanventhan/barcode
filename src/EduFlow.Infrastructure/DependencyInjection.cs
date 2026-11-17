@@ -9,6 +9,7 @@ using EduFlow.Application.Exams;
 using EduFlow.Application.Limits;
 using EduFlow.Application.Notifications;
 using EduFlow.Application.Staff;
+using EduFlow.Application.Parents;
 using EduFlow.Application.Students;
 using EduFlow.Application.SuperAdmin;
 using EduFlow.Application.Tenancy;
@@ -158,6 +159,8 @@ public static class DependencyInjection
         services.AddScoped<IAttendanceService, AttendanceService>();
         services.AddScoped<IFeeService, FeeService>();
         services.AddScoped<IExamService, ExamService>();
+        services.AddScoped<IParentPortalService, ParentPortalService>();
+        services.AddSingleton<IAppLinks, AppLinks>();
         services.AddScoped<NotificationService>();
         services.AddScoped<INotificationService>(sp => sp.GetRequiredService<NotificationService>());
         services.AddScoped<INotificationDispatcher>(sp => sp.GetRequiredService<NotificationService>());

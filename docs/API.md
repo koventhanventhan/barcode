@@ -39,7 +39,11 @@ Requires `SuperAdmin` role:
 - `GET/POST/PUT/DELETE /api/branches` (`branches.view`, `branches.manage`)
 - `GET /api/permissions`, `GET/POST/PUT/DELETE /api/roles` (`roles.view`, `roles.manage`)
 - `GET/POST/DELETE /api/users`, `PUT /api/users/{id}/role` (`users.view`, `users.manage`)
-- `GET /api/parent/portal` (`[RequireFeature(FeatureKey.ParentPortal)]`)
+- `GET/POST /api/parents`, `PUT /api/parents/{id}/students`, `POST /api/parents/{id}/invite`, `POST /api/parents/{id}/deactivate` (`students.view` / `students.edit`) — parent accounts linked to one or more students, created with a password or an SMS invite
+- `GET /api/parent/portal`, `GET /api/parent/children`, `GET /api/parent/children/{studentId}/dashboard|attendance|classes|exams|invoices|payments`, `GET /api/parent/messages` (`Parent` role, `[RequireFeature(FeatureKey.ParentPortal)]`)
+- `GET /api/parent/children/{studentId}/exams/{examId}/report-card` (`[RequireFeature(FeatureKey.ParentCanSeeMarks)]`, PDF also requires `PerformanceReports`)
+- `POST /api/parent/children/{studentId}/invoices/{invoiceId}/pay` (`[RequireFeature(FeatureKey.ParentCanPayOnline)]`, PayHere also requires `OnlinePayments`)
+- `POST /api/auth/login`, `/forgot-password`, `/reset-password`, `/accept-invite` accept `phone` for parent mobile sign-in
 - `GET /api/payments/online/status` (`[RequireFeature(FeatureKey.OnlinePayments)]`)
 
 ## Academic core

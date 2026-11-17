@@ -491,6 +491,12 @@ public sealed class TenantIsolationTests(ApiFactory factory) : IClassFixture<Api
                 Percentage = 80m,
                 Grade = "A"
             });
+            db.ParentStudentLinks.Add(new ParentStudentLink
+            {
+                TenantId = tenantId,
+                ParentUserId = user.Id,
+                StudentId = student.Id
+            });
             await db.SaveChangesAsync();
         }
     }

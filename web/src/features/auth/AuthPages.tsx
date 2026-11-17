@@ -16,7 +16,8 @@ import { passwordSchema } from "./password";
 
 const loginSchema = z.object({
   institute: z.string().optional(),
-  email: z.string().email(),
+  email: z.string().optional(),
+  phone: z.string().optional(),
   password: z.string().min(1),
 });
 
@@ -26,10 +27,11 @@ export function LoginPage() {
   const branding = useBranding();
   const navigate = useNavigate();
   const [parentOff, setParentOff] = useState(false);
+  const [mode, setMode] = useState<"staff" | "parent">("staff");
   const [formError, setFormError] = useState("");
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { institute: branding.institute ?? "", email: "", password: "" },
+    defaultValues: { institute: branding.institute ?? "", email: "", phone: "", password: "" },
   });
 
   if (parentOff) {
@@ -47,15 +49,40 @@ export function LoginPage() {
   return (
     <AuthFrame>
       <h1 className="text-xl font-semibold">{t("auth.loginTitle")}</h1>
-      <p className="mt-1 text-[13px] text-muted">{t("auth.loginDescription")}</p>
+      <p className="mt-1 text-[13px] text-muted">{mode === "parent" ? t("auth.parentLoginDescription") : t("auth.loginDescription")}</p>
+      <div className="mt-4 grid grid-cols-2 gap-2" role="group" aria-label={t("auth.signInAs")}>
+        <Button type="button" variant={mode === "staff" ? "default" : "outline"} onClick={() => setMode("staff")}>
+          {t("auth.staffMode")}
+        </Button>
+        <Button type="button" variant={mode === "parent" ? "default" : "outline"} onClick={() => setMode("parent")}>
+          {t("auth.parentMode")}
+        </Button>
+      </div>
       <form
         className="mt-5 grid gap-3"
         onSubmit={form.handleSubmit(async (values) => {
           setFormError("");
           const institute = values.institute?.trim() ?? "";
+          if (mode === "staff" && !z.string().email().safeParse(values.email).success) {
+            form.setError("email", { message: t("auth.emailInvalid") });
+            return;
+          }
+          if (mode === "parent") {
+            if (!institute) {
+              form.setError("institute", { message: t("auth.instituteRequired") });
+              return;
+            }
+            if ((values.phone ?? "").replace(/\D/g, "").length < 9) {
+              form.setError("phone", { message: t("auth.phoneInvalid") });
+              return;
+            }
+          }
           branding.setInstitute(institute);
           try {
-            const role = await auth.login(values.email, values.password, institute);
+            const role =
+              mode === "parent"
+                ? await auth.login(values.email ?? "", values.password, institute, values.phone)
+                : await auth.login(values.email ?? "", values.password, institute);
             navigate(homeFor(role));
           } catch (error) {
             if (error instanceof ApiError && error.feature === "ParentPortal") {
@@ -75,9 +102,15 @@ export function LoginPage() {
             })}
           />
         </FormField>
-        <FormField label={t("auth.email")} htmlFor="email" error={fieldError(form, "email")}>
-          <Input id="email" type="email" autoComplete="username" {...form.register("email")} />
-        </FormField>
+        {mode === "parent" ? (
+          <FormField label={t("auth.phone")} htmlFor="phone" error={fieldError(form, "phone")}>
+            <Input id="phone" type="tel" autoComplete="tel" inputMode="tel" {...form.register("phone")} />
+          </FormField>
+        ) : (
+          <FormField label={t("auth.email")} htmlFor="email" error={fieldError(form, "email")}>
+            <Input id="email" type="email" autoComplete="username" {...form.register("email")} />
+          </FormField>
+        )}
         <FormField label={t("auth.password")} htmlFor="password" error={fieldError(form, "password")}>
           <Input id="password" type="password" autoComplete="current-password" {...form.register("password")} />
         </FormField>
@@ -101,8 +134,16 @@ export function ForgotPasswordPage() {
   const { t } = useTranslation();
   const [sent, setSent] = useState(false);
   const [formError, setFormError] = useState("");
-  const schema = z.object({ email: z.string().email() });
-  const form = useForm<z.infer<typeof schema>>({ resolver: zodResolver(schema), defaultValues: { email: "" } });
+  const branding = useBranding();
+  const schema = z.object({
+    institute: z.string().optional(),
+    email: z.string().optional(),
+    phone: z.string().optional(),
+  });
+  const form = useForm<z.infer<typeof schema>>({
+    resolver: zodResolver(schema),
+    defaultValues: { institute: branding.institute ?? "", email: "", phone: "" },
+  });
 
   return (
     <AuthFrame>
@@ -114,15 +155,32 @@ export function ForgotPasswordPage() {
         onSubmit={form.handleSubmit(async (values) => {
           setFormError("");
           try {
-            await api("/api/auth/forgot-password", { method: "POST", body: JSON.stringify(values) }, false);
+            const phone = values.phone?.trim() ?? "";
+            const email = values.email?.trim() ?? "";
+            if (!email && phone.replace(/\D/g, "").length < 9) {
+              setFormError(t("auth.phoneOrEmail"));
+              return;
+            }
+            if (phone) branding.setInstitute(values.institute?.trim() ?? "");
+            await api(
+              "/api/auth/forgot-password",
+              { method: "POST", body: JSON.stringify({ email: email || null, phone: phone || null }) },
+              false,
+            );
             setSent(true);
           } catch (error) {
             setFormError(error instanceof Error ? error.message : t("errors.generic"));
           }
         })}
       >
+        <FormField label={t("auth.institute")} htmlFor="forgot-institute" error={fieldError(form, "institute")}>
+          <Input id="forgot-institute" {...form.register("institute")} />
+        </FormField>
         <FormField label={t("auth.email")} htmlFor="email" error={fieldError(form, "email")}>
           <Input id="email" type="email" {...form.register("email")} />
+        </FormField>
+        <FormField label={t("auth.phone")} hint={t("auth.phoneOrEmail")} htmlFor="forgot-phone" error={fieldError(form, "phone")}>
+          <Input id="forgot-phone" type="tel" inputMode="tel" {...form.register("phone")} />
         </FormField>
         {formError ? <p className="text-sm text-danger">{formError}</p> : null}
         <Button type="submit" disabled={form.formState.isSubmitting}>
@@ -144,14 +202,21 @@ export function ResetPasswordPage() {
   const [params] = useSearchParams();
   const [done, setDone] = useState(false);
   const [formError, setFormError] = useState("");
+  const phoneFromLink = params.get("phone") ?? "";
   const schema = z.object({
-    email: z.string().email(),
+    email: z.string().optional(),
+    phone: z.string().optional(),
     token: z.string().min(1),
     newPassword: passwordSchema(t("auth.passwordHint")),
   });
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
-    defaultValues: { email: params.get("email") ?? "", token: params.get("token") ?? "", newPassword: "" },
+    defaultValues: {
+      email: params.get("email") ?? "",
+      phone: phoneFromLink,
+      token: params.get("token") ?? "",
+      newPassword: "",
+    },
   });
 
   return (
@@ -164,16 +229,34 @@ export function ResetPasswordPage() {
         onSubmit={form.handleSubmit(async (values) => {
           setFormError("");
           try {
-            await api("/api/auth/reset-password", { method: "POST", body: JSON.stringify(values) }, false);
+            await api(
+              "/api/auth/reset-password",
+              {
+                method: "POST",
+                body: JSON.stringify({
+                  email: values.email || null,
+                  phone: values.phone || null,
+                  token: values.token,
+                  newPassword: values.newPassword,
+                }),
+              },
+              false,
+            );
             setDone(true);
           } catch (error) {
             setFormError(error instanceof Error ? error.message : t("errors.generic"));
           }
         })}
       >
-        <FormField label={t("auth.email")} htmlFor="email" error={fieldError(form, "email")}>
-          <Input id="email" type="email" {...form.register("email")} />
-        </FormField>
+        {phoneFromLink ? (
+          <FormField label={t("auth.phone")} htmlFor="reset-phone" error={fieldError(form, "phone")}>
+            <Input id="reset-phone" type="tel" {...form.register("phone")} />
+          </FormField>
+        ) : (
+          <FormField label={t("auth.email")} htmlFor="email" error={fieldError(form, "email")}>
+            <Input id="email" type="email" {...form.register("email")} />
+          </FormField>
+        )}
         <FormField label={t("auth.token")} htmlFor="token" error={fieldError(form, "token")}>
           <Input id="token" {...form.register("token")} />
         </FormField>
@@ -196,8 +279,12 @@ export function AcceptInvitePage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const [formError, setFormError] = useState("");
+  const phoneFromLink = params.get("phone") ?? "";
+  const branding = useBranding();
   const schema = z.object({
-    email: z.string().email(),
+    institute: z.string().optional(),
+    email: z.string().optional(),
+    phone: z.string().optional(),
     token: z.string().min(1),
     fullName: z.string().min(2),
     password: passwordSchema(t("auth.passwordHint")),
@@ -205,7 +292,9 @@ export function AcceptInvitePage() {
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
     defaultValues: {
+      institute: branding.institute ?? "",
       email: params.get("email") ?? "",
+      phone: phoneFromLink,
       token: params.get("token") ?? "",
       fullName: "",
       password: "",
@@ -221,21 +310,43 @@ export function AcceptInvitePage() {
         onSubmit={form.handleSubmit(async (values) => {
           setFormError("");
           try {
+            const institute = values.institute?.trim() ?? "";
+            if (values.phone) branding.setInstitute(institute);
             const response = await api<{ accessToken: string; user: { role: string } }>(
               "/api/auth/accept-invite",
-              { method: "POST", body: JSON.stringify(values) },
+              {
+                method: "POST",
+                body: JSON.stringify({
+                  email: values.email || null,
+                  phone: values.phone || null,
+                  token: values.token,
+                  fullName: values.fullName,
+                  password: values.password,
+                }),
+              },
               false,
             );
-            await auth.login(values.email, values.password, "");
+            await auth.login(values.email ?? "", values.password, institute, values.phone || undefined);
             navigate(homeFor(response.user.role));
           } catch (error) {
             setFormError(error instanceof Error ? error.message : t("errors.generic"));
           }
         })}
       >
-        <FormField label={t("auth.email")} htmlFor="email" error={fieldError(form, "email")}>
-          <Input id="email" type="email" {...form.register("email")} />
-        </FormField>
+        {phoneFromLink ? (
+          <>
+            <FormField label={t("auth.institute")} htmlFor="invite-institute" error={fieldError(form, "institute")}>
+              <Input id="invite-institute" {...form.register("institute")} />
+            </FormField>
+            <FormField label={t("auth.phone")} htmlFor="invite-phone" error={fieldError(form, "phone")}>
+              <Input id="invite-phone" type="tel" {...form.register("phone")} />
+            </FormField>
+          </>
+        ) : (
+          <FormField label={t("auth.email")} htmlFor="email" error={fieldError(form, "email")}>
+            <Input id="email" type="email" {...form.register("email")} />
+          </FormField>
+        )}
         <FormField label={t("auth.fullName")} htmlFor="fullName" error={fieldError(form, "fullName")}>
           <Input id="fullName" {...form.register("fullName")} />
         </FormField>

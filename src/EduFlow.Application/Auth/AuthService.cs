@@ -1,5 +1,6 @@
 using EduFlow.Application.Common.Interfaces;
 using EduFlow.Application.Common.Security;
+using EduFlow.Application.Parents;
 using EduFlow.Domain.Constants;
 using EduFlow.Domain.Entities;
 using EduFlow.Domain.Enums;
@@ -27,7 +28,9 @@ public sealed class AuthService(
     IFeatureService featureService,
     ILimitService limitService,
     IEmailSender emailSender,
-    IAuditService auditService) : IAuthService
+    IAuditService auditService,
+    ISmsProvider smsProvider,
+    IAppLinks links) : IAuthService
 {
     private const int MaxFailedLoginAttempts = 5;
     private static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
@@ -35,43 +38,69 @@ public sealed class AuthService(
 
     public async Task<AuthResponse> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
     {
-        var normalizedEmail = request.Email.Trim().ToLowerInvariant();
         var now = DateTimeOffset.UtcNow;
-
+        var phoneLogin = ResolveLoginPhone(request.Phone, request.Email);
         User? user;
-        if (tenantContext.TenantId.HasValue && tenantContext.TenantId.Value != Guid.Empty)
+        if (phoneLogin.Length > 0)
         {
+            if (!tenantContext.TenantId.HasValue || tenantContext.TenantId.Value == Guid.Empty)
+            {
+                throw new DomainValidationException(
+                    "TENANT_REQUIRED",
+                    "Enter the institute code to sign in with a mobile number.",
+                    400);
+            }
+
             var tid = tenantContext.TenantId.Value;
             user = await db.Users
                 .IgnoreQueryFilters()
                 .Include(u => u.CustomRole)
                 .ThenInclude(r => r!.Permissions)
                 .FirstOrDefaultAsync(
-                    u => !u.IsDeleted && u.TenantId == tid && u.Email.ToLower() == normalizedEmail,
+                    u => !u.IsDeleted && u.TenantId == tid && u.RoleType == RoleType.Parent && u.Phone == phoneLogin,
                     cancellationToken);
         }
         else
         {
-            user = await db.Users
-                .IgnoreQueryFilters()
-                .Include(u => u.CustomRole)
-                .ThenInclude(r => r!.Permissions)
-                .FirstOrDefaultAsync(
-                    u => !u.IsDeleted && u.RoleType == RoleType.SuperAdmin && u.Email.ToLower() == normalizedEmail,
-                    cancellationToken);
+            var normalizedEmail = (request.Email ?? string.Empty).Trim().ToLowerInvariant();
+            if (tenantContext.TenantId.HasValue && tenantContext.TenantId.Value != Guid.Empty)
+            {
+                var tid = tenantContext.TenantId.Value;
+                user = await db.Users
+                    .IgnoreQueryFilters()
+                    .Include(u => u.CustomRole)
+                    .ThenInclude(r => r!.Permissions)
+                    .FirstOrDefaultAsync(
+                        u => !u.IsDeleted && u.TenantId == tid && u.Email.ToLower() == normalizedEmail,
+                        cancellationToken);
+            }
+            else
+            {
+                user = await db.Users
+                    .IgnoreQueryFilters()
+                    .Include(u => u.CustomRole)
+                    .ThenInclude(r => r!.Permissions)
+                    .FirstOrDefaultAsync(
+                        u => !u.IsDeleted && u.RoleType == RoleType.SuperAdmin && u.Email.ToLower() == normalizedEmail,
+                        cancellationToken);
 
-            user ??= await db.Users
-                .IgnoreQueryFilters()
-                .Include(u => u.CustomRole)
-                .ThenInclude(r => r!.Permissions)
-                .FirstOrDefaultAsync(
-                    u => !u.IsDeleted && u.Email.ToLower() == normalizedEmail,
-                    cancellationToken);
+                user ??= await db.Users
+                    .IgnoreQueryFilters()
+                    .Include(u => u.CustomRole)
+                    .ThenInclude(r => r!.Permissions)
+                    .FirstOrDefaultAsync(
+                        u => !u.IsDeleted && u.Email.ToLower() == normalizedEmail,
+                        cancellationToken);
+            }
         }
+
+        var invalidCredentials = phoneLogin.Length > 0
+            ? "Invalid mobile number or password."
+            : "Invalid email or password.";
 
         if (user is null || !user.IsActive)
         {
-            throw new DomainValidationException("INVALID_CREDENTIALS", "Invalid email or password.", 401);
+            throw new DomainValidationException("INVALID_CREDENTIALS", invalidCredentials, 401);
         }
 
         if (user.LockoutEnd.HasValue && user.LockoutEnd.Value > now)
@@ -105,7 +134,7 @@ public sealed class AuthService(
                 throw new AccountLockedException(user.LockoutEnd.Value);
             }
 
-            throw new DomainValidationException("INVALID_CREDENTIALS", "Invalid email or password.", 401);
+            throw new DomainValidationException("INVALID_CREDENTIALS", invalidCredentials, 401);
         }
 
         if (user.RoleType == RoleType.Parent && user.TenantId != Guid.Empty)
@@ -328,21 +357,7 @@ public sealed class AuthService(
 
     public async Task ForgotPasswordAsync(ForgotPasswordRequest request, CancellationToken cancellationToken = default)
     {
-        var normalizedEmail = request.Email.Trim().ToLowerInvariant();
-        User? user;
-        if (tenantContext.TenantId.HasValue && tenantContext.TenantId.Value != Guid.Empty)
-        {
-            var tid = tenantContext.TenantId.Value;
-            user = await db.Users
-                .IgnoreQueryFilters()
-                .FirstOrDefaultAsync(u => !u.IsDeleted && u.TenantId == tid && u.Email.ToLower() == normalizedEmail, cancellationToken);
-        }
-        else
-        {
-            user = await db.Users
-                .IgnoreQueryFilters()
-                .FirstOrDefaultAsync(u => !u.IsDeleted && u.Email.ToLower() == normalizedEmail, cancellationToken);
-        }
+        var user = await FindAccountAsync(request.Email, request.Phone, inviteTokenHash: null, cancellationToken);
 
         if (user is null || !user.IsActive)
         {
@@ -360,43 +375,16 @@ public sealed class AuthService(
             await db.SaveChangesAsync(cancellationToken);
         }
 
-        await emailSender.SendAsync(
-            new EmailMessage(
-                To: user.Email,
-                Subject: "Reset your password",
-                HtmlBody: $"<p>Use token <code>{rawToken}</code> to reset your password before {expiresAt:O}.</p>",
-                PlainTextBody: $"Use token {rawToken} to reset your password.",
-                Metadata: new Dictionary<string, string>
-                {
-                    ["Type"] = "PasswordReset",
-                    ["Token"] = rawToken,
-                    ["Email"] = user.Email
-                }),
-            cancellationToken);
+        await SendPasswordResetNoticeAsync(user, rawToken, expiresAt, cancellationToken);
     }
 
     public async Task ResetPasswordAsync(ResetPasswordRequest request, CancellationToken cancellationToken = default)
     {
         PasswordPolicy.ValidateOrThrow(request.NewPassword);
 
-        var normalizedEmail = request.Email.Trim().ToLowerInvariant();
         var tokenHash = PasswordHasher.HashToken(request.Token);
         var now = DateTimeOffset.UtcNow;
-
-        User? user;
-        if (tenantContext.TenantId.HasValue && tenantContext.TenantId.Value != Guid.Empty)
-        {
-            var tid = tenantContext.TenantId.Value;
-            user = await db.Users
-                .IgnoreQueryFilters()
-                .FirstOrDefaultAsync(u => !u.IsDeleted && u.TenantId == tid && u.Email.ToLower() == normalizedEmail, cancellationToken);
-        }
-        else
-        {
-            user = await db.Users
-                .IgnoreQueryFilters()
-                .FirstOrDefaultAsync(u => !u.IsDeleted && u.Email.ToLower() == normalizedEmail, cancellationToken);
-        }
+        var user = await FindAccountAsync(request.Email, request.Phone, inviteTokenHash: null, cancellationToken);
 
         if (user is null
             || string.IsNullOrEmpty(user.PasswordResetTokenHash)
@@ -535,32 +523,9 @@ public sealed class AuthService(
     {
         PasswordPolicy.ValidateOrThrow(request.Password);
 
-        var normalizedEmail = request.Email.Trim().ToLowerInvariant();
         var tokenHash = PasswordHasher.HashToken(request.Token);
         var now = DateTimeOffset.UtcNow;
-
-        User? user;
-        if (tenantContext.TenantId.HasValue && tenantContext.TenantId.Value != Guid.Empty)
-        {
-            var tid = tenantContext.TenantId.Value;
-            user = await db.Users
-                .IgnoreQueryFilters()
-                .Include(u => u.CustomRole)
-                .ThenInclude(r => r!.Permissions)
-                .FirstOrDefaultAsync(
-                    u => !u.IsDeleted && u.TenantId == tid && u.Email.ToLower() == normalizedEmail,
-                    cancellationToken);
-        }
-        else
-        {
-            user = await db.Users
-                .IgnoreQueryFilters()
-                .Include(u => u.CustomRole)
-                .ThenInclude(r => r!.Permissions)
-                .FirstOrDefaultAsync(
-                    u => !u.IsDeleted && u.Email.ToLower() == normalizedEmail && u.InviteTokenHash == tokenHash,
-                    cancellationToken);
-        }
+        var user = await FindAccountAsync(request.Email, request.Phone, tokenHash, cancellationToken, includeRole: true);
 
         if (user is null
             || string.IsNullOrEmpty(user.InviteTokenHash)
@@ -672,6 +637,106 @@ public sealed class AuthService(
             RoleType.Teacher => Permissions.DefaultTeacherPermissions,
             _ => []
         };
+    }
+
+    private static string ResolveLoginPhone(string? phone, string? email)
+    {
+        var normalized = PhoneNumber.Normalize(phone);
+        if (normalized.Length == 0 && PhoneNumber.LooksLikePhone(email))
+        {
+            normalized = PhoneNumber.Normalize(email);
+        }
+
+        return normalized;
+    }
+
+    private async Task<User?> FindAccountAsync(
+        string? email,
+        string? phone,
+        string? inviteTokenHash,
+        CancellationToken cancellationToken,
+        bool includeRole = false)
+    {
+        var normalizedPhone = ResolveLoginPhone(phone, email);
+        IQueryable<User> query = db.Users.IgnoreQueryFilters().Where(u => !u.IsDeleted);
+        if (includeRole)
+        {
+            query = query.Include(u => u.CustomRole).ThenInclude(r => r!.Permissions);
+        }
+
+        if (normalizedPhone.Length > 0)
+        {
+            if (!tenantContext.TenantId.HasValue || tenantContext.TenantId.Value == Guid.Empty)
+            {
+                return null;
+            }
+
+            var tid = tenantContext.TenantId.Value;
+            return await query.FirstOrDefaultAsync(
+                u => u.TenantId == tid && u.RoleType == RoleType.Parent && u.Phone == normalizedPhone,
+                cancellationToken);
+        }
+
+        var normalizedEmail = (email ?? string.Empty).Trim().ToLowerInvariant();
+        if (normalizedEmail.Length == 0)
+        {
+            return null;
+        }
+
+        if (tenantContext.TenantId.HasValue && tenantContext.TenantId.Value != Guid.Empty)
+        {
+            var tid = tenantContext.TenantId.Value;
+            return await query.FirstOrDefaultAsync(
+                u => u.TenantId == tid && u.Email.ToLower() == normalizedEmail,
+                cancellationToken);
+        }
+
+        if (inviteTokenHash is not null)
+        {
+            return await query.FirstOrDefaultAsync(
+                u => u.Email.ToLower() == normalizedEmail && u.InviteTokenHash == inviteTokenHash,
+                cancellationToken);
+        }
+
+        return await query.FirstOrDefaultAsync(u => u.Email.ToLower() == normalizedEmail, cancellationToken);
+    }
+
+    private async Task SendPasswordResetNoticeAsync(
+        User user,
+        string rawToken,
+        DateTimeOffset expiresAt,
+        CancellationToken cancellationToken)
+    {
+        if (user.RoleType == RoleType.Parent && !string.IsNullOrWhiteSpace(user.Phone))
+        {
+            var url = links.ParentResetUrl(user.Phone, rawToken);
+            await smsProvider.SendAsync(
+                new SmsSendRequest(
+                    user.Phone,
+                    $"Reset your parent portal password before {expiresAt:yyyy-MM-dd HH:mm} UTC. reset-token:{rawToken} {url}",
+                    TenantId: user.TenantId == Guid.Empty ? null : user.TenantId,
+                    IdempotencyKey: $"reset:{user.Id}:{rawToken[..8]}"),
+                cancellationToken);
+        }
+
+        if (PhoneNumber.IsPlaceholderEmail(user.Email))
+        {
+            return;
+        }
+
+        await emailSender.SendAsync(
+            new EmailMessage(
+                To: user.Email,
+                Subject: "Reset your password",
+                HtmlBody: $"<p>Use token <code>{rawToken}</code> to reset your password before {expiresAt:O}.</p>",
+                PlainTextBody: $"Use token {rawToken} to reset your password.",
+                Metadata: new Dictionary<string, string>
+                {
+                    ["Type"] = "PasswordReset",
+                    ["Token"] = rawToken,
+                    ["Email"] = user.Email
+                }),
+            cancellationToken);
     }
 
     private async Task<string?> ResolveTenantSubdomainAsync(Guid tenantId, CancellationToken cancellationToken)

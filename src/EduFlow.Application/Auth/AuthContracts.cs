@@ -2,7 +2,7 @@ using EduFlow.Domain.Enums;
 
 namespace EduFlow.Application.Auth;
 
-public sealed record LoginRequest(string Email, string Password);
+public sealed record LoginRequest(string? Email, string Password, string? Phone = null);
 
 public sealed record AuthUserDto(
     Guid Id,
@@ -25,9 +25,9 @@ public sealed record LogoutRequest(string? RefreshToken = null);
 
 public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 
-public sealed record ForgotPasswordRequest(string Email);
+public sealed record ForgotPasswordRequest(string? Email = null, string? Phone = null);
 
-public sealed record ResetPasswordRequest(string Email, string Token, string NewPassword);
+public sealed record ResetPasswordRequest(string? Email, string Token, string NewPassword, string? Phone = null);
 
 public sealed record InviteUserRequest(
     string Email,
@@ -42,7 +42,8 @@ public sealed record InviteUserResponse(
     DateTimeOffset ExpiresAt);
 
 public sealed record AcceptInviteRequest(
-    string Email,
+    string? Email,
     string Token,
     string Password,
-    string? FullName = null);
+    string? FullName = null,
+    string? Phone = null);

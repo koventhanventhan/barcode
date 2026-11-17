@@ -48,6 +48,7 @@ public interface IAppDbContext
     DbSet<ExamSubject> ExamSubjects { get; }
     DbSet<ExamMark> ExamMarks { get; }
     DbSet<ExamResult> ExamResults { get; }
+    DbSet<ParentStudentLink> ParentStudentLinks { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

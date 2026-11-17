@@ -23,5 +23,7 @@ public enum FeatureKey
     BatchGroups = 19,
     ReportCleanup = 20,
     PrioritySupport = 21,
-    RemoveProductBranding = 22
+    RemoveProductBranding = 22,
+    ParentCanPayOnline = 23,
+    ParentCanSeeMarks = 24
 }

@@ -41,6 +41,7 @@ public static class AuthorizationPolicies
 {
     public const string SuperAdminOnly = "Role:SuperAdmin";
     public const string InstituteAdminOnly = "Role:InstituteAdmin";
+    public const string ParentOnly = "Role:Parent";
     public const string PermissionPrefix = "Permission:";
 
     public static string ForPermission(string permission) => $"{PermissionPrefix}{permission}";

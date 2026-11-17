@@ -27,7 +27,7 @@ export type AuthContextValue = {
   isReady: boolean;
   isReadOnly: boolean;
   isImpersonating: boolean;
-  login: (email: string, password: string, institute: string) => Promise<RoleName>;
+  login: (email: string, password: string, institute: string, phone?: string) => Promise<RoleName>;
   logout: () => Promise<void>;
   hasPermission: (permission: string) => boolean;
   impersonate: (tenantId: string, subdomain: string) => Promise<void>;
@@ -96,12 +96,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isReady,
       isReadOnly: session?.isReadOnly ?? false,
       isImpersonating: session?.isImpersonating ?? false,
-      async login(email, password, institute) {
+      async login(email, password, institute, phone) {
         setTenantSlug(institute);
         try {
           const response = await api<AuthResponse>(
             "/api/auth/login",
-            { method: "POST", body: JSON.stringify({ email, password }) },
+            {
+              method: "POST",
+              body: JSON.stringify(phone ? { phone, password } : { email, password }),
+            },
             false,
           );
           const next = await withMe(response);

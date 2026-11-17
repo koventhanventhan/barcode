@@ -30,6 +30,7 @@ public sealed class DbSeeder(
             await EnsureDemoAcademicsAsync(cancellationToken);
             await EnsureDefaultRolePermissionsAsync(cancellationToken);
             await EnsureEnterpriseRemoveBrandingAsync(cancellationToken);
+            await EnsureParentPortalSubFeaturesAsync(cancellationToken);
             await EnsurePlatformBrandingAsync(cancellationToken);
             await EnsureDemoNotificationsAsync(cancellationToken);
             await EnsureDemoFeesAsync(cancellationToken);
@@ -74,6 +75,8 @@ public sealed class DbSeeder(
         var baseFeatures = new[]
         {
             FeatureKey.ParentPortal,
+            FeatureKey.ParentCanPayOnline,
+            FeatureKey.ParentCanSeeMarks,
             FeatureKey.AttendanceSms,
             FeatureKey.ClassSessionSms,
             FeatureKey.FeeReminderSms,
@@ -566,6 +569,37 @@ public sealed class DbSeeder(
                 if (!have.Contains(key))
                 {
                     db.RolePermissions.Add(new RolePermission { RoleId = role.Id, PermissionKey = key });
+                }
+            }
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task EnsureParentPortalSubFeaturesAsync(CancellationToken cancellationToken)
+    {
+        var keys = new[] { FeatureKey.ParentPortal, FeatureKey.ParentCanPayOnline, FeatureKey.ParentCanSeeMarks };
+        var planIds = await db.Plans
+            .IgnoreQueryFilters()
+            .Where(p => !p.IsDeleted)
+            .Select(p => p.Id)
+            .ToListAsync(cancellationToken);
+
+        foreach (var planId in planIds)
+        {
+            foreach (var key in keys)
+            {
+                var exists = await db.PlanFeatures
+                    .IgnoreQueryFilters()
+                    .AnyAsync(f => !f.IsDeleted && f.PlanId == planId && f.FeatureKey == key, cancellationToken);
+                if (!exists)
+                {
+                    db.PlanFeatures.Add(new PlanFeature
+                    {
+                        PlanId = planId,
+                        FeatureKey = key,
+                        IsIncluded = true
+                    });
                 }
             }
         }

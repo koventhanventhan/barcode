@@ -21,6 +21,7 @@ import {
   Search,
   SlidersHorizontal,
   Sun,
+  UserRound,
   Users,
   X,
 } from "lucide-react";
@@ -77,6 +78,7 @@ export function AppShell() {
       { to: "/app/academics/subjects", label: t("nav.subjects"), icon: BookOpen, show: inInstitute && canAcademics, group: "academic" },
       { to: "/app/academics/classes", label: t("nav.classes"), icon: CalendarDays, show: inInstitute && canAcademics, group: "academic" },
       { to: "/app/staff", label: t("nav.staff"), icon: Users, show: inInstitute && canStaff, group: "academic" },
+      { to: "/app/parents", label: t("nav.parents"), icon: UserRound, show: inInstitute && canStudents, group: "academic" },
       { to: "/app/attendance", label: t("nav.attendance"), icon: ScanLine, show: inInstitute && canAttendance, group: "academic" },
       { to: "/app/fees", label: t("nav.fees"), icon: CreditCard, show: inInstitute && canFees, group: "academic" },
       { to: "/app/exams", label: t("nav.exams"), icon: ClipboardCheck, show: inInstitute && canExams, group: "academic" },
@@ -87,7 +89,6 @@ export function AppShell() {
       { to: "/admin/tenants", label: t("nav.tenants"), icon: Building2, show: platform, group: "platform" },
       { to: "/admin/plans", label: t("nav.plans"), icon: CreditCard, show: platform, group: "platform" },
       { to: "/admin/branding", label: t("nav.platformBranding"), icon: Palette, show: platform, group: "platform" },
-      { to: "/parent", label: t("nav.portal"), icon: Users, show: user.role === "Parent", group: "overview" },
     ].filter((item) => item.show);
   }, [canAcademics, canAttendance, canExams, canFees, canSettings, canStaff, canStudents, inInstitute, platform, t, user]);
 

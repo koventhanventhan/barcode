@@ -1458,6 +1458,47 @@ namespace EduFlow.Infrastructure.Persistence.Migrations
                     b.ToTable("NotificationTemplates");
                 });
 
+            modelBuilder.Entity("EduFlow.Domain.Entities.ParentStudentLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("ParentUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ParentUserId");
+
+                    b.HasIndex("StudentId");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "ParentUserId", "StudentId")
+                        .IsUnique();
+
+                    b.ToTable("ParentStudentLinks");
+                });
+
             modelBuilder.Entity("EduFlow.Domain.Entities.PayHereCheckoutSession", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2652,7 +2693,8 @@ namespace EduFlow.Infrastructure.Persistence.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Phone")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
 
                     b.Property<int>("RoleType")
                         .HasColumnType("int");
@@ -2670,6 +2712,8 @@ namespace EduFlow.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId");
 
                     b.HasIndex("TenantId", "Email");
+
+                    b.HasIndex("TenantId", "Phone");
 
                     b.ToTable("Users");
                 });
@@ -2868,6 +2912,21 @@ namespace EduFlow.Infrastructure.Persistence.Migrations
                     b.HasOne("EduFlow.Domain.Entities.GradingScheme", null)
                         .WithMany()
                         .HasForeignKey("GradingSchemeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("EduFlow.Domain.Entities.ParentStudentLink", b =>
+                {
+                    b.HasOne("EduFlow.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("ParentUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("EduFlow.Domain.Entities.Student", null)
+                        .WithMany()
+                        .HasForeignKey("StudentId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

@@ -171,19 +171,6 @@ public static class TenantEndpoints
         .RequirePermission(Permissions.UsersManage)
         .WithName("DeleteUser");
 
-        var parentGroup = app.MapGroup("/api/parent")
-            .WithTags("ParentPortal")
-            .RequireAuthorization()
-            .RequireFeature(FeatureKey.ParentPortal);
-
-        parentGroup.MapGet("/portal", [RequireFeature(FeatureKey.ParentPortal)] (ITenantContext tenantContext) =>
-            Results.Ok(new
-            {
-                status = "Available",
-                tenantId = tenantContext.TenantId
-            }))
-            .WithName("GetParentPortalStatus");
-
         app.MapGet("/api/payments/online/status", [RequireFeature(FeatureKey.OnlinePayments)] (ITenantContext tenantContext) =>
             Results.Ok(new
             {

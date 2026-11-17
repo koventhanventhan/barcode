@@ -58,6 +58,7 @@ public sealed class AppDbContext(
     public DbSet<ExamSubject> ExamSubjects => Set<ExamSubject>();
     public DbSet<ExamMark> ExamMarks => Set<ExamMark>();
     public DbSet<ExamResult> ExamResults => Set<ExamResult>();
+    public DbSet<ParentStudentLink> ParentStudentLinks => Set<ParentStudentLink>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -257,8 +258,10 @@ public sealed class AppDbContext(
         {
             b.Property(x => x.Email).HasMaxLength(256).IsRequired();
             b.Property(x => x.FullName).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Phone).HasMaxLength(32);
             b.Property(x => x.PasswordHash).HasMaxLength(512).IsRequired();
             b.HasIndex(x => new { x.TenantId, x.Email });
+            b.HasIndex(x => new { x.TenantId, x.Phone });
             b.HasOne(x => x.CustomRole)
                 .WithMany()
                 .HasForeignKey(x => x.CustomRoleId)
@@ -641,6 +644,13 @@ public sealed class AppDbContext(
             b.Property(x => x.PrincipalRemarks).HasMaxLength(500);
             b.HasIndex(x => new { x.TenantId, x.ExamId, x.StudentId });
             b.HasOne<Exam>().WithMany().HasForeignKey(x => x.ExamId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<Student>().WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<ParentStudentLink>(b =>
+        {
+            b.HasIndex(x => new { x.TenantId, x.ParentUserId, x.StudentId }).IsUnique();
+            b.HasOne<User>().WithMany().HasForeignKey(x => x.ParentUserId).OnDelete(DeleteBehavior.Restrict);
             b.HasOne<Student>().WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Restrict);
         });
 

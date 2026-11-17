@@ -92,6 +92,13 @@ builder.Services.AddAuthorization(options =>
                       && string.Equals(c.Value, nameof(RoleType.SuperAdmin), StringComparison.OrdinalIgnoreCase))
                   && !ctx.User.Claims.Any(c => c.Type == "impersonating" && c.Value == "true")));
 
+    options.AddPolicy(AuthorizationPolicies.ParentOnly, policy =>
+        policy.RequireAuthenticatedUser()
+              .RequireAssertion(ctx =>
+                  ctx.User.Claims.Any(c =>
+                      (c.Type == System.Security.Claims.ClaimTypes.Role || c.Type == "role")
+                      && string.Equals(c.Value, nameof(RoleType.Parent), StringComparison.OrdinalIgnoreCase))));
+
     options.AddPolicy(AuthorizationPolicies.InstituteAdminOnly, policy =>
         policy.RequireAuthenticatedUser()
               .RequireAssertion(ctx =>
@@ -199,6 +206,7 @@ app.MapNotificationEndpoints();
 app.MapAttendanceEndpoints();
 app.MapFeeEndpoints();
 app.MapExamEndpoints();
+app.MapParentEndpoints();
 app.MapHub<EduFlow.Api.Hubs.AttendanceHub>("/hubs/attendance");
 
 if (builder.Configuration.GetValue("Hangfire:EnableRecurringJobs", false))
