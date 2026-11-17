@@ -16,3 +16,4 @@
 - Dashboard charts in Phase 2 use plan limits and feature availability. Attendance and fee figures arrive with those modules.
 - The browser keeps the access token in memory and refreshes it with the httpOnly cookie. A super-admin impersonation token stays in memory; the previous platform token is kept in `sessionStorage` so the operator can return.
 - Branding images are cropped in the browser and stored as PNG, JPEG, or WebP. The API does not accept SVG.
+- Five education levels are a global catalog. A new institute enables the first N allowed by its plan. `StudentCode` is `S` plus six digits, unique per tenant, and is the Code128 value. Bulk ID cards are 8-up on A4 and capped at 500. Import saves valid rows and returns a row report; the file is rejected when the valid rows would pass the student limit. Staff templates reuse a named role. Class times are minutes from midnight, Monday = 1. Student photo bytes count toward cloud storage.

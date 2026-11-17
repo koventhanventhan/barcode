@@ -16,6 +16,8 @@ public static class Permissions
     public const string RolesManage = "roles.manage";
     public const string BranchesView = "branches.view";
     public const string BranchesManage = "branches.manage";
+    public const string AcademicsView = "academics.view";
+    public const string AcademicsManage = "academics.manage";
 
     public static readonly IReadOnlyList<PermissionDefinition> All =
     [
@@ -32,13 +34,16 @@ public static class Permissions
         new(RolesView, "View Roles", "Roles", "View custom roles and permission assignments"),
         new(RolesManage, "Manage Roles", "Roles", "Create and modify custom roles"),
         new(BranchesView, "View Branches", "Branches", "View institute branches"),
-        new(BranchesManage, "Manage Branches", "Branches", "Create and update institute branches")
+        new(BranchesManage, "Manage Branches", "Branches", "Create and update institute branches"),
+        new(AcademicsView, "View Academics", "Academics", "View education levels, batches, subjects, and class schedules"),
+        new(AcademicsManage, "Manage Academics", "Academics", "Create and update education levels, batches, subjects, and class schedules")
     ];
 
     public static readonly IReadOnlyList<string> DefaultStaffPermissions =
     [
         StudentsView,
         StudentsEdit,
+        AcademicsView,
         AttendanceMark,
         FeesView,
         FeesCollect,
@@ -49,6 +54,7 @@ public static class Permissions
     public static readonly IReadOnlyList<string> DefaultTeacherPermissions =
     [
         StudentsView,
+        AcademicsView,
         AttendanceMark,
         ExamsManage,
         ReportsView,

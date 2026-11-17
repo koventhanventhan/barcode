@@ -95,7 +95,34 @@ public sealed class LimitService(IAppDbContext db) : ILimitService
                     u => !u.IsDeleted && u.TenantId == tenantId && (u.RoleType == RoleType.Staff || u.RoleType == RoleType.Teacher),
                     cancellationToken),
 
+            LimitKey.Students => await db.Students
+                .IgnoreQueryFilters()
+                .CountAsync(s => !s.IsDeleted && s.TenantId == tenantId, cancellationToken),
+
+            LimitKey.EducationLevels => await db.TenantEducationLevels
+                .IgnoreQueryFilters()
+                .CountAsync(s => !s.IsDeleted && s.TenantId == tenantId && s.IsEnabled, cancellationToken),
+
+            LimitKey.Batches => await db.AcademicBatches
+                .IgnoreQueryFilters()
+                .CountAsync(s => !s.IsDeleted && s.TenantId == tenantId, cancellationToken),
+
+            LimitKey.Subjects => await db.Subjects
+                .IgnoreQueryFilters()
+                .CountAsync(s => !s.IsDeleted && s.TenantId == tenantId, cancellationToken),
+
+            LimitKey.CloudStorageGb => await CloudGigabytesAsync(tenantId, cancellationToken),
+
             _ => 0
         };
+    }
+
+    private async Task<int> CloudGigabytesAsync(Guid tenantId, CancellationToken cancellationToken)
+    {
+        var bytes = await db.Students
+            .IgnoreQueryFilters()
+            .Where(student => !student.IsDeleted && student.TenantId == tenantId)
+            .SumAsync(student => (long?)student.PhotoBytes, cancellationToken) ?? 0;
+        return (int)(bytes / (1024L * 1024L * 1024L));
     }
 }

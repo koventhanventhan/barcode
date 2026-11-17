@@ -205,6 +205,75 @@ public sealed class TenantIsolationTests(ApiFactory factory) : IClassFixture<Api
                 Reason = $"Test override {suffix}"
             });
 
+            var level = await db.EducationLevels.IgnoreQueryFilters().OrderBy(item => item.SortOrder).FirstAsync();
+            var branch = await db.Branches.IgnoreQueryFilters().FirstAsync(item => !item.IsDeleted && item.TenantId == tenantId);
+            var group = new BatchGroup
+            {
+                TenantId = tenantId,
+                Name = $"Group {suffix}",
+                Code = $"G-{suffix}",
+                IsActive = true
+            };
+            var batch = new AcademicBatch
+            {
+                TenantId = tenantId,
+                Name = $"Batch {suffix}",
+                Code = $"B-{suffix}",
+                EducationLevelId = level.Id,
+                BranchId = branch.Id,
+                BatchGroupId = group.Id,
+                AcademicYear = "2026",
+                IsActive = true
+            };
+            var subject = new Subject
+            {
+                TenantId = tenantId,
+                Name = $"Subject {suffix}",
+                Code = $"SUB-{suffix}",
+                EducationLevelId = level.Id,
+                IsActive = true
+            };
+            db.AddRange(group, batch, subject);
+            await db.SaveChangesAsync();
+
+            var student = new Student
+            {
+                TenantId = tenantId,
+                StudentCode = $"S-{suffix}-0001",
+                FullName = $"Student {suffix}",
+                GuardianName = $"Guardian {suffix}",
+                GuardianPhone = "0771234567",
+                Address = "Colombo",
+                EducationLevelId = level.Id,
+                BranchId = branch.Id,
+                Status = StudentStatus.Active,
+                Gender = StudentGender.Unspecified,
+                AdmissionDate = new DateOnly(2026, 1, 6)
+            };
+            var schedule = new ClassSchedule
+            {
+                TenantId = tenantId,
+                Name = $"Class {suffix}",
+                BatchId = batch.Id,
+                SubjectId = subject.Id,
+                TeacherUserId = user.Id,
+                Weekday = 1,
+                StartMinutes = 480,
+                EndMinutes = 540,
+                Room = "A1",
+                IsActive = true
+            };
+            db.AddRange(student, schedule);
+            await db.SaveChangesAsync();
+
+            db.StudentEnrollments.Add(new StudentEnrollment
+            {
+                TenantId = tenantId,
+                StudentId = student.Id,
+                BatchId = batch.Id,
+                EnrolledOn = student.AdmissionDate,
+                IsActive = true
+            });
             await db.SaveChangesAsync();
         }
     }

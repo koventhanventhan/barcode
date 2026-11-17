@@ -20,6 +20,14 @@ public interface IAppDbContext
     DbSet<TenantFeatureOverride> TenantFeatureOverrides { get; }
     DbSet<AuditLog> AuditLogs { get; }
     DbSet<BrandingProfile> BrandingProfiles { get; }
+    DbSet<EducationLevel> EducationLevels { get; }
+    DbSet<TenantEducationLevel> TenantEducationLevels { get; }
+    DbSet<BatchGroup> BatchGroups { get; }
+    DbSet<AcademicBatch> AcademicBatches { get; }
+    DbSet<Subject> Subjects { get; }
+    DbSet<ClassSchedule> ClassSchedules { get; }
+    DbSet<Student> Students { get; }
+    DbSet<StudentEnrollment> StudentEnrollments { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

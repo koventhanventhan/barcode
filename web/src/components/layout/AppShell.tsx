@@ -1,9 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import {
+  BookOpen,
   Building2,
+  CalendarDays,
   CreditCard,
+  GraduationCap,
+  IdCard,
   KeyRound,
   Languages,
+  Layers,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -31,6 +36,7 @@ type NavItem = {
   label: string;
   icon: typeof LayoutDashboard;
   show: boolean;
+  group: string;
 };
 
 export function AppShell() {
@@ -49,21 +55,31 @@ export function AppShell() {
     queryFn: () => api<SubscriptionSummary>("/api/subscription"),
   });
   const canSettings = auth.hasPermission("settings.manage");
+  const canStudents = auth.hasPermission("students.view");
+  const canAcademics = auth.hasPermission("academics.view");
+  const canStaff = auth.hasPermission("users.view");
   const platform = user?.role === "SuperAdmin" && !auth.isImpersonating;
+  const inInstitute = institute || auth.isImpersonating;
 
-  const items = useMemo<NavItem[]>(() => {
+  const items = useMemo((): NavItem[] => {
     if (!user) return [];
     return [
-      { to: "/app", label: t("nav.dashboard"), icon: LayoutDashboard, show: institute || auth.isImpersonating },
-      { to: "/app/settings/features", label: t("nav.features"), icon: SlidersHorizontal, show: (institute || auth.isImpersonating) && canSettings },
-      { to: "/app/settings/branding", label: t("nav.branding"), icon: Palette, show: (institute || auth.isImpersonating) && canSettings },
-      { to: "/account/password", label: t("nav.password"), icon: KeyRound, show: true },
-      { to: "/admin/tenants", label: t("nav.tenants"), icon: Building2, show: platform },
-      { to: "/admin/plans", label: t("nav.plans"), icon: CreditCard, show: platform },
-      { to: "/admin/branding", label: t("nav.platformBranding"), icon: Palette, show: platform },
-      { to: "/parent", label: t("nav.portal"), icon: Users, show: user.role === "Parent" },
+      { to: "/app", label: t("nav.dashboard"), icon: LayoutDashboard, show: inInstitute, group: "overview" },
+      { to: "/app/students", label: t("nav.students"), icon: IdCard, show: inInstitute && canStudents, group: "academic" },
+      { to: "/app/academics/levels", label: t("nav.levels"), icon: GraduationCap, show: inInstitute && canAcademics, group: "academic" },
+      { to: "/app/academics/batches", label: t("nav.batches"), icon: Layers, show: inInstitute && canAcademics, group: "academic" },
+      { to: "/app/academics/subjects", label: t("nav.subjects"), icon: BookOpen, show: inInstitute && canAcademics, group: "academic" },
+      { to: "/app/academics/classes", label: t("nav.classes"), icon: CalendarDays, show: inInstitute && canAcademics, group: "academic" },
+      { to: "/app/staff", label: t("nav.staff"), icon: Users, show: inInstitute && canStaff, group: "academic" },
+      { to: "/app/settings/features", label: t("nav.features"), icon: SlidersHorizontal, show: inInstitute && canSettings, group: "settings" },
+      { to: "/app/settings/branding", label: t("nav.branding"), icon: Palette, show: inInstitute && canSettings, group: "settings" },
+      { to: "/account/password", label: t("nav.password"), icon: KeyRound, show: true, group: "settings" },
+      { to: "/admin/tenants", label: t("nav.tenants"), icon: Building2, show: platform, group: "platform" },
+      { to: "/admin/plans", label: t("nav.plans"), icon: CreditCard, show: platform, group: "platform" },
+      { to: "/admin/branding", label: t("nav.platformBranding"), icon: Palette, show: platform, group: "platform" },
+      { to: "/parent", label: t("nav.portal"), icon: Users, show: user.role === "Parent", group: "overview" },
     ].filter((item) => item.show);
-  }, [auth.isImpersonating, canSettings, institute, platform, t, user]);
+  }, [canAcademics, canSettings, canStaff, canStudents, inInstitute, platform, t, user]);
 
   const matches = items.filter((item) => item.label.toLowerCase().includes(query.trim().toLowerCase()));
   const name = branding.branding?.instituteDisplayName || ProductName;
@@ -97,28 +113,36 @@ export function AppShell() {
           )}
         </div>
         <nav className="flex-1 overflow-y-auto px-2 py-3" aria-label="Primary">
-          {!collapsed ? <p className="px-2 pb-1 text-[11px] font-medium uppercase tracking-wide text-muted">{platform ? t("nav.platform") : t("nav.overview")}</p> : null}
-          <ul className="grid gap-1">
-            {items.map((item) => (
-              <li key={item.to}>
-                <NavLink
-                  to={item.to}
-                  end={item.to === "/app"}
-                  onClick={() => setOpen(false)}
-                  title={item.label}
-                  className={({ isActive }) =>
-                    cn(
-                      "flex items-center gap-2 rounded-md px-2 py-2 text-sm",
-                      isActive ? "bg-[color-mix(in_srgb,var(--primary)_14%,transparent)] font-medium" : "hover:bg-secondary",
-                    )
-                  }
-                >
-                  <item.icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  {collapsed ? null : <span className="truncate">{item.label}</span>}
-                </NavLink>
-              </li>
-            ))}
-          </ul>
+          {(["overview", "academic", "settings", "platform"] as const).map((group) => {
+            const groupItems = items.filter((item) => item.group === group);
+            if (groupItems.length === 0) return null;
+            return (
+              <div key={group} className="mb-3">
+                {!collapsed ? <p className="px-2 pb-1 text-[11px] font-medium uppercase tracking-wide text-muted">{t(`nav.${group}`)}</p> : null}
+                <ul className="grid gap-1">
+                  {groupItems.map((item) => (
+                    <li key={item.to}>
+                      <NavLink
+                        to={item.to}
+                        end={item.to === "/app"}
+                        onClick={() => setOpen(false)}
+                        title={item.label}
+                        className={({ isActive }) =>
+                          cn(
+                            "flex items-center gap-2 rounded-md px-2 py-2 text-sm",
+                            isActive ? "bg-[color-mix(in_srgb,var(--primary)_14%,transparent)] font-medium" : "hover:bg-secondary",
+                          )
+                        }
+                      >
+                        <item.icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                        {collapsed ? null : <span className="truncate">{item.label}</span>}
+                      </NavLink>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
         </nav>
       </aside>
       <div className="min-w-0">

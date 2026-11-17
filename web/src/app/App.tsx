@@ -10,7 +10,15 @@ import { AuthProvider } from "@/features/auth/AuthProvider";
 import { GuestOnly, RequireAuth, RequireRole } from "@/features/auth/guards";
 import { BrandingPage } from "@/features/branding/BrandingPage";
 import { BrandingProvider } from "@/features/branding/BrandingProvider";
+import { BatchesPage } from "@/features/academics/BatchesPage";
+import { ClassesPage } from "@/features/academics/ClassesPage";
+import { LevelsPage } from "@/features/academics/LevelsPage";
+import { SubjectsPage } from "@/features/academics/SubjectsPage";
 import { DashboardPage } from "@/features/dashboard/DashboardPage";
+import { StaffPage } from "@/features/staff/StaffPage";
+import { ImportStudentsPage } from "@/features/students/ImportStudentsPage";
+import { StudentFormPage } from "@/features/students/StudentFormPage";
+import { StudentsPage } from "@/features/students/StudentsPage";
 import { FeaturesPage } from "@/features/features/FeaturesPage";
 import { ParentHomePage } from "@/features/parent/ParentHomePage";
 import { PlansPage } from "@/features/super-admin/PlansPage";
@@ -35,6 +43,15 @@ export default function App() {
                   <Route element={<RequireAuth><AppShell /></RequireAuth>}>
                     <Route path="/account/password" element={<ChangePasswordPage />} />
                     <Route path="/app" element={<RequireRole roles={INSTITUTE_ROLES}><DashboardPage /></RequireRole>} />
+                    <Route path="/app/students" element={<RequireRole roles={INSTITUTE_ROLES}><StudentsPage /></RequireRole>} />
+                    <Route path="/app/students/new" element={<RequireRole roles={INSTITUTE_ROLES}><StudentFormPage /></RequireRole>} />
+                    <Route path="/app/students/import" element={<RequireRole roles={INSTITUTE_ROLES}><ImportStudentsPage /></RequireRole>} />
+                    <Route path="/app/students/:id" element={<RequireRole roles={INSTITUTE_ROLES}><StudentFormPage /></RequireRole>} />
+                    <Route path="/app/academics/levels" element={<RequireRole roles={INSTITUTE_ROLES}><LevelsPage /></RequireRole>} />
+                    <Route path="/app/academics/batches" element={<RequireRole roles={INSTITUTE_ROLES}><BatchesPage /></RequireRole>} />
+                    <Route path="/app/academics/subjects" element={<RequireRole roles={INSTITUTE_ROLES}><SubjectsPage /></RequireRole>} />
+                    <Route path="/app/academics/classes" element={<RequireRole roles={INSTITUTE_ROLES}><ClassesPage /></RequireRole>} />
+                    <Route path="/app/staff" element={<RequireRole roles={INSTITUTE_ROLES}><StaffPage /></RequireRole>} />
                     <Route path="/app/settings/features" element={<RequireRole roles={INSTITUTE_ROLES}><FeaturesPage /></RequireRole>} />
                     <Route path="/app/settings/branding" element={<RequireRole roles={INSTITUTE_ROLES}><BrandingPage /></RequireRole>} />
                     <Route path="/admin/tenants" element={<RequireRole roles={["SuperAdmin"]}><TenantsPage /></RequireRole>} />

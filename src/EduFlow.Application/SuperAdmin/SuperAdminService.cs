@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using EduFlow.Application.Academics;
 using EduFlow.Application.Common.Interfaces;
 using EduFlow.Application.Common.Security;
 using EduFlow.Domain.Constants;
@@ -262,6 +263,13 @@ public sealed partial class SuperAdminService(
                     UpdatedAt = now
                 });
             }
+
+            var levelCap = await db.PlanLimits
+                .IgnoreQueryFilters()
+                .Where(limit => !limit.IsDeleted && limit.PlanId == plan.Id && limit.LimitKey == LimitKey.EducationLevels)
+                .Select(limit => limit.MaxValue)
+                .FirstOrDefaultAsync(cancellationToken);
+            await EducationLevelProvisioning.EnsureSelectionsAsync(db, tenant.Id, levelCap, cancellationToken);
 
             await auditService.LogAsync(
                 "SuperAdmin.TenantCreated",

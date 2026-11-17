@@ -30,6 +30,14 @@ public sealed class AppDbContext(
     public DbSet<TenantFeatureOverride> TenantFeatureOverrides => Set<TenantFeatureOverride>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<BrandingProfile> BrandingProfiles => Set<BrandingProfile>();
+    public DbSet<EducationLevel> EducationLevels => Set<EducationLevel>();
+    public DbSet<TenantEducationLevel> TenantEducationLevels => Set<TenantEducationLevel>();
+    public DbSet<BatchGroup> BatchGroups => Set<BatchGroup>();
+    public DbSet<AcademicBatch> AcademicBatches => Set<AcademicBatch>();
+    public DbSet<Subject> Subjects => Set<Subject>();
+    public DbSet<ClassSchedule> ClassSchedules => Set<ClassSchedule>();
+    public DbSet<Student> Students => Set<Student>();
+    public DbSet<StudentEnrollment> StudentEnrollments => Set<StudentEnrollment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -323,6 +331,78 @@ public sealed class AppDbContext(
             b.Property(x => x.Action).HasMaxLength(150).IsRequired();
             b.Property(x => x.EntityName).HasMaxLength(100).IsRequired();
             b.HasIndex(x => new { x.TenantId, x.CreatedAt });
+        });
+
+        modelBuilder.Entity<EducationLevel>(b =>
+        {
+            b.Property(x => x.Code).HasMaxLength(20).IsRequired();
+            b.Property(x => x.Name).HasMaxLength(100).IsRequired();
+            b.Property(x => x.Description).HasMaxLength(300).IsRequired();
+            b.HasIndex(x => x.Code).IsUnique();
+        });
+
+        modelBuilder.Entity<TenantEducationLevel>(b =>
+        {
+            b.HasIndex(x => new { x.TenantId, x.EducationLevelId }).IsUnique();
+            b.HasOne<EducationLevel>().WithMany().HasForeignKey(x => x.EducationLevelId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<BatchGroup>(b =>
+        {
+            b.Property(x => x.Name).HasMaxLength(120).IsRequired();
+            b.Property(x => x.Code).HasMaxLength(32).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
+        });
+
+        modelBuilder.Entity<AcademicBatch>(b =>
+        {
+            b.Property(x => x.Name).HasMaxLength(120).IsRequired();
+            b.Property(x => x.Code).HasMaxLength(32).IsRequired();
+            b.Property(x => x.AcademicYear).HasMaxLength(20);
+            b.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
+            b.HasOne<EducationLevel>().WithMany().HasForeignKey(x => x.EducationLevelId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<Branch>().WithMany().HasForeignKey(x => x.BranchId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<BatchGroup>().WithMany().HasForeignKey(x => x.BatchGroupId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Subject>(b =>
+        {
+            b.Property(x => x.Name).HasMaxLength(120).IsRequired();
+            b.Property(x => x.Code).HasMaxLength(32).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
+            b.HasOne<EducationLevel>().WithMany().HasForeignKey(x => x.EducationLevelId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<ClassSchedule>(b =>
+        {
+            b.Property(x => x.Name).HasMaxLength(120).IsRequired();
+            b.Property(x => x.Room).HasMaxLength(50);
+            b.HasOne<AcademicBatch>().WithMany().HasForeignKey(x => x.BatchId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<Subject>().WithMany().HasForeignKey(x => x.SubjectId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<User>().WithMany().HasForeignKey(x => x.TeacherUserId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Student>(b =>
+        {
+            b.Property(x => x.StudentCode).HasMaxLength(32).IsRequired();
+            b.Property(x => x.FullName).HasMaxLength(200).IsRequired();
+            b.Property(x => x.PhotoUrl).HasMaxLength(500);
+            b.Property(x => x.GuardianName).HasMaxLength(200).IsRequired();
+            b.Property(x => x.GuardianPhone).HasMaxLength(40).IsRequired();
+            b.Property(x => x.GuardianPhoneSecondary).HasMaxLength(40);
+            b.Property(x => x.Address).HasMaxLength(300).IsRequired();
+            b.Property(x => x.City).HasMaxLength(80);
+            b.Property(x => x.Notes).HasMaxLength(2000);
+            b.HasIndex(x => new { x.TenantId, x.StudentCode }).IsUnique();
+            b.HasOne<EducationLevel>().WithMany().HasForeignKey(x => x.EducationLevelId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<Branch>().WithMany().HasForeignKey(x => x.BranchId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<StudentEnrollment>(b =>
+        {
+            b.HasIndex(x => new { x.TenantId, x.StudentId, x.BatchId }).IsUnique();
+            b.HasOne<Student>().WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<AcademicBatch>().WithMany().HasForeignKey(x => x.BatchId).OnDelete(DeleteBehavior.Restrict);
         });
 
     }

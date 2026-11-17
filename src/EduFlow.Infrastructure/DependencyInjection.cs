@@ -1,10 +1,14 @@
+using EduFlow.Application.Academics;
 using EduFlow.Application.Auth;
 using EduFlow.Application.Branding;
 using EduFlow.Application.Common.Interfaces;
 using EduFlow.Application.Features;
 using EduFlow.Application.Limits;
+using EduFlow.Application.Staff;
+using EduFlow.Application.Students;
 using EduFlow.Application.SuperAdmin;
 using EduFlow.Application.Tenancy;
+using EduFlow.Infrastructure.Documents;
 using EduFlow.Infrastructure.Persistence;
 using EduFlow.Infrastructure.Security;
 using EduFlow.Infrastructure.Services;
@@ -61,6 +65,12 @@ public static class DependencyInjection
         services.AddScoped<ISuperAdminService, SuperAdminService>();
         services.AddScoped<ITenantManagementService, TenantManagementService>();
         services.AddScoped<IBrandingService, BrandingService>();
+        services.AddScoped<IAcademicService, AcademicService>();
+        services.AddScoped<IStudentService, StudentService>();
+        services.AddScoped<IStaffDirectoryService, StaffDirectoryService>();
+        services.AddSingleton<IBarcodeEncoder, ZxingBarcodeEncoder>();
+        services.AddSingleton<IAcademicDocumentService, AcademicPdfService>();
+        services.AddSingleton<IWorkbookFile, ClosedXmlWorkbookFile>();
         services.Configure<FileStorageOptions>(opts =>
         {
             opts.Root = configuration["FileStorage:Root"] ?? string.Empty;

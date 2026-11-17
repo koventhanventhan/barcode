@@ -9,4 +9,6 @@ public interface IFileStorage
         string fileName,
         Stream content,
         CancellationToken cancellationToken = default);
+
+    Stream? OpenRead(string url);
 }

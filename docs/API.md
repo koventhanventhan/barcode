@@ -40,3 +40,15 @@ Requires `SuperAdmin` role:
 - `GET/POST/DELETE /api/users`, `PUT /api/users/{id}/role` (`users.view`, `users.manage`)
 - `GET /api/parent/portal` (`[RequireFeature(FeatureKey.ParentPortal)]`)
 - `GET /api/payments/online/status` (`[RequireFeature(FeatureKey.OnlinePayments)]`)
+
+## Academic core
+- `GET /api/education-levels`, `PUT /api/education-levels/selection` (`academics.view` / `academics.manage`)
+- `GET/POST/PUT/DELETE /api/batches`, `/api/subjects`, `/api/class-schedules` (`academics.view` / `academics.manage`)
+- `GET /api/class-schedules/teachers`
+- `GET/POST/PUT/DELETE /api/batch-groups` (`[RequireFeature(FeatureKey.BatchGroups)]`)
+- `GET/POST/PUT/DELETE /api/students`, `POST /api/students/import`, `POST /api/students/{id}/photo` (`students.view` / `students.edit`)
+- `GET /api/students/import-template`
+- `GET /api/students/export?format=csv|xlsx|pdf` (`[RequireFeature(FeatureKey.DataExport)]`)
+- `GET /api/students/{id}/id-card`, `POST /api/students/id-cards`, `POST /api/students/labels` (`[RequireFeature(FeatureKey.BarcodeGenerator)]`)
+- `GET /api/staff/role-templates`, `POST /api/staff` (`users.view` / `users.manage`)
+- `PUT /api/users/{id}/status` (`users.manage`)

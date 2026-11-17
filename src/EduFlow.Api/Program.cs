@@ -176,6 +176,7 @@ app.MapAuthEndpoints();
 app.MapSuperAdminEndpoints();
 app.MapTenantEndpoints();
 app.MapBrandingEndpoints();
+app.MapAcademicEndpoints();
 
 if (builder.Configuration.GetValue<bool>("Diagnostics:ThrowOnGet"))
 {

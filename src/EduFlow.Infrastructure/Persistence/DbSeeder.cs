@@ -1,3 +1,4 @@
+using EduFlow.Application.Academics;
 using EduFlow.Application.Common.Interfaces;
 using EduFlow.Application.Common.Security;
 using EduFlow.Domain;
@@ -20,8 +21,12 @@ public sealed class DbSeeder(
         {
             await SeedPermissionsAsync(cancellationToken);
             await SeedPlansAsync(cancellationToken);
+            await SeedEducationLevelsAsync(cancellationToken);
             await SeedSuperAdminAsync(cancellationToken);
             await SeedDemoTenantAsync(cancellationToken);
+            await EnsureEducationLevelSelectionsAsync(cancellationToken);
+            await EnsureDemoAcademicsAsync(cancellationToken);
+            await EnsureDefaultRolePermissionsAsync(cancellationToken);
             await EnsureEnterpriseRemoveBrandingAsync(cancellationToken);
             await EnsurePlatformBrandingAsync(cancellationToken);
         }
@@ -325,6 +330,243 @@ public sealed class DbSeeder(
 
             await db.SaveChangesAsync(cancellationToken);
         }
+    }
+
+    private async Task SeedEducationLevelsAsync(CancellationToken cancellationToken)
+    {
+        var existing = await db.EducationLevels
+            .IgnoreQueryFilters()
+            .Where(level => !level.IsDeleted)
+            .Select(level => level.Code)
+            .ToListAsync(cancellationToken);
+        var existingSet = existing.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in EducationLevelCatalog.All)
+        {
+            if (!existingSet.Contains(item.Code))
+            {
+                db.EducationLevels.Add(new EducationLevel
+                {
+                    Code = item.Code,
+                    Name = item.Name,
+                    Description = item.Description,
+                    SortOrder = item.SortOrder
+                });
+            }
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task EnsureEducationLevelSelectionsAsync(CancellationToken cancellationToken)
+    {
+        var tenants = await db.Tenants
+            .IgnoreQueryFilters()
+            .Where(tenant => !tenant.IsDeleted)
+            .Select(tenant => tenant.Id)
+            .ToListAsync(cancellationToken);
+
+        foreach (var tenantId in tenants)
+        {
+            var planId = await db.Subscriptions
+                .IgnoreQueryFilters()
+                .Where(subscription => !subscription.IsDeleted && subscription.TenantId == tenantId)
+                .OrderByDescending(subscription => subscription.CreatedAt)
+                .Select(subscription => (Guid?)subscription.PlanId)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            int? maxEnabled = null;
+            if (planId.HasValue)
+            {
+                maxEnabled = await db.PlanLimits
+                    .IgnoreQueryFilters()
+                    .Where(limit => !limit.IsDeleted && limit.PlanId == planId.Value && limit.LimitKey == LimitKey.EducationLevels)
+                    .Select(limit => limit.MaxValue)
+                    .FirstOrDefaultAsync(cancellationToken);
+            }
+
+            await EducationLevelProvisioning.EnsureSelectionsAsync(db, tenantId, maxEnabled, cancellationToken);
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task EnsureDemoAcademicsAsync(CancellationToken cancellationToken)
+    {
+        var demo = await db.Tenants
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(tenant => !tenant.IsDeleted && tenant.Subdomain == "demo", cancellationToken);
+        if (demo is null)
+        {
+            return;
+        }
+
+        var hasBatch = await db.AcademicBatches
+            .IgnoreQueryFilters()
+            .AnyAsync(batch => !batch.IsDeleted && batch.TenantId == demo.Id, cancellationToken);
+        if (hasBatch)
+        {
+            return;
+        }
+
+        var level = await db.EducationLevels
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(item => !item.IsDeleted && item.Code == "OL", cancellationToken);
+        var branch = await db.Branches
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(item => !item.IsDeleted && item.TenantId == demo.Id && item.IsMain, cancellationToken);
+        if (level is null || branch is null)
+        {
+            return;
+        }
+
+        var teacher = await db.Users
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(user => !user.IsDeleted && user.TenantId == demo.Id && user.Email == "teacher@demo.eduflow.lk", cancellationToken);
+        if (teacher is null)
+        {
+            teacher = new User
+            {
+                TenantId = demo.Id,
+                Email = "teacher@demo.eduflow.lk",
+                FullName = "Amali Fernando",
+                Phone = "+94 77 555 0142",
+                PasswordHash = PasswordHasher.HashPassword(configuration["Seed:DemoTeacher:Password"] ?? "DemoTeacher@123!"),
+                RoleType = RoleType.Teacher,
+                BranchId = branch.Id,
+                IsActive = true
+            };
+            db.Users.Add(teacher);
+        }
+
+        var group = new BatchGroup
+        {
+            TenantId = demo.Id,
+            Name = "Colombo weekday",
+            Code = "CMB-WD",
+            IsActive = true
+        };
+        var batch = new AcademicBatch
+        {
+            TenantId = demo.Id,
+            Name = "2026 O/L Combined Maths",
+            Code = "OL2026",
+            EducationLevelId = level.Id,
+            BranchId = branch.Id,
+            BatchGroupId = group.Id,
+            AcademicYear = "2026",
+            IsActive = true
+        };
+        var maths = new Subject
+        {
+            TenantId = demo.Id,
+            Name = "Combined Mathematics",
+            Code = "MATH",
+            EducationLevelId = level.Id,
+            IsActive = true
+        };
+        var science = new Subject
+        {
+            TenantId = demo.Id,
+            Name = "Science",
+            Code = "SCI",
+            EducationLevelId = level.Id,
+            IsActive = true
+        };
+        db.AddRange(group, batch, maths, science);
+        await db.SaveChangesAsync(cancellationToken);
+
+        db.ClassSchedules.Add(new ClassSchedule
+        {
+            TenantId = demo.Id,
+            Name = "Combined Mathematics · 2026 O/L",
+            BatchId = batch.Id,
+            SubjectId = maths.Id,
+            TeacherUserId = teacher.Id,
+            Weekday = 1,
+            StartMinutes = 16 * 60,
+            EndMinutes = 18 * 60,
+            Room = "Hall 2",
+            IsActive = true
+        });
+
+        var nimal = new Student
+        {
+            TenantId = demo.Id,
+            StudentCode = "S000001",
+            FullName = "Nimal Perera",
+            GuardianName = "Sunil Perera",
+            GuardianPhone = "0771234567",
+            Address = "12 Temple Road, Colombo 03",
+            City = "Colombo",
+            EducationLevelId = level.Id,
+            BranchId = branch.Id,
+            Gender = StudentGender.Male,
+            Status = StudentStatus.Active,
+            AdmissionDate = new DateOnly(2026, 1, 6)
+        };
+        var amaya = new Student
+        {
+            TenantId = demo.Id,
+            StudentCode = "S000002",
+            FullName = "Amaya Silva",
+            GuardianName = "Kumari Silva",
+            GuardianPhone = "0719876543",
+            Address = "48 Galle Road, Dehiwala",
+            City = "Dehiwala",
+            EducationLevelId = level.Id,
+            BranchId = branch.Id,
+            Gender = StudentGender.Female,
+            Status = StudentStatus.Active,
+            AdmissionDate = new DateOnly(2026, 1, 6)
+        };
+        db.Students.AddRange(nimal, amaya);
+        await db.SaveChangesAsync(cancellationToken);
+
+        db.StudentEnrollments.AddRange(
+            new StudentEnrollment
+            {
+                TenantId = demo.Id,
+                StudentId = nimal.Id,
+                BatchId = batch.Id,
+                EnrolledOn = nimal.AdmissionDate,
+                IsActive = true
+            },
+            new StudentEnrollment
+            {
+                TenantId = demo.Id,
+                StudentId = amaya.Id,
+                BatchId = batch.Id,
+                EnrolledOn = amaya.AdmissionDate,
+                IsActive = true
+            });
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task EnsureDefaultRolePermissionsAsync(CancellationToken cancellationToken)
+    {
+        var roles = await db.Roles
+            .IgnoreQueryFilters()
+            .Include(role => role.Permissions)
+            .Where(role => !role.IsDeleted && role.IsSystemRole && (role.Name == "Staff" || role.Name == "Teacher"))
+            .ToListAsync(cancellationToken);
+
+        foreach (var role in roles)
+        {
+            var expected = role.Name == "Teacher"
+                ? Permissions.DefaultTeacherPermissions
+                : Permissions.DefaultStaffPermissions;
+            var have = role.Permissions.Where(permission => !permission.IsDeleted).Select(permission => permission.PermissionKey)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            foreach (var key in expected)
+            {
+                if (!have.Contains(key))
+                {
+                    db.RolePermissions.Add(new RolePermission { RoleId = role.Id, PermissionKey = key });
+                }
+            }
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
     }
 
     private async Task EnsureEnterpriseRemoveBrandingAsync(CancellationToken cancellationToken)

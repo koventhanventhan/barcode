@@ -31,12 +31,14 @@ export function DataTable<T>({
   filename,
   pageSize = 10,
   getRowId,
+  enableExport = true,
 }: {
   data: T[];
   columns: DataColumn<T>[];
   filename: string;
   pageSize?: number;
   getRowId?: (row: T) => string;
+  enableExport?: boolean;
 }) {
   const { t } = useTranslation();
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -127,10 +129,12 @@ export function DataTable<T>({
               </div>
             ) : null}
           </div>
-          <Button type="button" variant="outline" size="sm" onClick={exportRows}>
-            <Download className="h-4 w-4" aria-hidden="true" />
-            {t("table.export")}
-          </Button>
+          {enableExport ? (
+            <Button type="button" variant="outline" size="sm" onClick={exportRows}>
+              <Download className="h-4 w-4" aria-hidden="true" />
+              {t("table.export")}
+            </Button>
+          ) : null}
         </div>
       </div>
       <div className="overflow-x-auto rounded-lg border border-border bg-card">
