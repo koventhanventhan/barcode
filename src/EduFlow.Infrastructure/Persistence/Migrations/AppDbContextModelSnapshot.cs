@@ -155,6 +155,8 @@ namespace EduFlow.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId", "ClassSessionId", "StudentId")
                         .IsUnique();
 
+                    b.HasIndex("TenantId", "StudentId", "IsUndone", "MarkedAt");
+
                     b.ToTable("AttendanceMarks");
                 });
 
@@ -479,6 +481,10 @@ namespace EduFlow.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("TenantId");
 
+                    b.HasIndex("TenantId", "BatchId", "IsActive");
+
+                    b.HasIndex("TenantId", "Weekday", "StartMinutes");
+
                     b.ToTable("ClassSchedules");
                 });
 
@@ -549,6 +555,8 @@ namespace EduFlow.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("TenantId", "ClassScheduleId", "SessionDate")
                         .IsUnique();
+
+                    b.HasIndex("TenantId", "SessionDate", "Status");
 
                     b.ToTable("ClassSessions");
                 });
@@ -1178,6 +1186,8 @@ namespace EduFlow.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId", "ReceiptSequence")
                         .IsUnique();
 
+                    b.HasIndex("TenantId", "StudentId", "PaidAt");
+
                     b.ToTable("FeePayments");
                 });
 
@@ -1457,6 +1467,8 @@ namespace EduFlow.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.HasIndex("TenantId", "Status", "NextAttemptAt");
+
+                    b.HasIndex("TenantId", "CreatedAt", "MessageType", "Status");
 
                     b.ToTable("NotificationOutboxes");
                 });
@@ -2395,8 +2407,12 @@ namespace EduFlow.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("TenantId");
 
+                    b.HasIndex("TenantId", "FullName");
+
                     b.HasIndex("TenantId", "StudentCode")
                         .IsUnique();
+
+                    b.HasIndex("TenantId", "Status", "EducationLevelId");
 
                     b.ToTable("Students");
                 });
@@ -2506,6 +2522,8 @@ namespace EduFlow.Infrastructure.Persistence.Migrations
                     b.HasIndex("StudentId");
 
                     b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "BatchId", "IsActive");
 
                     b.HasIndex("TenantId", "StudentId", "BatchId")
                         .IsUnique();

@@ -1,0 +1,99 @@
+name: eduflow-prod
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: ${MSSQL_PID:-Express}
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?MSSQL_SA_PASSWORD is required}
+      MSSQL_MEMORY_LIMIT_MB: ${MSSQL_MEMORY_LIMIT_MB:-2048}
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+      - sqlserver_backups:/var/opt/mssql/backup
+    mem_limit: 2560m
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q \"SELECT 1\" || exit 1",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 15
+      start_period: 45s
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Default: ${ConnectionStrings__Default:-Server=sqlserver,1433;Database=EduFlow;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;Encrypt=True}
+      Cors__Origins__0: https://${DOMAIN:-eduflow.lk}
+      App__PublicWebUrl: https://${DOMAIN:-eduflow.lk}
+      Jwt__SigningKey: ${Jwt__SigningKey:?Jwt__SigningKey is required}
+      SUPERADMIN_EMAIL: ${SUPERADMIN_EMAIL:?SUPERADMIN_EMAIL is required}
+      SUPERADMIN_PASSWORD: ${SUPERADMIN_PASSWORD:?SUPERADMIN_PASSWORD is required}
+      Hangfire__Storage: SqlServer
+      Hangfire__EnableRecurringJobs: "true"
+      FileStorage__Root: /app/storage
+      Notifications__Sms__Provider: ${Notifications__Sms__Provider:-NotifyLk}
+      Notifications__Sms__NotifyLk__UserId: ${Notifications__Sms__NotifyLk__UserId:-}
+      Notifications__Sms__NotifyLk__ApiKey: ${Notifications__Sms__NotifyLk__ApiKey:-}
+      Notifications__Sms__NotifyLk__SenderId: ${Notifications__Sms__NotifyLk__SenderId:-EduFlow}
+      Notifications__Email__Provider: ${Notifications__Email__Provider:-Smtp}
+      Notifications__Email__FromEmail: ${Notifications__Email__FromEmail:-noreply@eduflow.lk}
+      Notifications__Email__Smtp__Host: ${Notifications__Email__Smtp__Host:-}
+      Notifications__Email__Smtp__Port: ${Notifications__Email__Smtp__Port:-587}
+      Notifications__Email__Smtp__Username: ${Notifications__Email__Smtp__Username:-}
+      Notifications__Email__Smtp__Password: ${Notifications__Email__Smtp__Password:-}
+      Notifications__Email__Brevo__ApiKey: ${Notifications__Email__Brevo__ApiKey:-}
+      Notifications__WhatsApp__Provider: ${Notifications__WhatsApp__Provider:-Fake}
+      Notifications__WhatsApp__CloudApi__PhoneNumberId: ${Notifications__WhatsApp__CloudApi__PhoneNumberId:-}
+      Notifications__WhatsApp__CloudApi__AccessToken: ${Notifications__WhatsApp__CloudApi__AccessToken:-}
+      Monitoring__SeqUrl: ${Monitoring__SeqUrl:-}
+    volumes:
+      - eduflow_storage:/app/storage
+      - eduflow_logs:/app/logs
+      - eduflow_keys:/home/app/.aspnet/DataProtection-Keys
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.web
+    restart: unless-stopped
+    depends_on:
+      - api
+
+  caddy:
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:-eduflow.lk}
+      ACME_EMAIL: ${ACME_EMAIL:-ops@eduflow.lk}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+      - web
+
+volumes:
+  sqlserver_data:
+  sqlserver_backups:
+  eduflow_storage:
+  eduflow_logs:
+  eduflow_keys:
+  caddy_data:
+  caddy_config:

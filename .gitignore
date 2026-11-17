@@ -488,3 +488,11 @@ storage/
 !src/**/Backups/
 !src/**/Backups/**
 
+
+# Playwright E2E and Coverage artifacts
+e2e/node_modules/
+e2e/.tmp/
+e2e/test-results/
+e2e/playwright-report/
+web/coverage/
+TestResults/

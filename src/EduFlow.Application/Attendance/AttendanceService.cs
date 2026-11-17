@@ -247,23 +247,53 @@ public sealed class AttendanceService(
     {
         var day = query.Date ?? ColomboClock.Today();
         var sessions = await db.ClassSessions.AsNoTracking().Where(item => item.SessionDate == day).ToListAsync(cancellationToken);
-        var scheduleIds = sessions.Select(item => item.ClassScheduleId).ToList();
+        if (sessions.Count == 0)
+        {
+            return [];
+        }
+
+        var scheduleIds = sessions.Select(item => item.ClassScheduleId).Distinct().ToList();
         var schedules = await db.ClassSchedules.AsNoTracking().Where(item => scheduleIds.Contains(item.Id)).ToListAsync(cancellationToken);
         if (query.BatchId.HasValue)
         {
             var allowed = schedules.Where(item => item.BatchId == query.BatchId.Value).Select(item => item.Id).ToHashSet();
             sessions = sessions.Where(item => allowed.Contains(item.ClassScheduleId)).ToList();
+            if (sessions.Count == 0)
+            {
+                return [];
+            }
         }
 
         var mapped = await MapSessionsAsync(sessions, cancellationToken);
-        var result = new List<AttendanceRegisterSessionDto>();
+        var mappedById = mapped.ToDictionary(item => item.Id);
+        var schedulesById = schedules.ToDictionary(item => item.Id);
+        var batchIds = schedules.Select(item => item.BatchId).Distinct().ToList();
+        var enrollments = await db.StudentEnrollments.AsNoTracking()
+            .Where(item => batchIds.Contains(item.BatchId) && item.IsActive)
+            .Select(item => new { item.BatchId, item.StudentId })
+            .ToListAsync(cancellationToken);
+        var studentIds = enrollments.Select(item => item.StudentId).Distinct().ToList();
+        var studentsById = await db.Students.AsNoTracking()
+            .Where(item => studentIds.Contains(item.Id) && item.Status == StudentStatus.Active)
+            .ToDictionaryAsync(item => item.Id, cancellationToken);
+        var sessionIds = sessions.Select(item => item.Id).ToList();
+        var allMarks = await db.AttendanceMarks.AsNoTracking()
+            .Where(item => sessionIds.Contains(item.ClassSessionId))
+            .ToListAsync(cancellationToken);
+        var marksBySession = allMarks.ToLookup(item => item.ClassSessionId);
+        var studentIdsByBatch = enrollments.ToLookup(item => item.BatchId, item => item.StudentId);
+
+        var result = new List<AttendanceRegisterSessionDto>(sessions.Count);
         foreach (var session in sessions)
         {
-            var schedule = schedules.First(item => item.Id == session.ClassScheduleId);
-            var students = await EnrolledStudentsAsync(session, cancellationToken);
-            var marks = await db.AttendanceMarks.AsNoTracking().Where(item => item.ClassSessionId == session.Id).ToListAsync(cancellationToken);
+            var schedule = schedulesById[session.ClassScheduleId];
+            var students = studentIdsByBatch[schedule.BatchId]
+                .Where(studentsById.ContainsKey)
+                .Select(id => studentsById[id])
+                .ToList();
+            var marks = marksBySession[session.Id].ToList();
             var rows = students.Select(student => ToRegisterStudent(student, marks.FirstOrDefault(item => item.StudentId == student.Id))).ToList();
-            result.Add(new AttendanceRegisterSessionDto(mapped.First(item => item.Id == session.Id), rows));
+            result.Add(new AttendanceRegisterSessionDto(mappedById[session.Id], rows));
         }
 
         return result.OrderBy(item => item.Session.ClassName).ToList();
@@ -378,7 +408,7 @@ public sealed class AttendanceService(
             throw new DomainValidationException("CODE_REQUIRED", "Scan or enter a student code.");
         }
 
-        var student = await db.Students.FirstOrDefaultAsync(item => item.StudentCode.ToUpper() == code, cancellationToken);
+        var student = await db.Students.FirstOrDefaultAsync(item => item.StudentCode == code, cancellationToken);
         if (student is null)
         {
             throw new EntityNotFoundException("Student code", code);
@@ -702,17 +732,21 @@ public sealed class AttendanceService(
         var schedules = await db.ClassSchedules.AsNoTracking().Where(item => scheduleIds.Contains(item.Id)).ToDictionaryAsync(item => item.Id, cancellationToken);
         var batchIds = schedules.Values.Select(item => item.BatchId).Distinct().ToList();
         var batches = await db.AcademicBatches.AsNoTracking().Where(item => batchIds.Contains(item.Id)).ToDictionaryAsync(item => item.Id, cancellationToken);
+        var enrollmentCounts = await db.StudentEnrollments.AsNoTracking()
+            .Where(item => batchIds.Contains(item.BatchId) && item.IsActive)
+            .GroupBy(item => item.BatchId)
+            .Select(group => new { BatchId = group.Key, Count = group.Count() })
+            .ToDictionaryAsync(item => item.BatchId, item => item.Count, cancellationToken);
         var sessionIds = sessions.Select(item => item.Id).ToList();
         var marks = await db.AttendanceMarks.AsNoTracking().Where(item => sessionIds.Contains(item.ClassSessionId) && !item.IsUndone).ToListAsync(cancellationToken);
+        var marksBySession = marks.ToLookup(item => item.ClassSessionId);
         var result = new List<ClassSessionDto>();
         foreach (var session in sessions)
         {
             schedules.TryGetValue(session.ClassScheduleId, out var schedule);
             var batchName = schedule is not null && batches.TryGetValue(schedule.BatchId, out var batch) ? batch.Name : string.Empty;
-            var enrolled = schedule is null
-                ? 0
-                : await db.StudentEnrollments.CountAsync(item => item.BatchId == schedule.BatchId && item.IsActive, cancellationToken);
-            var sessionMarks = marks.Where(item => item.ClassSessionId == session.Id).ToList();
+            var enrolled = schedule is not null && enrollmentCounts.TryGetValue(schedule.BatchId, out var count) ? count : 0;
+            var sessionMarks = marksBySession[session.Id].ToList();
             result.Add(new ClassSessionDto(
                 session.Id,
                 session.ClassScheduleId,

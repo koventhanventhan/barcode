@@ -420,6 +420,8 @@ public sealed class AppDbContext(
         {
             b.Property(x => x.Name).HasMaxLength(120).IsRequired();
             b.Property(x => x.Room).HasMaxLength(50);
+            b.HasIndex(x => new { x.TenantId, x.BatchId, x.IsActive });
+            b.HasIndex(x => new { x.TenantId, x.Weekday, x.StartMinutes });
             b.HasOne<AcademicBatch>().WithMany().HasForeignKey(x => x.BatchId).OnDelete(DeleteBehavior.Restrict);
             b.HasOne<Subject>().WithMany().HasForeignKey(x => x.SubjectId).OnDelete(DeleteBehavior.Restrict);
             b.HasOne<User>().WithMany().HasForeignKey(x => x.TeacherUserId).OnDelete(DeleteBehavior.Restrict);
@@ -437,6 +439,8 @@ public sealed class AppDbContext(
             b.Property(x => x.City).HasMaxLength(80);
             b.Property(x => x.Notes).HasMaxLength(2000);
             b.HasIndex(x => new { x.TenantId, x.StudentCode }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.Status, x.EducationLevelId });
+            b.HasIndex(x => new { x.TenantId, x.FullName });
             b.HasOne<EducationLevel>().WithMany().HasForeignKey(x => x.EducationLevelId).OnDelete(DeleteBehavior.Restrict);
             b.HasOne<Branch>().WithMany().HasForeignKey(x => x.BranchId).OnDelete(DeleteBehavior.Restrict);
         });
@@ -444,6 +448,7 @@ public sealed class AppDbContext(
         modelBuilder.Entity<StudentEnrollment>(b =>
         {
             b.HasIndex(x => new { x.TenantId, x.StudentId, x.BatchId }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.BatchId, x.IsActive });
             b.HasOne<Student>().WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Restrict);
             b.HasOne<AcademicBatch>().WithMany().HasForeignKey(x => x.BatchId).OnDelete(DeleteBehavior.Restrict);
         });
@@ -458,6 +463,7 @@ public sealed class AppDbContext(
             b.Property(x => x.JoinCode).HasMaxLength(12);
             b.Property(x => x.CancelReason).HasMaxLength(300);
             b.HasIndex(x => new { x.TenantId, x.ClassScheduleId, x.SessionDate }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.SessionDate, x.Status });
             b.HasOne<ClassSchedule>().WithMany().HasForeignKey(x => x.ClassScheduleId).OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -466,6 +472,7 @@ public sealed class AppDbContext(
             b.Property(x => x.Reason).HasMaxLength(300);
             b.Property(x => x.UndoReason).HasMaxLength(300);
             b.HasIndex(x => new { x.TenantId, x.ClassSessionId, x.StudentId }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.StudentId, x.IsUndone, x.MarkedAt });
             b.HasOne<ClassSession>().WithMany().HasForeignKey(x => x.ClassSessionId).OnDelete(DeleteBehavior.Restrict);
             b.HasOne<Student>().WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Restrict);
         });
@@ -504,6 +511,7 @@ public sealed class AppDbContext(
             b.Property(x => x.StatusReason).HasMaxLength(500);
             b.HasIndex(x => new { x.TenantId, x.Channel, x.IdempotencyKey }).IsUnique();
             b.HasIndex(x => new { x.TenantId, x.Status, x.NextAttemptAt });
+            b.HasIndex(x => new { x.TenantId, x.CreatedAt, x.MessageType, x.Status });
         });
 
         modelBuilder.Entity<FeeStructure>(b =>
@@ -563,6 +571,7 @@ public sealed class AppDbContext(
             b.HasIndex(x => new { x.TenantId, x.ReceiptSequence }).IsUnique();
             b.HasIndex(x => new { x.TenantId, x.ReceiptNumber }).IsUnique();
             b.HasIndex(x => new { x.TenantId, x.InvoiceId });
+            b.HasIndex(x => new { x.TenantId, x.StudentId, x.PaidAt });
             b.HasOne<FeeInvoice>().WithMany().HasForeignKey(x => x.InvoiceId).OnDelete(DeleteBehavior.Restrict);
             b.HasOne<Student>().WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Restrict);
         });

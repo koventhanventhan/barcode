@@ -16,9 +16,26 @@ public static class SuperAdminEndpoints
             .WithTags("SuperAdmin")
             .RequireSuperAdmin();
 
-        group.MapGet("/tenants", async (ISuperAdminService service, CancellationToken ct) =>
-            Results.Ok(await service.GetTenantsAsync(ct)))
-            .WithName("SuperAdminGetTenants");
+        group.MapGet("/tenants", async (
+            [FromQuery] int? page,
+            [FromQuery] int? pageSize,
+            HttpContext httpContext,
+            ISuperAdminService service,
+            CancellationToken ct) =>
+        {
+            var all = await service.GetTenantsAsync(ct);
+            httpContext.Response.Headers["X-Total-Count"] = all.Count.ToString();
+            if (page.HasValue || pageSize.HasValue)
+            {
+                var p = Math.Max(1, page ?? 1);
+                var ps = Math.Clamp(pageSize ?? 50, 1, 200);
+                httpContext.Response.Headers["X-Page"] = p.ToString();
+                httpContext.Response.Headers["X-Page-Size"] = ps.ToString();
+                return Results.Ok(all.Skip((p - 1) * ps).Take(ps).ToList());
+            }
+
+            return Results.Ok(all);
+        }).WithName("SuperAdminGetTenants");
 
         group.MapGet("/tenants/{id:guid}", async (Guid id, ISuperAdminService service, CancellationToken ct) =>
             Results.Ok(await service.GetTenantByIdAsync(id, ct)))
@@ -144,10 +161,26 @@ public static class SuperAdminEndpoints
             [FromQuery] Guid? tenantId,
             [FromQuery] string? action,
             [FromQuery] int? take,
+            [FromQuery] int? page,
+            [FromQuery] int? pageSize,
+            HttpContext httpContext,
             ISuperAdminService service,
             CancellationToken ct) =>
-            Results.Ok(await service.GetAuditLogsAsync(tenantId, action, take ?? 100, ct)))
-            .WithName("SuperAdminGetAuditLogs");
+        {
+            var limit = take ?? (page.HasValue || pageSize.HasValue ? 500 : 100);
+            var logs = await service.GetAuditLogsAsync(tenantId, action, limit, ct);
+            httpContext.Response.Headers["X-Total-Count"] = logs.Count.ToString();
+            if (page.HasValue || pageSize.HasValue)
+            {
+                var p = Math.Max(1, page ?? 1);
+                var ps = Math.Clamp(pageSize ?? 50, 1, 200);
+                httpContext.Response.Headers["X-Page"] = p.ToString();
+                httpContext.Response.Headers["X-Page-Size"] = ps.ToString();
+                return Results.Ok(logs.Skip((p - 1) * ps).Take(ps).ToList());
+            }
+
+            return Results.Ok(logs);
+        }).WithName("SuperAdminGetAuditLogs");
 
         group.MapGet("/invoices", async (
             [FromQuery] Guid? tenantId,

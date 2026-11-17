@@ -7,6 +7,7 @@ using EduFlow.Api.Endpoints;
 using EduFlow.Api.ExceptionHandling;
 using EduFlow.Api.Middleware;
 using EduFlow.Api.Swagger;
+using EduFlow.Application.Common.Security;
 using EduFlow.Domain;
 using EduFlow.Domain.Constants;
 using EduFlow.Domain.Enums;
@@ -29,6 +30,7 @@ using Serilog;
 LoadEnvFile();
 
 var builder = WebApplication.CreateBuilder(args);
+builder.WebHost.ConfigureKestrel(options => options.AddServerHeader = false);
 
 builder.Host.UseSerilog((context, services, configuration) =>
     configuration
@@ -43,6 +45,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddHealthChecks();
+builder.Services.AddResponseCaching();
 builder.Services.AddInfrastructure(builder.Configuration);
 
 var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
@@ -116,6 +119,8 @@ builder.Services.AddAuthorization(options =>
 });
 
 var authPermitLimit = builder.Configuration.GetValue("RateLimiting:AuthPermitLimit", 60);
+var publicPermitLimit = builder.Configuration.GetValue("RateLimiting:PublicPermitLimit", 120);
+var scanPermitLimit = builder.Configuration.GetValue("RateLimiting:ScanPermitLimit", 600);
 var authWindowSeconds = builder.Configuration.GetValue("RateLimiting:WindowSeconds", 60);
 
 builder.Services.AddRateLimiter(options =>
@@ -129,21 +134,40 @@ builder.Services.AddRateLimiter(options =>
             cancellationToken);
     };
 
-    options.AddPolicy("auth", httpContext =>
-    {
-        var clientKey = httpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault()
-            ?? httpContext.Connection.RemoteIpAddress?.ToString()
-            ?? "local";
+    static string ResolveClientKey(HttpContext httpContext) =>
+        httpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault()
+        ?? httpContext.Connection.RemoteIpAddress?.ToString()
+        ?? "local";
 
-        return RateLimitPartition.GetFixedWindowLimiter(
-            clientKey,
+    options.AddPolicy("auth", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            ResolveClientKey(httpContext),
             _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = authPermitLimit,
                 Window = TimeSpan.FromSeconds(authWindowSeconds),
                 QueueLimit = 0
-            });
-    });
+            }));
+
+    options.AddPolicy("public", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            ResolveClientKey(httpContext),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = publicPermitLimit,
+                Window = TimeSpan.FromSeconds(authWindowSeconds),
+                QueueLimit = 0
+            }));
+
+    options.AddPolicy("scan", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            ResolveClientKey(httpContext),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = scanPermitLimit,
+                Window = TimeSpan.FromSeconds(authWindowSeconds),
+                QueueLimit = 0
+            }));
 });
 
 builder.Services.AddEndpointsApiExplorer();
@@ -174,7 +198,15 @@ var app = builder.Build();
 await InitializeDatabaseAsync(app.Services);
 
 app.UseExceptionHandler();
-app.UseSerilogRequestLogging();
+app.UseMiddleware<SecurityHeadersMiddleware>();
+app.UseSerilogRequestLogging(options =>
+{
+    options.MessageTemplate = "HTTP {RequestMethod} {RequestPath}{RedactedQueryString} responded {StatusCode} in {Elapsed:0.0000} ms";
+    options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
+    {
+        diagnosticContext.Set("RedactedQueryString", PiiRedactor.RedactQueryString(httpContext.Request.QueryString.Value));
+    };
+});
 
 if (app.Environment.IsDevelopment())
 {
@@ -183,8 +215,11 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("Frontend");
+app.UseResponseCaching();
 UseBrandingFiles(app);
 app.UseRateLimiter();
+app.UseMiddleware<CookieCsrfMiddleware>();
+app.UseMiddleware<InputSanitizationMiddleware>();
 app.UseAuthentication();
 app.UseMiddleware<TenantResolutionMiddleware>();
 app.UseMiddleware<SubscriptionGuardMiddleware>();
@@ -192,7 +227,11 @@ app.UseAuthorization();
 
 app.MapHealthChecks("/health");
 
-app.MapGet("/api/info", () => Results.Ok(new { product = ProductName.Value }))
+app.MapGet("/api/info", (HttpContext httpContext) =>
+    {
+        httpContext.Response.Headers.CacheControl = "public, max-age=60, must-revalidate";
+        return Results.Ok(new { product = ProductName.Value });
+    })
     .WithName("GetProductInfo")
     .WithTags("System")
     .WithOpenApi();
@@ -326,7 +365,7 @@ static void LoadEnvFile()
         var candidate = Path.Combine(directory.FullName, ".env");
         if (File.Exists(candidate))
         {
-            Env.Load(candidate);
+            Env.NoClobber().Load(candidate);
             return;
         }
 

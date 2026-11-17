@@ -1,5 +1,5 @@
-using System.Text.Json;
 using EduFlow.Application.Common.Interfaces;
+using EduFlow.Application.Common.Security;
 using EduFlow.Domain.Entities;
 
 namespace EduFlow.Infrastructure.Services;
@@ -30,7 +30,7 @@ public sealed class AuditService(IAppDbContext db, ITenantContext tenantContext)
             Action = action,
             EntityName = entityName,
             EntityId = entityId,
-            DetailsJson = details is null ? null : JsonSerializer.Serialize(details),
+            DetailsJson = PiiRedactor.SerializeAuditDetails(details),
             IpAddress = tenantContext.IpAddress
         };
 

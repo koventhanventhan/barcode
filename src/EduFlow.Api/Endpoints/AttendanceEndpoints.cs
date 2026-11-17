@@ -58,6 +58,7 @@ public static class AttendanceEndpoints
         group.MapPost("/scan", async (ScanAttendanceRequest request, IAttendanceService service, CancellationToken ct) =>
             Results.Ok(await service.ScanAsync(request, ct)))
             .RequirePermission(Permissions.AttendanceMark)
+            .RequireRateLimiting("scan")
             .WithName("ScanAttendance");
         group.MapGet("/register", async (Guid? batchId, DateOnly? date, IAttendanceService service, CancellationToken ct) =>
             Results.Ok(await service.GetRegisterAsync(new AttendanceRegisterQuery(batchId, date), ct)))

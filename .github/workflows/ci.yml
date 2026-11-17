@@ -6,7 +6,7 @@ on:
 
 jobs:
   backend:
-    name: Backend
+    name: Backend & Security Audit
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -15,11 +15,31 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
-      - name: Test
-        run: dotnet test EduFlow.sln --configuration Release --verbosity minimal
+      - name: Restore
+        run: dotnet restore EduFlow.sln
+
+      - name: NuGet vulnerability audit
+        run: dotnet list EduFlow.sln package --vulnerable --include-transitive
+
+      - name: Test with Application coverage gate
+        run: |
+          dotnet test EduFlow.sln --configuration Release --no-restore --verbosity minimal --collect:"XPlat Code Coverage" --results-directory TestResults
+          python3 - << 'EOF'
+          import glob, xml.etree.ElementTree as ET, sys
+          rates = []
+          for p in glob.glob("TestResults/**/coverage.cobertura.xml", recursive=True):
+              root = ET.parse(p).getroot()
+              for pkg in root.findall(".//package"):
+                  if pkg.attrib.get("name") == "EduFlow.Application":
+                      rates.append(float(pkg.attrib["line-rate"]) * 100.0)
+          best = max(rates) if rates else 0.0
+          print(f"EduFlow.Application line coverage: {best:.2f}% (gate >= 70.00%)")
+          if best < 70.0:
+              sys.exit(1)
+          EOF
 
   frontend:
-    name: Frontend
+    name: Frontend & Coverage Gate
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -36,11 +56,53 @@ jobs:
       - name: Install
         run: npm ci
 
+      - name: Dependency audit (runtime critical gate)
+        run: |
+          npm audit --omit=dev --audit-level=critical
+          npm audit || true
+
       - name: Lint
         run: npm run lint
 
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Test
-        run: npm test
+      - name: Test with 60% coverage gate
+        run: npx vitest run --coverage
+
+  e2e:
+    name: Playwright E2E
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            web/package-lock.json
+            e2e/package-lock.json
+
+      - name: Build API (Release)
+        run: dotnet build src/EduFlow.Api/EduFlow.Api.csproj -c Release
+
+      - name: Install web & E2E dependencies
+        run: |
+          npm --prefix web ci
+          npm --prefix e2e ci
+          npx --prefix e2e playwright install --with-deps chromium
+
+      - name: Run Playwright E2E suite
+        run: npm --prefix e2e test
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: e2e/playwright-report/

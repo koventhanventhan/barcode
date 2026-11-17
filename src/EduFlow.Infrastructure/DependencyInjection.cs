@@ -88,10 +88,18 @@ public static class DependencyInjection
         {
             if (!string.IsNullOrWhiteSpace(connectionString))
             {
-                options.UseSqlServer(connectionString, sql =>
+                if (connectionString.TrimStart().StartsWith("Data Source=", StringComparison.OrdinalIgnoreCase)
+                    && !connectionString.Contains("Initial Catalog=", StringComparison.OrdinalIgnoreCase))
                 {
-                    sql.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName);
-                });
+                    options.UseSqlite(connectionString);
+                }
+                else
+                {
+                    options.UseSqlServer(connectionString, sql =>
+                    {
+                        sql.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName);
+                    });
+                }
             }
         });
 
@@ -125,6 +133,7 @@ public static class DependencyInjection
         services.AddSingleton<FakeSmsStore>();
         services.AddSingleton<FakeWhatsAppStore>();
         services.AddSingleton<HttpClient>();
+        services.AddSingleton<IAntivirusScanner, SignatureAntivirusScanner>();
         services.AddSingleton<ISmsSegmentCalculator, SmsSegmentCalculator>();
 
         var smsProviderName = notificationSection["Sms:Provider"] ?? "Fake";

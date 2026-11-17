@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Globalization;
 using EduFlow.Application.Academics;
 using EduFlow.Application.Common.Interfaces;
+using EduFlow.Application.Common.Security;
 using EduFlow.Application.Notifications;
 using EduFlow.Domain.Entities;
 using EduFlow.Domain.Enums;
@@ -21,7 +22,8 @@ public sealed class FeeService(
     IFeeDocumentService feeDocuments,
     IWorkbookFile workbook,
     IFileStorage fileStorage,
-    IAuditService auditService) : IFeeService
+    IAuditService auditService,
+    IAntivirusScanner? antivirusScanner = null) : IFeeService
 {
     private const long MaxAttachmentBytes = 5 * 1024 * 1024;
     private static readonly ConcurrentDictionary<Guid, SemaphoreSlim> TenantLocks = new();
@@ -693,6 +695,15 @@ public sealed class FeeService(
 
         await using var buffer = new MemoryStream();
         await content.CopyToAsync(buffer, cancellationToken);
+        await FileUploadValidator.EnsureCleanAndValidSignatureAsync(
+            buffer,
+            fileName,
+            contentType,
+            extension,
+            "INVALID_ATTACHMENT_TYPE",
+            "Upload a PDF, PNG, JPEG, or WebP payment slip.",
+            antivirusScanner,
+            cancellationToken);
         buffer.Position = 0;
 
         var stored = await fileStorage.SaveAsync($"payments/{tenantId:N}", $"{Guid.NewGuid():N}{extension}", buffer, cancellationToken);

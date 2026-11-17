@@ -114,9 +114,26 @@ public static class FeeEndpoints
             [FromQuery] Guid? invoiceId,
             [FromQuery] Guid? studentId,
             [FromQuery] int? take,
+            [FromQuery] int? page,
+            [FromQuery] int? pageSize,
+            HttpContext httpContext,
             IFeeService service,
             CancellationToken ct) =>
-            Results.Ok(await service.GetPaymentsAsync(invoiceId, studentId, take ?? 100, ct)))
+        {
+            var limit = take ?? (page.HasValue || pageSize.HasValue ? 500 : 100);
+            var payments = await service.GetPaymentsAsync(invoiceId, studentId, limit, ct);
+            httpContext.Response.Headers["X-Total-Count"] = payments.Count.ToString();
+            if (page.HasValue || pageSize.HasValue)
+            {
+                var p = Math.Max(1, page ?? 1);
+                var ps = Math.Clamp(pageSize ?? 50, 1, 200);
+                httpContext.Response.Headers["X-Page"] = p.ToString();
+                httpContext.Response.Headers["X-Page-Size"] = ps.ToString();
+                return Results.Ok(payments.Skip((p - 1) * ps).Take(ps).ToList());
+            }
+
+            return Results.Ok(payments);
+        })
             .RequirePermission(Permissions.FeesView)
             .WithName("GetFeePayments");
 

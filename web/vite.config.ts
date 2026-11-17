@@ -6,6 +6,7 @@ import { VitePWA } from "vite-plugin-pwa";
 import { defineConfig } from "vitest/config";
 
 const root = path.dirname(fileURLToPath(import.meta.url));
+const apiTarget = process.env.VITE_PROXY_TARGET ?? "http://localhost:8080";
 
 export default defineConfig({
   plugins: [
@@ -44,10 +45,10 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      "/api": "http://localhost:8080",
-      "/health": "http://localhost:8080",
-      "/files": "http://localhost:8080",
-      "/hubs": { target: "http://localhost:8080", ws: true },
+      "/api": apiTarget,
+      "/health": apiTarget,
+      "/files": apiTarget,
+      "/hubs": { target: apiTarget, ws: true },
     },
   },
   test: {
@@ -55,5 +56,24 @@ export default defineConfig({
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
     setupFiles: ["./src/test/setup.ts"],
     testTimeout: 20000,
+    coverage: {
+      provider: "v8",
+      include: [
+        "src/config/**/*.ts",
+        "src/lib/**/*.ts",
+        "src/components/**/*.{ts,tsx}",
+        "src/features/auth/guards.tsx",
+        "src/features/auth/password.ts",
+        "src/features/exams/marksGrid.ts",
+        "src/features/help/articles.ts",
+        "src/features/marketing/price.ts",
+        "src/features/parent/model.ts",
+      ],
+      exclude: ["src/**/*.test.{ts,tsx}", "src/lib/types.ts"],
+      thresholds: {
+        lines: 60,
+        statements: 60,
+      },
+    },
   },
 });

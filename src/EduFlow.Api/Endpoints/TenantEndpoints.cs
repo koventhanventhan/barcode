@@ -16,8 +16,11 @@ public static class TenantEndpoints
 {
     public static IEndpointRouteBuilder MapTenantEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/api/plans", async (ISuperAdminService superAdminService, CancellationToken ct) =>
-            Results.Ok(await superAdminService.GetPlansAsync(activeOnly: true, ct)))
+        app.MapGet("/api/plans", async (HttpContext httpContext, ISuperAdminService superAdminService, CancellationToken ct) =>
+            {
+                httpContext.Response.Headers.CacheControl = "public, max-age=60, must-revalidate";
+                return Results.Ok(await superAdminService.GetPlansAsync(activeOnly: true, ct));
+            })
             .WithTags("Plans")
             .WithName("GetPublicPlans");
 
@@ -140,8 +143,26 @@ public static class TenantEndpoints
             .WithTags("Users")
             .RequireAuthorization();
 
-        usersGroup.MapGet("/", async (ITenantManagementService service, CancellationToken ct) =>
-            Results.Ok(await service.GetUsersAsync(ct)))
+        usersGroup.MapGet("/", async (
+            [FromQuery] int? page,
+            [FromQuery] int? pageSize,
+            HttpContext httpContext,
+            ITenantManagementService service,
+            CancellationToken ct) =>
+        {
+            var all = await service.GetUsersAsync(ct);
+            httpContext.Response.Headers["X-Total-Count"] = all.Count.ToString();
+            if (page.HasValue || pageSize.HasValue)
+            {
+                var p = Math.Max(1, page ?? 1);
+                var ps = Math.Clamp(pageSize ?? 50, 1, 200);
+                httpContext.Response.Headers["X-Page"] = p.ToString();
+                httpContext.Response.Headers["X-Page-Size"] = ps.ToString();
+                return Results.Ok(all.Skip((p - 1) * ps).Take(ps).ToList());
+            }
+
+            return Results.Ok(all);
+        })
             .RequirePermission(Permissions.UsersView)
             .WithName("GetUsers");
 

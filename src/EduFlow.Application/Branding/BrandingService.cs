@@ -1,10 +1,12 @@
 using System.Text.RegularExpressions;
 using EduFlow.Application.Common.Interfaces;
+using EduFlow.Application.Common.Security;
 using EduFlow.Domain;
 using EduFlow.Domain.Entities;
 using EduFlow.Domain.Enums;
 using EduFlow.Domain.Exceptions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace EduFlow.Application.Branding;
 
@@ -13,23 +15,38 @@ public sealed partial class BrandingService(
     ITenantContext tenantContext,
     IFeatureService featureService,
     IAuditService auditService,
-    IFileStorage fileStorage) : IBrandingService
+    IFileStorage fileStorage,
+    IAntivirusScanner? antivirusScanner = null,
+    IMemoryCache? cache = null) : IBrandingService
 {
     private const long MaxAssetBytes = 2 * 1024 * 1024;
+    private static string CacheKey(Guid tenantId) => $"branding:public:{tenantId:N}";
 
     public async Task<BrandingDto> GetPublicAsync(CancellationToken cancellationToken = default)
     {
         var tenantId = tenantContext.TenantId is Guid id && id != Guid.Empty ? id : Guid.Empty;
-        if (tenantId == Guid.Empty)
+        var key = CacheKey(tenantId);
+        if (cache is not null && cache.TryGetValue(key, out BrandingDto? cached) && cached is not null)
         {
-            return await MapPlatformAsync(cancellationToken);
+            return cached;
         }
 
-        var tenant = await LoadTenantAsync(tenantId, cancellationToken);
-        var profile = await FindProfileAsync(tenantId, cancellationToken);
+        BrandingDto result;
+        if (tenantId == Guid.Empty)
+        {
+            result = await MapPlatformAsync(cancellationToken);
+        }
+        else
+        {
+            var tenant = await LoadTenantAsync(tenantId, cancellationToken);
+            var profile = await FindProfileAsync(tenantId, cancellationToken);
 
-        var canRemove = await CanRemoveProductBrandingAsync(tenantId, cancellationToken);
-        return Map(profile, tenant.Name, tenant.Subdomain, canRemove, isPlatform: false);
+            var canRemove = await CanRemoveProductBrandingAsync(tenantId, cancellationToken);
+            result = Map(profile, tenant.Name, tenant.Subdomain, canRemove, isPlatform: false);
+        }
+
+        cache?.Set(key, result, TimeSpan.FromMinutes(2));
+        return result;
     }
 
     public async Task<BrandingDto> GetForEditAsync(bool platform, CancellationToken cancellationToken = default)
@@ -62,6 +79,7 @@ public sealed partial class BrandingService(
             tenantIdOverride: tenantId == Guid.Empty ? null : tenantId,
             cancellationToken: cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
+        cache?.Remove(CacheKey(tenantId));
         return await GetForEditAsync(platform, cancellationToken);
     }
 
@@ -99,6 +117,7 @@ public sealed partial class BrandingService(
             tenantIdOverride: tenantId == Guid.Empty ? null : tenantId,
             cancellationToken: cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
+        cache?.Remove(CacheKey(tenantId));
         return await GetForEditAsync(platform, cancellationToken);
     }
 
@@ -139,10 +158,20 @@ public sealed partial class BrandingService(
             buffer.Write(chunk, 0, read);
         }
 
-        if (total < 12 || !MatchesSignature(buffer.GetBuffer(), total, extension))
+        if (total < 12)
         {
             throw new DomainValidationException("INVALID_ASSET_TYPE", "The file contents do not match an allowed image type.");
         }
+
+        await FileUploadValidator.EnsureCleanAndValidSignatureAsync(
+            buffer,
+            fileName,
+            contentType,
+            extension,
+            "INVALID_ASSET_TYPE",
+            "The file contents do not match an allowed image type.",
+            antivirusScanner,
+            cancellationToken);
 
         buffer.Position = 0;
         var tenantId = RequireTenant(platform);
@@ -177,6 +206,7 @@ public sealed partial class BrandingService(
             tenantIdOverride: tenantId == Guid.Empty ? null : tenantId,
             cancellationToken: cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
+        cache?.Remove(CacheKey(tenantId));
         return await GetForEditAsync(platform, cancellationToken);
     }
 
@@ -392,24 +422,6 @@ public sealed partial class BrandingService(
         {
             throw new DomainValidationException("INVALID_ASSET_URL", $"{label} must be an uploaded file or an https URL.");
         }
-    }
-
-    private static bool MatchesSignature(byte[] data, long length, string extension)
-    {
-        if (extension == ".png")
-        {
-            return length >= 8
-                && data[0] == 0x89 && data[1] == 0x50 && data[2] == 0x4E && data[3] == 0x47;
-        }
-
-        if (extension == ".jpg")
-        {
-            return length >= 3 && data[0] == 0xFF && data[1] == 0xD8 && data[2] == 0xFF;
-        }
-
-        return length >= 12
-            && data[0] == (byte)'R' && data[1] == (byte)'I' && data[2] == (byte)'F' && data[3] == (byte)'F'
-            && data[8] == (byte)'W' && data[9] == (byte)'E' && data[10] == (byte)'B' && data[11] == (byte)'P';
     }
 
     [GeneratedRegex("^#[0-9A-Fa-f]{6}$")]

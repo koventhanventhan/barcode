@@ -1,5 +1,6 @@
 using EduFlow.Application.Academics;
 using EduFlow.Application.Common.Interfaces;
+using EduFlow.Application.Common.Security;
 using EduFlow.Domain.Entities;
 using EduFlow.Domain.Enums;
 using EduFlow.Domain.Exceptions;
@@ -32,7 +33,8 @@ public sealed class StudentService(
     IAcademicDocumentService documents,
     IBarcodeEncoder barcodes,
     IWorkbookFile workbook,
-    IFileStorage files) : IStudentService
+    IFileStorage files,
+    IAntivirusScanner? antivirusScanner = null) : IStudentService
 {
     private const int MaxImportRows = 2000;
     private const int MaxPrint = 500;
@@ -99,6 +101,7 @@ public sealed class StudentService(
             await SyncEnrollmentsAsync(student, request.BatchIds, cancellationToken);
         }
 
+        await auditService.LogAsync("Student.Updated", nameof(Student), student.Id.ToString(), new { student.StudentCode }, cancellationToken: cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         return await MapStudentAsync(student, cancellationToken);
     }
@@ -114,6 +117,7 @@ public sealed class StudentService(
         }
 
         db.Students.Remove(student);
+        await auditService.LogAsync("Student.Deleted", nameof(Student), student.Id.ToString(), new { student.StudentCode }, cancellationToken: cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
     }
 
@@ -150,10 +154,21 @@ public sealed class StudentService(
 
         await using var buffer = new MemoryStream();
         await content.CopyToAsync(buffer, cancellationToken);
+        await FileUploadValidator.EnsureCleanAndValidSignatureAsync(
+            buffer,
+            fileName,
+            contentType,
+            extension,
+            "PHOTO_TYPE",
+            "Upload a JPEG, PNG, or WebP photo.",
+            antivirusScanner,
+            cancellationToken);
+
         buffer.Position = 0;
         var stored = await files.SaveAsync($"students/{tenantId:N}", $"{Guid.NewGuid():N}{extension}", buffer, cancellationToken);
         student.PhotoUrl = stored.Url;
         student.PhotoBytes = stored.SizeBytes;
+        await auditService.LogAsync("Student.PhotoUploaded", nameof(Student), student.Id.ToString(), new { student.StudentCode, stored.SizeBytes }, cancellationToken: cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         return await MapStudentAsync(student, cancellationToken);
     }
@@ -175,6 +190,22 @@ public sealed class StudentService(
 
         buffer.Position = 0;
         var extension = Path.GetExtension(fileName).ToLowerInvariant();
+        if (extension is not (".csv" or ".xlsx"))
+        {
+            throw new DomainValidationException("IMPORT_FILE", "Upload a .csv or .xlsx file.");
+        }
+
+        await FileUploadValidator.EnsureCleanAndValidSignatureAsync(
+            buffer,
+            fileName,
+            null,
+            extension,
+            "IMPORT_FILE",
+            "Upload a valid .csv or .xlsx file.",
+            antivirusScanner,
+            cancellationToken);
+
+        buffer.Position = 0;
         IReadOnlyList<TabularRow> rows = extension switch
         {
             ".csv" => CsvTable.Read(buffer),

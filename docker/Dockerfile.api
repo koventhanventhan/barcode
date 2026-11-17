@@ -1,11 +1,23 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
-COPY . .
-RUN dotnet publish src/EduFlow.Api/EduFlow.Api.csproj -c Release -o /app/publish /p:UseAppHost=false
+
+COPY Directory.Build.props global.json ./
+COPY src/EduFlow.Domain/EduFlow.Domain.csproj src/EduFlow.Domain/
+COPY src/EduFlow.Application/EduFlow.Application.csproj src/EduFlow.Application/
+COPY src/EduFlow.Infrastructure/EduFlow.Infrastructure.csproj src/EduFlow.Infrastructure/
+COPY src/EduFlow.Api/EduFlow.Api.csproj src/EduFlow.Api/
+RUN dotnet restore src/EduFlow.Api/EduFlow.Api.csproj
+
+COPY src/ src/
+RUN dotnet publish src/EduFlow.Api/EduFlow.Api.csproj -c Release --no-restore -o /app/publish /p:UseAppHost=false
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 WORKDIR /app
-COPY --from=build /app/publish .
-ENV ASPNETCORE_URLS=http://+:8080
+RUN mkdir -p /app/storage /app/logs /home/app/.aspnet/DataProtection-Keys \
+    && chown -R app:app /app /home/app
+COPY --from=build --chown=app:app /app/publish .
+USER app
+ENV ASPNETCORE_URLS=http://+:8080 \
+    DOTNET_EnableDiagnostics=0
 EXPOSE 8080
 ENTRYPOINT ["dotnet", "EduFlow.Api.dll"]
