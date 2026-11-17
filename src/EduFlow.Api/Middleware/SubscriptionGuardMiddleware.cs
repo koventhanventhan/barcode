@@ -25,6 +25,22 @@ public sealed class SubscriptionGuardMiddleware(RequestDelegate next)
             return;
         }
 
+        var platformSetting = await db.PlatformSettings
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(s => !s.IsDeleted && s.Key == "default", context.RequestAborted);
+
+        if (platformSetting is { IsMaintenanceMode: true })
+        {
+            context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+            await context.Response.WriteAsJsonAsync(new
+            {
+                code = "MAINTENANCE_MODE",
+                message = platformSetting.MaintenanceMessage ?? "Platform is currently undergoing scheduled maintenance."
+            });
+            return;
+        }
+
         var isReadOnlyHttpMethod = HttpMethods.IsGet(context.Request.Method)
             || HttpMethods.IsHead(context.Request.Method)
             || HttpMethods.IsOptions(context.Request.Method);

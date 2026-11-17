@@ -42,6 +42,14 @@ public interface ISuperAdminService
     Task<PlatformSubscriptionInvoiceDto> CreatePlatformInvoiceAsync(Guid tenantId, CreatePlatformInvoiceRequest request, CancellationToken cancellationToken = default);
     Task<PlatformSubscriptionInvoiceDto> MarkPlatformInvoicePaidAsync(Guid invoiceId, MarkPlatformInvoicePaidRequest request, CancellationToken cancellationToken = default);
     Task<StoredDownload> GetPlatformInvoicePdfAsync(Guid invoiceId, CancellationToken cancellationToken = default);
+
+    Task<SuperAdminDashboardDto> GetDashboardAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<PlatformAnnouncementDto>> GetAnnouncementsAsync(bool activeOnly = false, CancellationToken cancellationToken = default);
+    Task<PlatformAnnouncementDto> CreateAnnouncementAsync(CreatePlatformAnnouncementRequest request, CancellationToken cancellationToken = default);
+    Task<PlatformAnnouncementDto> SetAnnouncementActiveAsync(Guid id, bool isActive, CancellationToken cancellationToken = default);
+    Task DeleteAnnouncementAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<MaintenanceModeDto> GetMaintenanceModeAsync(CancellationToken cancellationToken = default);
+    Task<MaintenanceModeDto> UpdateMaintenanceModeAsync(UpdateMaintenanceModeRequest request, CancellationToken cancellationToken = default);
 }
 
 public sealed partial class SuperAdminService(
@@ -905,7 +913,8 @@ public sealed partial class SuperAdminService(
 
         if (!string.IsNullOrWhiteSpace(action))
         {
-            query = query.Where(a => a.Action == action);
+            var term = action.Trim();
+            query = query.Where(a => a.Action.Contains(term));
         }
 
         return await query
@@ -1117,6 +1126,407 @@ public sealed partial class SuperAdminService(
         var pdf = feeDocuments.BuildPlatformInvoicePdf(content);
         return new StoredDownload(pdf, "application/pdf", $"{invoice.InvoiceNumber.ToLowerInvariant()}.pdf");
     }
+
+    public async Task<SuperAdminDashboardDto> GetDashboardAsync(CancellationToken cancellationToken = default)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var monthStart = new DateTimeOffset(now.Year, now.Month, 1, 0, 0, 0, TimeSpan.Zero);
+        var monthEnd = monthStart.AddMonths(1);
+
+        var tenants = await db.Tenants
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(t => !t.IsDeleted)
+            .OrderBy(t => t.Name)
+            .ToListAsync(cancellationToken);
+
+        var tenantMap = tenants.ToDictionary(t => t.Id);
+
+        var subscriptions = await db.Subscriptions
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Include(s => s.Plan)
+                .ThenInclude(p => p!.Limits)
+            .Where(s => !s.IsDeleted)
+            .ToListAsync(cancellationToken);
+
+        var subByTenant = subscriptions
+            .GroupBy(s => s.TenantId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.CreatedAt).First());
+
+        var activeCount = 0;
+        var trialCount = 0;
+        var expiredCount = 0;
+        var suspendedCount = 0;
+        var inactiveCount = 0;
+        var mrr = 0m;
+        var expiringTrials = new List<ExpiringTrialDto>();
+
+        foreach (var t in tenants)
+        {
+            if (!t.IsActive)
+            {
+                inactiveCount++;
+            }
+
+            subByTenant.TryGetValue(t.Id, out var sub);
+            if (sub is null)
+            {
+                continue;
+            }
+
+            if (sub.Status == SubscriptionStatus.Suspended)
+            {
+                suspendedCount++;
+            }
+            else if (sub.IsEffectivelyExpired(now))
+            {
+                expiredCount++;
+            }
+            else if (sub.Status == SubscriptionStatus.Trial)
+            {
+                trialCount++;
+                var trialEnd = sub.TrialEndsAt ?? sub.EndDate;
+                if (trialEnd.HasValue)
+                {
+                    var daysRemaining = (int)Math.Ceiling((trialEnd.Value - now).TotalDays);
+                    if (daysRemaining <= 14)
+                    {
+                        expiringTrials.Add(new ExpiringTrialDto(
+                            t.Id,
+                            t.Name,
+                            t.Subdomain,
+                            sub.Plan?.Name ?? "Starter",
+                            trialEnd,
+                            Math.Max(0, daysRemaining),
+                            t.ContactEmail));
+                    }
+                }
+            }
+            else if (sub.Status == SubscriptionStatus.Active)
+            {
+                activeCount++;
+                mrr += sub.Plan?.PriceMonthly ?? 0m;
+            }
+        }
+
+        var paidInvoices = await db.PlatformSubscriptionInvoices
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(i => !i.IsDeleted && i.Status == PlatformInvoiceStatus.Paid && i.PaidAt.HasValue)
+            .ToListAsync(cancellationToken);
+
+        var collectedThisMonth = paidInvoices
+            .Where(i => i.PaidAt!.Value >= monthStart && i.PaidAt!.Value < monthEnd)
+            .Sum(i => i.Amount);
+
+        var smsRows = await db.NotificationOutboxes
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(o => !o.IsDeleted
+                        && o.Channel == NotificationChannel.Sms
+                        && (o.Status == NotificationStatus.Sent || o.Status == NotificationStatus.Delivered))
+            .Select(o => new { o.TenantId, o.SentAt, o.CreatedAt, o.SmsSegments, o.ExtraSegments })
+            .ToListAsync(cancellationToken);
+
+        var smsThisMonthByTenant = smsRows
+            .Where(o =>
+            {
+                var ts = o.SentAt ?? o.CreatedAt;
+                return ts >= monthStart && ts < monthEnd;
+            })
+            .GroupBy(o => o.TenantId)
+            .ToDictionary(
+                g => g.Key,
+                g => (Used: g.Sum(x => x.SmsSegments), Extra: g.Sum(x => x.ExtraSegments)));
+
+        var smsUsage = tenants.Select(t =>
+        {
+            subByTenant.TryGetValue(t.Id, out var sub);
+            var quota = sub?.Plan?.Limits.FirstOrDefault(l => !l.IsDeleted && l.LimitKey == LimitKey.SmsSegmentsPerMonth)?.MaxValue;
+            smsThisMonthByTenant.TryGetValue(t.Id, out var usage);
+            var pct = quota is > 0 ? Math.Round(usage.Used * 100.0 / quota.Value, 1) : 0.0;
+            return new TenantSmsUsageDto(t.Id, t.Name, t.Subdomain, usage.Used, quota, usage.Extra, pct);
+        }).ToList();
+
+        var studentPhotoBytes = await db.Students
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(s => !s.IsDeleted && s.PhotoBytes > 0)
+            .GroupBy(s => s.TenantId)
+            .Select(g => new { TenantId = g.Key, Bytes = g.Sum(x => x.PhotoBytes) })
+            .ToDictionaryAsync(x => x.TenantId, x => x.Bytes, cancellationToken);
+
+        var paymentBytes = await db.FeePayments
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(p => !p.IsDeleted && p.AttachmentBytes > 0)
+            .GroupBy(p => p.TenantId)
+            .Select(g => new { TenantId = g.Key, Bytes = g.Sum(x => x.AttachmentBytes) })
+            .ToDictionaryAsync(x => x.TenantId, x => x.Bytes, cancellationToken);
+
+        var backupBytes = await db.TenantBackupRecords
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(b => !b.IsDeleted && b.SizeBytes > 0)
+            .GroupBy(b => b.TenantId)
+            .Select(g => new { TenantId = g.Key, Bytes = g.Sum(x => x.SizeBytes) })
+            .ToDictionaryAsync(x => x.TenantId, x => x.Bytes, cancellationToken);
+
+        var storageUsage = tenants.Select(t =>
+        {
+            subByTenant.TryGetValue(t.Id, out var sub);
+            var limitGb = sub?.Plan?.Limits.FirstOrDefault(l => !l.IsDeleted && l.LimitKey == LimitKey.CloudStorageGb)?.MaxValue;
+            studentPhotoBytes.TryGetValue(t.Id, out var sb);
+            paymentBytes.TryGetValue(t.Id, out var pb);
+            backupBytes.TryGetValue(t.Id, out var bb);
+            var totalBytes = sb + pb + bb;
+            var limitBytes = limitGb.HasValue ? limitGb.Value * 1024L * 1024L * 1024L : 0L;
+            var pct = limitBytes > 0 ? Math.Round(totalBytes * 100.0 / limitBytes, 2) : 0.0;
+            return new TenantStorageUsageDto(t.Id, t.Name, t.Subdomain, totalBytes, limitGb, pct);
+        }).ToList();
+
+        var failedNotifications = await db.NotificationOutboxes
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(o => !o.IsDeleted && (o.Status == NotificationStatus.Failed || o.IsDeadLetter))
+            .OrderByDescending(o => o.LastAttemptAt ?? o.CreatedAt)
+            .Take(50)
+            .ToListAsync(cancellationToken);
+
+        var failedBackups = await db.TenantBackupRecords
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(b => !b.IsDeleted && b.Status == BackupStatus.Failed)
+            .OrderByDescending(b => b.CreatedAt)
+            .Take(20)
+            .ToListAsync(cancellationToken);
+
+        var recentFailures = new List<FailedJobItemDto>();
+        foreach (var fn in failedNotifications.Take(15))
+        {
+            tenantMap.TryGetValue(fn.TenantId, out var t);
+            recentFailures.Add(new FailedJobItemDto(
+                fn.Id,
+                fn.IsDeadLetter ? "NotificationDeadLetter" : "NotificationOutbox",
+                t?.Name,
+                $"{fn.Channel}:{fn.Recipient}",
+                fn.StatusReason ?? "Delivery failed",
+                fn.LastAttemptAt ?? fn.CreatedAt));
+        }
+
+        foreach (var fb in failedBackups.Take(10))
+        {
+            tenantMap.TryGetValue(fb.TenantId, out var t);
+            recentFailures.Add(new FailedJobItemDto(
+                fb.Id,
+                "TenantBackup",
+                t?.Name,
+                fb.FileName,
+                fb.ErrorMessage ?? "Backup failed",
+                fb.CreatedAt));
+        }
+
+        var recentErrors = recentFailures
+            .OrderByDescending(f => f.FailedAt)
+            .Take(20)
+            .Select(f => new RecentErrorDto(f.Id, f.Category, f.Error, f.TenantName, f.FailedAt))
+            .ToList();
+
+        var maintenance = await GetMaintenanceModeAsync(cancellationToken);
+        var activeAnnouncements = await GetAnnouncementsAsync(activeOnly: true, cancellationToken);
+
+        return new SuperAdminDashboardDto(
+            new TenantsCountSummaryDto(
+                tenants.Count,
+                activeCount,
+                trialCount,
+                expiredCount,
+                suspendedCount,
+                inactiveCount),
+            FeeRules.RoundMoney(mrr),
+            FeeRules.RoundMoney(collectedThisMonth),
+            "LKR",
+            expiringTrials.OrderBy(e => e.DaysRemaining).ToList(),
+            smsUsage,
+            storageUsage,
+            new FailedJobsSummaryDto(
+                failedNotifications.Count(f => f.IsDeadLetter),
+                failedNotifications.Count,
+                failedBackups.Count,
+                recentFailures.OrderByDescending(f => f.FailedAt).Take(20).ToList()),
+            recentErrors,
+            maintenance,
+            activeAnnouncements);
+    }
+
+    public async Task<IReadOnlyList<PlatformAnnouncementDto>> GetAnnouncementsAsync(
+        bool activeOnly = false,
+        CancellationToken cancellationToken = default)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var items = await db.PlatformAnnouncements
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(a => !a.IsDeleted)
+            .OrderByDescending(a => a.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        if (activeOnly)
+        {
+            items = items
+                .Where(a => a.IsActive && (!a.ExpiresAt.HasValue || a.ExpiresAt.Value > now))
+                .ToList();
+        }
+
+        return items.Select(MapAnnouncement).ToList();
+    }
+
+    public async Task<PlatformAnnouncementDto> CreateAnnouncementAsync(
+        CreatePlatformAnnouncementRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var title = request.Title?.Trim() ?? string.Empty;
+        var body = request.Body?.Trim() ?? string.Empty;
+        if (title.Length is < 2 or > 200)
+        {
+            throw new DomainValidationException("INVALID_TITLE", "Announcement title must be between 2 and 200 characters.");
+        }
+
+        if (body.Length is < 2 or > 2000)
+        {
+            throw new DomainValidationException("INVALID_BODY", "Announcement body must be between 2 and 2000 characters.");
+        }
+
+        var announcement = new PlatformAnnouncement
+        {
+            Title = title,
+            Body = body,
+            Severity = request.Severity,
+            IsActive = true,
+            ExpiresAt = request.ExpiresAt,
+            PublishedByUserId = tenantContext.UserId
+        };
+
+        using (tenantContext.BeginSystemScope())
+        {
+            db.PlatformAnnouncements.Add(announcement);
+            await auditService.LogAsync(
+                "SuperAdmin.AnnouncementPublished",
+                nameof(PlatformAnnouncement),
+                announcement.Id.ToString(),
+                new { announcement.Title, Severity = announcement.Severity.ToString(), announcement.ExpiresAt },
+                cancellationToken: cancellationToken);
+
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
+        return MapAnnouncement(announcement);
+    }
+
+    public async Task<PlatformAnnouncementDto> SetAnnouncementActiveAsync(
+        Guid id,
+        bool isActive,
+        CancellationToken cancellationToken = default)
+    {
+        using (tenantContext.BeginSystemScope())
+        {
+            var announcement = await db.PlatformAnnouncements
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(a => !a.IsDeleted && a.Id == id, cancellationToken)
+                ?? throw new EntityNotFoundException(nameof(PlatformAnnouncement), id.ToString());
+
+            announcement.IsActive = isActive;
+            await auditService.LogAsync(
+                "SuperAdmin.AnnouncementStatusChanged",
+                nameof(PlatformAnnouncement),
+                announcement.Id.ToString(),
+                new { announcement.Title, announcement.IsActive },
+                cancellationToken: cancellationToken);
+
+            await db.SaveChangesAsync(cancellationToken);
+            return MapAnnouncement(announcement);
+        }
+    }
+
+    public async Task DeleteAnnouncementAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        using (tenantContext.BeginSystemScope())
+        {
+            var announcement = await db.PlatformAnnouncements
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(a => !a.IsDeleted && a.Id == id, cancellationToken)
+                ?? throw new EntityNotFoundException(nameof(PlatformAnnouncement), id.ToString());
+
+            db.PlatformAnnouncements.Remove(announcement);
+            await auditService.LogAsync(
+                "SuperAdmin.AnnouncementDeleted",
+                nameof(PlatformAnnouncement),
+                announcement.Id.ToString(),
+                new { announcement.Title },
+                cancellationToken: cancellationToken);
+
+            await db.SaveChangesAsync(cancellationToken);
+        }
+    }
+
+    public async Task<MaintenanceModeDto> GetMaintenanceModeAsync(CancellationToken cancellationToken = default)
+    {
+        var setting = await db.PlatformSettings
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(s => !s.IsDeleted && s.Key == "default", cancellationToken);
+
+        return new MaintenanceModeDto(
+            setting?.IsMaintenanceMode ?? false,
+            setting?.MaintenanceMessage,
+            setting?.UpdatedAt ?? setting?.CreatedAt);
+    }
+
+    public async Task<MaintenanceModeDto> UpdateMaintenanceModeAsync(
+        UpdateMaintenanceModeRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        using (tenantContext.BeginSystemScope())
+        {
+            var setting = await db.PlatformSettings
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(s => !s.IsDeleted && s.Key == "default", cancellationToken);
+
+            if (setting is null)
+            {
+                setting = new PlatformSetting
+                {
+                    Key = "default",
+                    PlatformBackupRetentionDays = 14
+                };
+                db.PlatformSettings.Add(setting);
+            }
+
+            setting.IsMaintenanceMode = request.IsMaintenanceMode;
+            setting.MaintenanceMessage = string.IsNullOrWhiteSpace(request.Message)
+                ? null
+                : request.Message.Trim()[..Math.Min(500, request.Message.Trim().Length)];
+            setting.UpdatedByUserId = tenantContext.UserId;
+
+            await auditService.LogAsync(
+                "SuperAdmin.MaintenanceModeUpdated",
+                nameof(PlatformSetting),
+                setting.Id.ToString(),
+                new { setting.IsMaintenanceMode, setting.MaintenanceMessage },
+                cancellationToken: cancellationToken);
+
+            await db.SaveChangesAsync(cancellationToken);
+
+            return new MaintenanceModeDto(
+                setting.IsMaintenanceMode,
+                setting.MaintenanceMessage,
+                setting.UpdatedAt ?? setting.CreatedAt);
+        }
+    }
+
+    private static PlatformAnnouncementDto MapAnnouncement(PlatformAnnouncement a) =>
+        new(a.Id, a.Title, a.Body, a.Severity.ToString(), a.IsActive, a.ExpiresAt, a.CreatedAt);
 
     private async Task<IReadOnlyList<PlatformSubscriptionInvoiceDto>> MapPlatformInvoicesAsync(
         IReadOnlyList<PlatformSubscriptionInvoice> invoices,

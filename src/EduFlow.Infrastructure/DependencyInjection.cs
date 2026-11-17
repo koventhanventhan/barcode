@@ -1,6 +1,7 @@
 using EduFlow.Application.Academics;
 using EduFlow.Application.Attendance;
 using EduFlow.Application.Auth;
+using EduFlow.Application.Backups;
 using EduFlow.Application.Branding;
 using EduFlow.Application.Common.Interfaces;
 using EduFlow.Application.Features;
@@ -13,6 +14,7 @@ using EduFlow.Application.Parents;
 using EduFlow.Application.Students;
 using EduFlow.Application.SuperAdmin;
 using EduFlow.Application.Tenancy;
+using EduFlow.Infrastructure.Backups;
 using EduFlow.Infrastructure.Documents;
 using EduFlow.Infrastructure.Exams;
 using EduFlow.Infrastructure.Fees;
@@ -154,12 +156,16 @@ public static class DependencyInjection
         services.AddScoped<ITenantManagementService, TenantManagementService>();
         services.AddScoped<IBrandingService, BrandingService>();
         services.AddScoped<IAcademicService, AcademicService>();
+        services.AddScoped<ITimetableService, TimetableService>();
         services.AddScoped<IStudentService, StudentService>();
         services.AddScoped<IStaffDirectoryService, StaffDirectoryService>();
+        services.AddScoped<IStaffOperationsService, StaffOperationsService>();
         services.AddScoped<IAttendanceService, AttendanceService>();
         services.AddScoped<IFeeService, FeeService>();
         services.AddScoped<IExamService, ExamService>();
         services.AddScoped<IParentPortalService, ParentPortalService>();
+        services.AddScoped<IBackupAndCleanupService, BackupAndCleanupService>();
+        services.AddScoped<IDatabaseBackupExecutor, DatabaseBackupExecutor>();
         services.AddSingleton<IAppLinks, AppLinks>();
         services.AddScoped<NotificationService>();
         services.AddScoped<INotificationService>(sp => sp.GetRequiredService<NotificationService>());
@@ -168,6 +174,8 @@ public static class DependencyInjection
         services.AddScoped<MonthlyFeeInvoiceHangfireJob>();
         services.AddScoped<FeeReminderHangfireJob>();
         services.AddScoped<ExamReminderHangfireJob>();
+        services.AddScoped<TenantAutoBackupHangfireJob>();
+        services.AddScoped<PlatformDatabaseBackupHangfireJob>();
 
         services.AddSingleton<IPaymentGateway, PayHerePaymentGateway>();
         services.AddSingleton<IBarcodeEncoder, ZxingBarcodeEncoder>();

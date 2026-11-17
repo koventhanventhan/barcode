@@ -49,6 +49,15 @@ public interface IAppDbContext
     DbSet<ExamMark> ExamMarks { get; }
     DbSet<ExamResult> ExamResults { get; }
     DbSet<ParentStudentLink> ParentStudentLinks { get; }
+    DbSet<TenantBackupPolicy> TenantBackupPolicies { get; }
+    DbSet<TenantBackupRecord> TenantBackupRecords { get; }
+    DbSet<TenantCleanupPolicy> TenantCleanupPolicies { get; }
+    DbSet<PlatformBackupRecord> PlatformBackupRecords { get; }
+    DbSet<PlatformAnnouncement> PlatformAnnouncements { get; }
+    DbSet<PlatformSetting> PlatformSettings { get; }
+    DbSet<StaffAttendanceRecord> StaffAttendanceRecords { get; }
+    DbSet<StaffLeaveRequest> StaffLeaveRequests { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+    Task<int> SaveChangesHardDeleteAsync(CancellationToken cancellationToken = default);
 }

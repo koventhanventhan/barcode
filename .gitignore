@@ -485,3 +485,6 @@ $RECYCLE.BIN/
 
 # Uploaded branding files
 storage/
+!src/**/Backups/
+!src/**/Backups/**
+

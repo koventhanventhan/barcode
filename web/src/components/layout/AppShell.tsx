@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import {
+  Archive,
   BookOpen,
   Building2,
   CalendarDays,
@@ -31,6 +32,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { ProductName } from "@/config/brand";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { useBranding } from "@/features/branding/BrandingProvider";
+import type { PlatformAnnouncement } from "@/features/operations/api";
 import { api } from "@/lib/api";
 import type { SubscriptionSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -58,6 +60,11 @@ export function AppShell() {
     enabled: Boolean(institute),
     queryFn: () => api<SubscriptionSummary>("/api/subscription"),
   });
+  const activeAnnouncements = useQuery({
+    queryKey: ["active-announcements", user?.id],
+    enabled: Boolean(user),
+    queryFn: () => api<PlatformAnnouncement[]>("/api/announcements/active"),
+  });
   const canSettings = auth.hasPermission("settings.manage");
   const canStudents = auth.hasPermission("students.view");
   const canAcademics = auth.hasPermission("academics.view");
@@ -77,6 +84,7 @@ export function AppShell() {
       { to: "/app/academics/batches", label: t("nav.batches"), icon: Layers, show: inInstitute && canAcademics, group: "academic" },
       { to: "/app/academics/subjects", label: t("nav.subjects"), icon: BookOpen, show: inInstitute && canAcademics, group: "academic" },
       { to: "/app/academics/classes", label: t("nav.classes"), icon: CalendarDays, show: inInstitute && canAcademics, group: "academic" },
+      { to: "/app/academics/timetable", label: t("nav.timetable"), icon: CalendarDays, show: inInstitute && canAcademics, group: "academic" },
       { to: "/app/staff", label: t("nav.staff"), icon: Users, show: inInstitute && canStaff, group: "academic" },
       { to: "/app/parents", label: t("nav.parents"), icon: UserRound, show: inInstitute && canStudents, group: "academic" },
       { to: "/app/attendance", label: t("nav.attendance"), icon: ScanLine, show: inInstitute && canAttendance, group: "academic" },
@@ -84,8 +92,10 @@ export function AppShell() {
       { to: "/app/exams", label: t("nav.exams"), icon: ClipboardCheck, show: inInstitute && canExams, group: "academic" },
       { to: "/app/settings/features", label: t("nav.features"), icon: SlidersHorizontal, show: inInstitute && canSettings, group: "settings" },
       { to: "/app/settings/messages", label: t("nav.messageLog"), icon: MessageSquare, show: inInstitute && canSettings, group: "settings" },
+      { to: "/app/settings/backups", label: t("nav.backups"), icon: Archive, show: inInstitute && canSettings, group: "settings" },
       { to: "/app/settings/branding", label: t("nav.branding"), icon: Palette, show: inInstitute && canSettings, group: "settings" },
       { to: "/account/password", label: t("nav.password"), icon: KeyRound, show: true, group: "settings" },
+      { to: "/admin/dashboard", label: t("nav.dashboard"), icon: LayoutDashboard, show: platform, group: "platform" },
       { to: "/admin/tenants", label: t("nav.tenants"), icon: Building2, show: platform, group: "platform" },
       { to: "/admin/plans", label: t("nav.plans"), icon: CreditCard, show: platform, group: "platform" },
       { to: "/admin/branding", label: t("nav.platformBranding"), icon: Palette, show: platform, group: "platform" },
@@ -236,6 +246,15 @@ export function AppShell() {
         ) : readOnly ? (
           <div className="border-b border-border bg-secondary px-4 py-2 text-[13px]">{t("shell.readOnly")}</div>
         ) : null}
+        {(activeAnnouncements.data ?? []).map((ann) => (
+          <div
+            key={ann.id}
+            className="border-b border-border bg-secondary px-4 py-2 text-xs"
+          >
+            <span className="font-semibold">{ann.title}:</span>{" "}
+            <span className="text-muted">{ann.body}</span>
+          </div>
+        ))}
         <main id="content" className="px-3 py-5 sm:px-6">
           <Outlet />
         </main>

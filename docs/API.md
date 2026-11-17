@@ -30,6 +30,11 @@ Requires `SuperAdmin` role:
 - `POST /api/super-admin/tenants/{id}/impersonate` (read-only audited token)
 - `GET /api/super-admin/audit-logs`
 - `GET /api/super-admin/invoices`, `GET/POST /api/super-admin/tenants/{id}/invoices`, `POST /api/super-admin/invoices/{invoiceId}/mark-paid`, `GET /api/super-admin/invoices/{invoiceId}/pdf` (manual platform subscription billing & PDF)
+- `GET /api/super-admin/dashboard` — Tenants status summary, MRR, expiring trials, SMS & cloud storage per tenant, failed jobs, recent errors, maintenance state, and active announcements
+- `GET/POST /api/super-admin/announcements`, `PUT /api/super-admin/announcements/{id}/status`, `DELETE /api/super-admin/announcements/{id}` — Platform-wide announcements to all tenants
+- `GET/PUT /api/super-admin/maintenance` — Platform maintenance mode switch (`503 MAINTENANCE_MODE` for non-SuperAdmin traffic)
+- `GET /api/super-admin/platform-backups`, `PUT /api/super-admin/platform-backups/retention` (14–30 days), `POST /api/super-admin/platform-backups/run`, `GET /api/super-admin/platform-backups/{backupId}/download`
+- `GET /api/super-admin/tenants/{id}/backups`, `POST /api/super-admin/tenants/{id}/backups/{backupId}/restore` (support-only tenant backup restore with `dryRun` validation)
 
 ## Institute Tenant Endpoints
 - `GET /api/subscription` — Subscription status, features, and plan limit usage
@@ -100,5 +105,12 @@ Requires `SuperAdmin` role:
 - `GET /api/exams/summary` (`reports.view`) — Upcoming and published counts for the dashboard.
 - `GET /api/exams/{id}/report-cards` (`reports.view`, `[RequireFeature(FeatureKey.PerformanceReports)]`) — Branded report-card PDF.
 - `POST /api/exams/reminders/run` (`exams.manage`) — Enqueue `ExamReminder` using tenant days plus hours, overridable per exam.
+
+## Backups, Report Cleanup, Timetable & Staff Leave
+- `GET /api/announcements/active` — Active platform announcements for tenant banner display
+- `GET /api/backups`, `PUT /api/backups/policy`, `POST /api/backups/run`, `GET /api/backups/{id}/download` (`settings.manage`, `[RequireFeature(FeatureKey.AutoBackup)]`) — Institute backup archive export (JSON + CSV + uploaded files manifest), retention policy, and `BackupResultAdmin` email notification
+- `GET /api/settings/cleanup`, `PUT /api/settings/cleanup/policy`, `POST /api/settings/cleanup/run` (`settings.manage`, `[RequireFeature(FeatureKey.ReportCleanup)]`) — Archive and hard-delete old audit logs, sent messages, and soft-deleted records by retention policy (supports `dryRun`)
+- `GET /api/timetable`, `POST /api/timetable/check-clashes`, `POST/PUT/DELETE /api/timetable/slots` (`academics.view` / `academics.manage`, `[RequireFeature(FeatureKey.Timetable)]`) — Weekly timetable grid with Teacher, Batch, and Room clash detection
+- `GET/PUT /api/staff/attendance`, `GET/POST /api/staff/leaves`, `POST /api/staff/leaves/{id}/review` (`users.view` / `users.manage`, `[RequireFeature(FeatureKey.StaffLeave)]`) — Staff attendance sheet and leave request approval workflow
 
 

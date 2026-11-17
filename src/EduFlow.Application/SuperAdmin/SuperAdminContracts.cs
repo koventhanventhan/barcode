@@ -144,3 +144,99 @@ public sealed record AuditLogDto(
     string? EntityId,
     string? DetailsJson,
     DateTimeOffset CreatedAt);
+
+public sealed record TenantsCountSummaryDto(
+    int Total,
+    int Active,
+    int Trial,
+    int Expired,
+    int Suspended,
+    int Inactive);
+
+public sealed record ExpiringTrialDto(
+    Guid TenantId,
+    string TenantName,
+    string Subdomain,
+    string PlanName,
+    DateTimeOffset? TrialEndsAt,
+    int DaysRemaining,
+    string? ContactEmail);
+
+public sealed record TenantSmsUsageDto(
+    Guid TenantId,
+    string TenantName,
+    string Subdomain,
+    int UsedSegmentsThisMonth,
+    int? MonthlyQuota,
+    int ExtraSegmentsThisMonth,
+    double UsagePercentage);
+
+public sealed record TenantStorageUsageDto(
+    Guid TenantId,
+    string TenantName,
+    string Subdomain,
+    long UsedBytes,
+    int? LimitGb,
+    double UsagePercentage);
+
+public sealed record FailedJobItemDto(
+    Guid Id,
+    string Category,
+    string? TenantName,
+    string Target,
+    string Error,
+    DateTimeOffset FailedAt);
+
+public sealed record FailedJobsSummaryDto(
+    int DeadLetterNotificationsCount,
+    int FailedNotificationsCount,
+    int FailedBackupsCount,
+    IReadOnlyList<FailedJobItemDto> RecentFailures);
+
+public sealed record RecentErrorDto(
+    Guid Id,
+    string Source,
+    string Message,
+    string? TenantName,
+    DateTimeOffset OccurredAt);
+
+public sealed record MaintenanceModeDto(
+    bool IsMaintenanceMode,
+    string? Message,
+    DateTimeOffset? UpdatedAt);
+
+public sealed record UpdateMaintenanceModeRequest(
+    bool IsMaintenanceMode,
+    string? Message = null);
+
+public sealed record PlatformAnnouncementDto(
+    Guid Id,
+    string Title,
+    string Body,
+    string Severity,
+    bool IsActive,
+    DateTimeOffset? ExpiresAt,
+    DateTimeOffset CreatedAt);
+
+public sealed record CreatePlatformAnnouncementRequest(
+    string Title,
+    string Body,
+    AnnouncementSeverity Severity = AnnouncementSeverity.Info,
+    DateTimeOffset? ExpiresAt = null);
+
+public sealed record SetAnnouncementActiveRequest(
+    bool IsActive);
+
+public sealed record SuperAdminDashboardDto(
+    TenantsCountSummaryDto Tenants,
+    decimal Mrr,
+    decimal CollectedThisMonth,
+    string Currency,
+    IReadOnlyList<ExpiringTrialDto> TrialsExpiring,
+    IReadOnlyList<TenantSmsUsageDto> SmsUsageByTenant,
+    IReadOnlyList<TenantStorageUsageDto> StorageByTenant,
+    FailedJobsSummaryDto FailedJobs,
+    IReadOnlyList<RecentErrorDto> RecentErrors,
+    MaintenanceModeDto Maintenance,
+    IReadOnlyList<PlatformAnnouncementDto> ActiveAnnouncements);
+

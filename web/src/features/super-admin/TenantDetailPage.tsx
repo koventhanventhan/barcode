@@ -12,6 +12,11 @@ import { Input } from "@/components/ui/input";
 import { FEATURE_KEYS } from "@/domain/catalog";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { formatMoney, type PlatformSubscriptionInvoiceDto } from "@/features/fees/api";
+import {
+  formatBytes,
+  type BackupRestoreResult,
+  type TenantBackupRecord,
+} from "@/features/operations/api";
 import { api } from "@/lib/api";
 import { downloadApi } from "@/lib/download";
 import type { Plan, TenantDetail } from "@/lib/types";
@@ -33,6 +38,7 @@ export function TenantDetailPage() {
   const [invoiceMonths, setInvoiceMonths] = useState(1);
   const [invoiceDays, setInvoiceDays] = useState(30);
   const [paymentRef, setPaymentRef] = useState("");
+  const [restoreResult, setRestoreResult] = useState<BackupRestoreResult | null>(null);
   const tenant = useQuery({
     queryKey: ["tenant", id],
     queryFn: () => api<TenantDetail>(`/api/super-admin/tenants/${id}`),
@@ -41,6 +47,31 @@ export function TenantDetailPage() {
   const platformInvoices = useQuery({
     queryKey: ["platform-invoices", id],
     queryFn: () => api<PlatformSubscriptionInvoiceDto[]>(`/api/super-admin/tenants/${id}/invoices`),
+  });
+  const tenantBackups = useQuery({
+    queryKey: ["super-admin-tenant-backups", id],
+    queryFn: () => api<TenantBackupRecord[]>(`/api/super-admin/tenants/${id}/backups`),
+  });
+
+  const restoreBackup = useMutation({
+    mutationFn: (input: { backupId: string; dryRun: boolean }) =>
+      api<BackupRestoreResult>(
+        `/api/super-admin/tenants/${id}/backups/${input.backupId}/restore`,
+        {
+          method: "POST",
+          body: JSON.stringify({ dryRun: input.dryRun }),
+        },
+      ),
+    onSuccess: (res) => {
+      setRestoreResult(res);
+      toast.success(
+        res.dryRun
+          ? t("backups.dryRunValidToast")
+          : t("backups.restoredToast", { count: res.restoredTotal }),
+      );
+      void refresh();
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : t("errors.generic")),
   });
 
   function refresh() {
@@ -257,6 +288,62 @@ export function TenantDetailPage() {
             </li>
           ))}
         </ul>
+      </section>
+      <section className="mt-4 rounded-lg border border-border bg-card p-4">
+        <h2 className="text-sm font-semibold">{t("backups.supportRestoreTitle")}</h2>
+        <p className="mb-3 text-xs text-muted">{t("backups.supportRestoreDescription")}</p>
+        {(tenantBackups.data ?? []).length === 0 ? (
+          <p className="text-xs text-muted">{t("backups.empty")}</p>
+        ) : (
+          <ul className="divide-y divide-border text-sm">
+            {(tenantBackups.data ?? []).map((bkp) => (
+              <li
+                key={bkp.id}
+                className="flex flex-wrap items-center justify-between gap-2 py-2.5"
+              >
+                <div>
+                  <span className="font-mono text-xs font-medium">{bkp.fileName}</span>
+                  <span className="ml-2 text-xs text-muted">
+                    {formatBytes(bkp.sizeBytes)} · {bkp.totalRecords} {t("backups.records")} ·{" "}
+                    {new Date(bkp.createdAt).toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={restoreBackup.isPending}
+                    onClick={() => restoreBackup.mutate({ backupId: bkp.id, dryRun: true })}
+                  >
+                    {t("backups.validateDryRun")}
+                  </Button>
+                  <Button
+                    size="sm"
+                    disabled={restoreBackup.isPending}
+                    onClick={() => restoreBackup.mutate({ backupId: bkp.id, dryRun: false })}
+                  >
+                    {t("backups.restoreNow")}
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+        {restoreResult ? (
+          <div className="mt-3 rounded-md border border-border bg-secondary p-3 text-xs">
+            <p className="font-semibold">
+              {restoreResult.dryRun ? t("backups.validateDryRun") : t("backups.restoreNow")} —{" "}
+              {restoreResult.fileName}
+            </p>
+            <p className="mt-1 text-muted">
+              Restorable:{" "}
+              {Object.entries(restoreResult.restorableCounts)
+                .map(([k, v]) => `${k}: ${v}`)
+                .join(", ")}{" "}
+              {restoreResult.dryRun ? "" : `(Restored: ${restoreResult.restoredTotal})`}
+            </p>
+          </div>
+        ) : null}
       </section>
       <section className="mt-4 rounded-lg border border-border bg-card">
         <h2 className="border-b border-border px-4 py-3 text-sm font-semibold">{t("tenants.overrides")}</h2>

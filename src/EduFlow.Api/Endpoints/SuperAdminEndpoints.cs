@@ -1,4 +1,5 @@
 using EduFlow.Api.Authorization;
+using EduFlow.Application.Backups;
 using EduFlow.Application.Fees;
 using EduFlow.Application.SuperAdmin;
 using EduFlow.Domain.Enums;
@@ -188,6 +189,94 @@ public static class SuperAdminEndpoints
             var pdf = await service.GetPlatformInvoicePdfAsync(invoiceId, ct);
             return Results.File(pdf.Content, pdf.ContentType, pdf.FileName);
         }).WithName("SuperAdminGetPlatformInvoicePdf");
+
+        group.MapGet("/dashboard", async (ISuperAdminService service, CancellationToken ct) =>
+            Results.Ok(await service.GetDashboardAsync(ct)))
+            .WithName("SuperAdminGetDashboard");
+
+        group.MapGet("/announcements", async (ISuperAdminService service, CancellationToken ct) =>
+            Results.Ok(await service.GetAnnouncementsAsync(activeOnly: false, ct)))
+            .WithName("SuperAdminGetAnnouncements");
+
+        group.MapPost("/announcements", async (
+            [FromBody] CreatePlatformAnnouncementRequest request,
+            ISuperAdminService service,
+            CancellationToken ct) =>
+        {
+            var created = await service.CreateAnnouncementAsync(request, ct);
+            return Results.Created($"/api/super-admin/announcements/{created.Id}", created);
+        }).WithName("SuperAdminCreateAnnouncement");
+
+        group.MapPut("/announcements/{id:guid}/status", async (
+            Guid id,
+            [FromBody] SetAnnouncementActiveRequest request,
+            ISuperAdminService service,
+            CancellationToken ct) =>
+            Results.Ok(await service.SetAnnouncementActiveAsync(id, request.IsActive, ct)))
+            .WithName("SuperAdminSetAnnouncementActive");
+
+        group.MapDelete("/announcements/{id:guid}", async (
+            Guid id,
+            ISuperAdminService service,
+            CancellationToken ct) =>
+        {
+            await service.DeleteAnnouncementAsync(id, ct);
+            return Results.NoContent();
+        }).WithName("SuperAdminDeleteAnnouncement");
+
+        group.MapGet("/maintenance", async (ISuperAdminService service, CancellationToken ct) =>
+            Results.Ok(await service.GetMaintenanceModeAsync(ct)))
+            .WithName("SuperAdminGetMaintenanceMode");
+
+        group.MapPut("/maintenance", async (
+            [FromBody] UpdateMaintenanceModeRequest request,
+            ISuperAdminService service,
+            CancellationToken ct) =>
+            Results.Ok(await service.UpdateMaintenanceModeAsync(request, ct)))
+            .WithName("SuperAdminUpdateMaintenanceMode");
+
+        group.MapGet("/platform-backups", async (IBackupAndCleanupService backupService, CancellationToken ct) =>
+            Results.Ok(await backupService.GetPlatformBackupsAsync(ct)))
+            .WithName("SuperAdminGetPlatformBackups");
+
+        group.MapPut("/platform-backups/retention", async (
+            [FromBody] UpdatePlatformBackupRetentionRequest request,
+            IBackupAndCleanupService backupService,
+            CancellationToken ct) =>
+            Results.Ok(await backupService.UpdatePlatformBackupRetentionAsync(request.RetentionDays, ct)))
+            .WithName("SuperAdminUpdatePlatformBackupRetention");
+
+        group.MapPost("/platform-backups/run", async (
+            [FromBody] RunPlatformBackupRequest? request,
+            IBackupAndCleanupService backupService,
+            CancellationToken ct) =>
+            Results.Ok(await backupService.RunPlatformBackupAsync(BackupTrigger.Manual, request?.RetentionDays, ct)))
+            .WithName("SuperAdminRunPlatformBackup");
+
+        group.MapGet("/platform-backups/{backupId:guid}/download", async (
+            Guid backupId,
+            IBackupAndCleanupService backupService,
+            CancellationToken ct) =>
+        {
+            var file = await backupService.DownloadPlatformBackupAsync(backupId, ct);
+            return Results.File(file.Content, file.ContentType, file.FileName);
+        }).WithName("SuperAdminDownloadPlatformBackup");
+
+        group.MapGet("/tenants/{id:guid}/backups", async (
+            Guid id,
+            IBackupAndCleanupService backupService,
+            CancellationToken ct) =>
+            Results.Ok(await backupService.GetTenantBackupsForSupportAsync(id, ct)))
+            .WithName("SuperAdminGetTenantBackups");
+
+        group.MapPost("/tenants/{id:guid}/backups/{backupId:guid}/restore", async (
+            Guid id,
+            Guid backupId,
+            [FromBody] RestoreTenantBackupRequest request,
+            IBackupAndCleanupService backupService,
+            CancellationToken ct) =>
+            Results.Ok(await backupService.RestoreTenantBackupAsync(id, backupId, request, ct)))
+            .WithName("SuperAdminRestoreTenantBackup");
 
         return app;
     }

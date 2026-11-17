@@ -491,17 +491,52 @@ public sealed class AcademicService(
 
         if (request.IsActive)
         {
-            var overlap = await db.ClassSchedules.AnyAsync(item =>
-                item.Id != currentId &&
-                item.IsActive &&
-                item.TeacherUserId == teacher.Id &&
-                item.Weekday == request.Weekday &&
-                item.StartMinutes < request.EndMinutes &&
-                request.StartMinutes < item.EndMinutes,
-                cancellationToken);
-            if (overlap)
+            var sameDaySchedules = await db.ClassSchedules.AsNoTracking()
+                .Where(item => item.Id != currentId && item.IsActive && item.Weekday == request.Weekday)
+                .ToListAsync(cancellationToken);
+
+            var existingSlots = sameDaySchedules
+                .Select(item => new ExistingTimetableSlot(
+                    item.Id,
+                    item.Name,
+                    item.BatchId,
+                    item.BatchId == batch.Id ? batch.Name : "Batch",
+                    item.SubjectId,
+                    subject.Name,
+                    item.TeacherUserId,
+                    item.TeacherUserId == teacher.Id ? teacher.FullName : "Teacher",
+                    item.Weekday,
+                    item.StartMinutes,
+                    item.EndMinutes,
+                    item.Room,
+                    item.IsActive))
+                .ToList();
+
+            var clashes = TimetableRules.DetectClashes(
+                new TimetableCandidateSlot(
+                    currentId,
+                    batch.Id,
+                    batch.Name,
+                    teacher.Id,
+                    teacher.FullName,
+                    request.Weekday,
+                    request.StartMinutes,
+                    request.EndMinutes,
+                    request.Room,
+                    request.IsActive),
+                existingSlots);
+
+            if (clashes.Count > 0)
             {
-                throw new DomainValidationException("SCHEDULE_OVERLAP", "This teacher already has a class at that time.");
+                var firstClash = clashes[0];
+                var code = firstClash.ClashType switch
+                {
+                    TimetableClashType.Teacher => "TIMETABLE_CLASH_TEACHER",
+                    TimetableClashType.Batch => "TIMETABLE_CLASH_BATCH",
+                    TimetableClashType.Room => "TIMETABLE_CLASH_ROOM",
+                    _ => "TIMETABLE_CLASH"
+                };
+                throw new DomainValidationException(code, firstClash.Message, 409);
             }
         }
 

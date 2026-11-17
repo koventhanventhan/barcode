@@ -497,6 +497,49 @@ public sealed class TenantIsolationTests(ApiFactory factory) : IClassFixture<Api
                 ParentUserId = user.Id,
                 StudentId = student.Id
             });
+            db.TenantBackupPolicies.Add(new TenantBackupPolicy
+            {
+                TenantId = tenantId,
+                IsScheduledEnabled = true,
+                RetentionDays = 30,
+                MaxBackupsToKeep = 10
+            });
+            db.TenantBackupRecords.Add(new TenantBackupRecord
+            {
+                TenantId = tenantId,
+                Trigger = BackupTrigger.Manual,
+                Status = BackupStatus.Completed,
+                FileName = $"backup-{suffix}.zip",
+                StorageUrl = $"/files/backups/{tenantId:N}/backup-{suffix}.zip",
+                SizeBytes = 1024,
+                Sha256 = "abc123",
+                TotalRecords = 5,
+                SummaryJson = "{}"
+            });
+            db.TenantCleanupPolicies.Add(new TenantCleanupPolicy
+            {
+                TenantId = tenantId,
+                AuditLogRetentionDays = 90,
+                NotificationRetentionDays = 90,
+                SoftDeletedRetentionDays = 30
+            });
+            db.StaffAttendanceRecords.Add(new StaffAttendanceRecord
+            {
+                TenantId = tenantId,
+                StaffUserId = user.Id,
+                Date = new DateOnly(2026, 11, 17),
+                Status = StaffAttendanceStatus.Present
+            });
+            db.StaffLeaveRequests.Add(new StaffLeaveRequest
+            {
+                TenantId = tenantId,
+                StaffUserId = user.Id,
+                LeaveType = StaffLeaveType.Casual,
+                StartDate = new DateOnly(2026, 11, 20),
+                EndDate = new DateOnly(2026, 11, 21),
+                Reason = $"Leave {suffix}",
+                Status = StaffLeaveStatus.Pending
+            });
             await db.SaveChangesAsync();
         }
     }

@@ -79,6 +79,7 @@ export function AcademicNav() {
     ["/app/academics/batches", t("nav.batches")],
     ["/app/academics/subjects", t("nav.subjects")],
     ["/app/academics/classes", t("nav.classes")],
+    ["/app/academics/timetable", t("nav.timetable")],
   ] as const;
 
   return (

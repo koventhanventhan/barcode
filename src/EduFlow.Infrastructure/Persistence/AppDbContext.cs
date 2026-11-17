@@ -59,6 +59,14 @@ public sealed class AppDbContext(
     public DbSet<ExamMark> ExamMarks => Set<ExamMark>();
     public DbSet<ExamResult> ExamResults => Set<ExamResult>();
     public DbSet<ParentStudentLink> ParentStudentLinks => Set<ParentStudentLink>();
+    public DbSet<TenantBackupPolicy> TenantBackupPolicies => Set<TenantBackupPolicy>();
+    public DbSet<TenantBackupRecord> TenantBackupRecords => Set<TenantBackupRecord>();
+    public DbSet<TenantCleanupPolicy> TenantCleanupPolicies => Set<TenantCleanupPolicy>();
+    public DbSet<PlatformBackupRecord> PlatformBackupRecords => Set<PlatformBackupRecord>();
+    public DbSet<PlatformAnnouncement> PlatformAnnouncements => Set<PlatformAnnouncement>();
+    public DbSet<PlatformSetting> PlatformSettings => Set<PlatformSetting>();
+    public DbSet<StaffAttendanceRecord> StaffAttendanceRecords => Set<StaffAttendanceRecord>();
+    public DbSet<StaffLeaveRequest> StaffLeaveRequests => Set<StaffLeaveRequest>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -110,7 +118,7 @@ public sealed class AppDbContext(
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
-        ApplyTenancyAndAuditRules();
+        ApplyTenancyAndAuditRules(allowHardDelete: false);
         return base.SaveChanges(acceptAllChangesOnSuccess);
     }
 
@@ -118,11 +126,17 @@ public sealed class AppDbContext(
         bool acceptAllChangesOnSuccess,
         CancellationToken cancellationToken = default)
     {
-        ApplyTenancyAndAuditRules();
+        ApplyTenancyAndAuditRules(allowHardDelete: false);
         return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
 
-    private void ApplyTenancyAndAuditRules()
+    public Task<int> SaveChangesHardDeleteAsync(CancellationToken cancellationToken = default)
+    {
+        ApplyTenancyAndAuditRules(allowHardDelete: true);
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess: true, cancellationToken);
+    }
+
+    private void ApplyTenancyAndAuditRules(bool allowHardDelete)
     {
         if (tenantContext.IsReadOnly && !tenantContext.IsSystemScope)
         {
@@ -160,9 +174,12 @@ public sealed class AppDbContext(
                     break;
 
                 case EntityState.Deleted:
-                    entry.State = EntityState.Modified;
-                    entry.Entity.IsDeleted = true;
-                    entry.Entity.UpdatedAt = now;
+                    if (!allowHardDelete)
+                    {
+                        entry.State = EntityState.Modified;
+                        entry.Entity.IsDeleted = true;
+                        entry.Entity.UpdatedAt = now;
+                    }
                     break;
             }
         }
@@ -203,7 +220,7 @@ public sealed class AppDbContext(
                     throw new CrossTenantOperationException("Cannot create an entity belonging to a different tenant.");
                 }
             }
-            else if (entry.State == EntityState.Modified)
+            else if (entry.State is EntityState.Modified or EntityState.Deleted)
             {
                 var originalTenantId = entry.OriginalValues.GetValue<Guid>(nameof(ITenantEntity.TenantId));
                 var currentTenantIdValue = entry.CurrentValues.GetValue<Guid>(nameof(ITenantEntity.TenantId));
@@ -652,6 +669,67 @@ public sealed class AppDbContext(
             b.HasIndex(x => new { x.TenantId, x.ParentUserId, x.StudentId }).IsUnique();
             b.HasOne<User>().WithMany().HasForeignKey(x => x.ParentUserId).OnDelete(DeleteBehavior.Restrict);
             b.HasOne<Student>().WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<TenantBackupPolicy>(b =>
+        {
+            b.HasIndex(x => x.TenantId).IsUnique();
+        });
+
+        modelBuilder.Entity<TenantBackupRecord>(b =>
+        {
+            b.Property(x => x.FileName).HasMaxLength(200).IsRequired();
+            b.Property(x => x.StorageUrl).HasMaxLength(500).IsRequired();
+            b.Property(x => x.Sha256).HasMaxLength(128).IsRequired();
+            b.Property(x => x.SummaryJson).HasMaxLength(4000).IsRequired();
+            b.Property(x => x.ErrorMessage).HasMaxLength(1000);
+            b.HasIndex(x => new { x.TenantId, x.CreatedAt });
+        });
+
+        modelBuilder.Entity<TenantCleanupPolicy>(b =>
+        {
+            b.Property(x => x.LastArchiveUrl).HasMaxLength(500);
+            b.HasIndex(x => x.TenantId).IsUnique();
+        });
+
+        modelBuilder.Entity<PlatformBackupRecord>(b =>
+        {
+            b.Property(x => x.FileName).HasMaxLength(200).IsRequired();
+            b.Property(x => x.StorageUrl).HasMaxLength(500).IsRequired();
+            b.Property(x => x.DatabaseProvider).HasMaxLength(100).IsRequired();
+            b.Property(x => x.SqlCommandSummary).HasMaxLength(500).IsRequired();
+            b.Property(x => x.Sha256).HasMaxLength(128).IsRequired();
+            b.Property(x => x.ErrorMessage).HasMaxLength(1000);
+            b.HasIndex(x => x.CreatedAt);
+        });
+
+        modelBuilder.Entity<PlatformAnnouncement>(b =>
+        {
+            b.Property(x => x.Title).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Body).HasMaxLength(2000).IsRequired();
+            b.HasIndex(x => new { x.IsActive, x.CreatedAt });
+        });
+
+        modelBuilder.Entity<PlatformSetting>(b =>
+        {
+            b.Property(x => x.Key).HasMaxLength(50).IsRequired();
+            b.Property(x => x.MaintenanceMessage).HasMaxLength(500);
+            b.HasIndex(x => x.Key).IsUnique();
+        });
+
+        modelBuilder.Entity<StaffAttendanceRecord>(b =>
+        {
+            b.Property(x => x.Notes).HasMaxLength(300);
+            b.HasIndex(x => new { x.TenantId, x.StaffUserId, x.Date }).IsUnique();
+            b.HasOne<User>().WithMany().HasForeignKey(x => x.StaffUserId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<StaffLeaveRequest>(b =>
+        {
+            b.Property(x => x.Reason).HasMaxLength(500).IsRequired();
+            b.Property(x => x.ReviewNotes).HasMaxLength(500);
+            b.HasIndex(x => new { x.TenantId, x.StaffUserId, x.Status });
+            b.HasOne<User>().WithMany().HasForeignKey(x => x.StaffUserId).OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<BrandingProfile>(b =>

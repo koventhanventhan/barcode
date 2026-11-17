@@ -18,10 +18,12 @@ import { BatchesPage } from "@/features/academics/BatchesPage";
 import { ClassesPage } from "@/features/academics/ClassesPage";
 import { LevelsPage } from "@/features/academics/LevelsPage";
 import { SubjectsPage } from "@/features/academics/SubjectsPage";
+import { TimetablePage } from "@/features/academics/TimetablePage";
 import { DashboardPage } from "@/features/dashboard/DashboardPage";
 import { FeesPage } from "@/features/fees/FeesPage";
 import { ExamsPage } from "@/features/exams/ExamsPage";
 import { PaymentStatusPage } from "@/features/fees/PaymentStatusPage";
+import { BackupsAndCleanupPage } from "@/features/operations/BackupsAndCleanupPage";
 import { StaffPage } from "@/features/staff/StaffPage";
 import { ImportStudentsPage } from "@/features/students/ImportStudentsPage";
 import { StudentFormPage } from "@/features/students/StudentFormPage";
@@ -31,6 +33,7 @@ import { MessageLogPage } from "@/features/features/MessageLogPage";
 import { ParentAttendancePage, ParentClassesPage, ParentDashboardPage, ParentFeesPage, ParentMessagesPage, ParentResultsPage } from "@/features/parent/ParentPages";
 import { ParentShell } from "@/features/parent/ParentShell";
 import { ParentsAdminPage } from "@/features/parent/ParentsAdminPage";
+import { PlatformDashboardPage } from "@/features/super-admin/PlatformDashboardPage";
 import { PlansPage } from "@/features/super-admin/PlansPage";
 import { TenantDetailPage } from "@/features/super-admin/TenantDetailPage";
 import { TenantsPage } from "@/features/super-admin/TenantsPage";
@@ -63,6 +66,7 @@ export default function App() {
                     <Route path="/app/academics/batches" element={<RequireRole roles={INSTITUTE_ROLES}><BatchesPage /></RequireRole>} />
                     <Route path="/app/academics/subjects" element={<RequireRole roles={INSTITUTE_ROLES}><SubjectsPage /></RequireRole>} />
                     <Route path="/app/academics/classes" element={<RequireRole roles={INSTITUTE_ROLES}><ClassesPage /></RequireRole>} />
+                    <Route path="/app/academics/timetable" element={<RequireRole roles={INSTITUTE_ROLES}><TimetablePage /></RequireRole>} />
                     <Route path="/app/staff" element={<RequireRole roles={INSTITUTE_ROLES}><StaffPage /></RequireRole>} />
                     <Route path="/app/parents" element={<RequireRole roles={INSTITUTE_ROLES}><ParentsAdminPage /></RequireRole>} />
                     <Route path="/app/attendance" element={<RequireRole roles={INSTITUTE_ROLES}><ScannerPage /></RequireRole>} />
@@ -73,7 +77,9 @@ export default function App() {
                     <Route path="/app/fees/pay/:orderId" element={<RequireRole roles={INSTITUTE_ROLES}><PaymentStatusPage /></RequireRole>} />
                     <Route path="/app/settings/features" element={<RequireRole roles={INSTITUTE_ROLES}><FeaturesPage /></RequireRole>} />
                     <Route path="/app/settings/messages" element={<RequireRole roles={INSTITUTE_ROLES}><MessageLogPage /></RequireRole>} />
+                    <Route path="/app/settings/backups" element={<RequireRole roles={INSTITUTE_ROLES}><BackupsAndCleanupPage /></RequireRole>} />
                     <Route path="/app/settings/branding" element={<RequireRole roles={INSTITUTE_ROLES}><BrandingPage /></RequireRole>} />
+                    <Route path="/admin/dashboard" element={<RequireRole roles={["SuperAdmin"]}><PlatformDashboardPage /></RequireRole>} />
                     <Route path="/admin/tenants" element={<RequireRole roles={["SuperAdmin"]}><TenantsPage /></RequireRole>} />
                     <Route path="/admin/tenants/:id" element={<RequireRole roles={["SuperAdmin"]}><TenantDetailPage /></RequireRole>} />
                     <Route path="/admin/plans" element={<RequireRole roles={["SuperAdmin"]}><PlansPage /></RequireRole>} />

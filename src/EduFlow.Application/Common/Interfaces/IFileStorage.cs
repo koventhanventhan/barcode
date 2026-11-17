@@ -11,4 +11,6 @@ public interface IFileStorage
         CancellationToken cancellationToken = default);
 
     Stream? OpenRead(string url);
+
+    Task DeleteAsync(string url, CancellationToken cancellationToken = default) => Task.CompletedTask;
 }
