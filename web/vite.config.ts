@@ -42,8 +42,29 @@ export default defineConfig({
       "@": path.resolve(root, "./src"),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "react-vendor": ["react", "react-dom", "react-router-dom", "react-helmet-async"],
+          charts: ["recharts"],
+          scanner: ["@zxing/browser"],
+          realtime: ["@microsoft/signalr"],
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
+    proxy: {
+      "/api": apiTarget,
+      "/health": apiTarget,
+      "/files": apiTarget,
+      "/hubs": { target: apiTarget, ws: true },
+    },
+  },
+  preview: {
+    port: 4173,
     proxy: {
       "/api": apiTarget,
       "/health": apiTarget,

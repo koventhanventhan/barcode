@@ -1,8 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
 
-const screenshotsDir = path.resolve(__dirname, "../../docs/screenshots");
+const screenshotsDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../docs/screenshots");
 
 async function loginViaUi(page: Page, options: { institute: string; email?: string; phone?: string; password: string; mode?: "staff" | "parent" }) {
   await page.goto("/login");
@@ -222,7 +223,7 @@ test.describe.serial("EduFlow Phase 11 E2E journeys", () => {
       return await freshPage.evaluate(() =>
         getComputedStyle(document.documentElement).getPropertyValue("--primary").trim().toLowerCase(),
       );
-    }).not.toBe("#1f4e46");
+    }).toBe("#2a6f97");
     await expect(freshPage.locator("#institute")).toHaveValue("demo");
     await freshContext.close();
   });

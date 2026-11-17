@@ -3,7 +3,8 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme inline {
-  --font-sans: Inter, "Noto Sans Tamil", "Noto Sans Sinhala", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "Manrope", "Inter", "Noto Sans Tamil", "Noto Sans Sinhala", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", "Noto Sans Tamil", "Noto Sans Sinhala", ui-sans-serif, system-ui, sans-serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -37,33 +38,33 @@
 
 :root {
   color-scheme: light;
-  --background: #f4f6f5;
-  --foreground: #14211c;
+  --background: #faf9f6;
+  --foreground: #14213d;
   --card: #ffffff;
-  --muted: #5d6b65;
-  --primary: #1f4e46;
+  --muted: #475569;
+  --primary: #0f766e;
   --primary-foreground: #f8fafc;
-  --secondary: #e7eeea;
-  --secondary-foreground: #14211c;
-  --accent: #c45c26;
-  --accent-foreground: #fffaf6;
-  --border: #d5ddd8;
-  --ring: #1f4e46;
+  --secondary: #f1efea;
+  --secondary-foreground: #14213d;
+  --accent: #0f766e;
+  --accent-foreground: #f8fafc;
+  --border: #e7e5e0;
+  --ring: #0f766e;
   --danger: #9f2d2d;
   --danger-foreground: #fffafa;
-  --success: #1f6b45;
+  --success: #0f766e;
   --warning: #8a5a00;
-  --info: #0f5f6b;
-  --brand-50: #f3f7f6;
-  --brand-100: #e4eeeb;
-  --brand-200: #c9ddd6;
-  --brand-300: #9ec3b6;
-  --brand-400: #6ea292;
-  --brand-500: #4b8474;
-  --brand-600: #35685b;
-  --brand-700: #1f4e46;
-  --brand-800: #173c36;
-  --brand-900: #102824;
+  --info: #0f766e;
+  --brand-50: #f0fdfa;
+  --brand-100: #ccfbf1;
+  --brand-200: #99f6e4;
+  --brand-300: #5eead4;
+  --brand-400: #2dd4bf;
+  --brand-500: #14b8a6;
+  --brand-600: #0d9488;
+  --brand-700: #0f766e;
+  --brand-800: #115e59;
+  --brand-900: #134e4a;
 }
 
 html.dark {
@@ -87,11 +88,15 @@ html[data-font="System"] {
 }
 
 html[lang="ta"] {
-  --font-sans: "Noto Sans Tamil", Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", "Noto Sans Tamil", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "Manrope", "Noto Sans Tamil", ui-sans-serif, system-ui, sans-serif;
+  line-height: 1.7;
 }
 
 html[lang="si"] {
-  --font-sans: "Noto Sans Sinhala", Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", "Noto Sans Sinhala", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "Manrope", "Noto Sans Sinhala", ui-sans-serif, system-ui, sans-serif;
+  line-height: 1.7;
 }
 
 * {
@@ -109,8 +114,20 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
-  font-size: 14px;
-  line-height: 1.5;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+h1,
+h2,
+h3,
+.font-heading {
+  font-family: var(--font-heading);
+}
+
+html[lang="ta"] body,
+html[lang="si"] body {
+  line-height: 1.7;
 }
 
 button,
@@ -127,4 +144,25 @@ textarea {
 
 .tabular {
   font-variant-numeric: tabular-nums;
+}
+
+@keyframes editorial-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.editorial-page-enter {
+  animation: editorial-enter 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .editorial-page-enter {
+    animation: none;
+  }
 }

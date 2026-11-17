@@ -27,3 +27,4 @@
 
 
 - Phase 11 hardens cookie refresh/logout with `CookieCsrfMiddleware` origin checks alongside `SameSite=Strict`, runs built-in signature + magic-byte upload inspection behind `IAntivirusScanner` with optional webhook forwarding, redacts PII/secrets via `PiiRedactor` before audit/request logging, and configures Playwright E2E to run against an isolated SQLite-backed `EduFlow.Api` instance when Docker/SQL Server is absent.
+- Public marketing redesign adopts a multi-page "calm editorial SaaS" architecture (`#FAF9F6` warm off-white, `#14213D` deep ink, `#E7E5E0` 1px borders, `#0F766E` teal accent) with self-hosted `@fontsource` Manrope/Inter/Noto Sans Tamil/Sinhala typography, sharp-optimized AVIF/WebP assets, `react-helmet-async` SEO metadata, and real product screen captures.

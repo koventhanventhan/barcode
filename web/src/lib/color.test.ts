@@ -38,10 +38,10 @@ describe("document language", () => {
     applyDocumentLanguage("si");
     expect(document.documentElement.lang).toBe("si");
     const css = readFileSync(path.resolve("src/styles/globals.css"), "utf8");
-    const html = readFileSync(path.resolve("index.html"), "utf8");
+    const main = readFileSync(path.resolve("src/main.tsx"), "utf8");
     expect(css).toContain('html[lang="ta"]');
     expect(css).toContain('html[lang="si"]');
-    expect(html).toContain("Noto+Sans+Tamil");
-    expect(html).toContain("Noto+Sans+Sinhala");
+    expect(main).toContain("@fontsource/noto-sans-tamil");
+    expect(main).toContain("@fontsource/noto-sans-sinhala");
   });
 });

@@ -21,8 +21,8 @@ type BrandingContextValue = {
 const BrandingContext = createContext<BrandingContextValue | null>(null);
 
 const fallback: Branding = {
-  primaryColor: "#1F4E46",
-  accentColor: "#C45C26",
+  primaryColor: "#0F766E",
+  accentColor: "#0F766E",
   logoUrl: null,
   faviconUrl: null,
   loginBackgroundUrl: null,
@@ -36,9 +36,22 @@ const fallback: Branding = {
   isPlatformDefault: true,
 };
 
+function isMarketingPath(pathname: string): boolean {
+  return (
+    pathname === "/" ||
+    pathname === "/features" ||
+    pathname.startsWith("/features/") ||
+    pathname === "/pricing" ||
+    pathname === "/demo" ||
+    pathname === "/about" ||
+    pathname === "/contact" ||
+    pathname === "/signup"
+  );
+}
+
 export function BrandingProvider({ children }: { children: ReactNode }) {
   const location = useLocation();
-  const marketing = location.pathname === "/" || location.pathname === "/signup";
+  const marketing = isMarketingPath(location.pathname);
   const [institute, setInstituteState] = useState(getTenantSlug);
   useEffect(() => subscribeTenantSlug(() => setInstituteState(getTenantSlug())), []);
   const [themeOverride, setThemeState] = useState<"light" | "dark" | null>(getThemeOverride);
@@ -46,9 +59,9 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
     queryKey: ["public-branding", institute],
     queryFn: () => api<Branding>("/api/public/branding"),
   });
-  const branding = query.data ?? fallback;
-  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-  const resolvedMode = themeOverride ?? resolveThemeMode(branding.themeMode, prefersDark);
+  const branding = marketing ? fallback : (query.data ?? fallback);
+  const prefersDark = Boolean(window.matchMedia?.("(prefers-color-scheme: dark)")?.matches);
+  const resolvedMode = marketing ? "light" : (themeOverride ?? resolveThemeMode(branding.themeMode, prefersDark));
 
   useEffect(() => {
     applyBrandToDocument({

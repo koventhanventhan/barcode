@@ -137,13 +137,13 @@ export function applyBrandToDocument(input: {
           "--secondary-foreground": "#E6EEEA",
         }
       : {
-          "--background": "#F4F6F5",
-          "--foreground": "#14211C",
+          "--background": "#FAF9F6",
+          "--foreground": "#14213D",
           "--card": "#FFFFFF",
-          "--muted": "#5D6B65",
-          "--border": "#D5DDD8",
-          "--secondary": "#E7EEEA",
-          "--secondary-foreground": "#14211C",
+          "--muted": "#475569",
+          "--border": "#E7E5E0",
+          "--secondary": "#F1EFEA",
+          "--secondary-foreground": "#14213D",
         };
   for (const [key, value] of Object.entries(surface)) {
     root.style.setProperty(key, value);

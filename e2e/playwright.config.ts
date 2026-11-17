@@ -1,8 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { chromium, defineConfig } from "@playwright/test";
 
-const dir = __dirname;
+const dir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(dir, "..");
 const hasBundledChromium = fs.existsSync(chromium.executablePath());
 const systemChrome = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
