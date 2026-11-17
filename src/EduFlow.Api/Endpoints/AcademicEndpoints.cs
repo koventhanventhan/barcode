@@ -1,6 +1,7 @@
 using EduFlow.Api.Authorization;
 using EduFlow.Api.Filters;
 using EduFlow.Application.Academics;
+using EduFlow.Application.Marketing;
 using EduFlow.Application.Staff;
 using EduFlow.Application.Students;
 using EduFlow.Domain.Constants;
@@ -133,13 +134,21 @@ public static class AcademicEndpoints
             await using var stream = file.OpenReadStream();
             return Results.Ok(await service.ImportAsync(stream, file.FileName, ct));
         }).RequirePermission(Permissions.StudentsEdit).DisableAntiforgery().WithName("ImportStudents");
-        students.MapPost("/id-cards", async (BulkStudentRequest request, IStudentService service, CancellationToken ct) =>
-            File(await service.IdCardsAsync(request, ct)))
+        students.MapPost("/id-cards", async (BulkStudentRequest request, IStudentService service, IPublicSiteService site, CancellationToken ct) =>
+        {
+            var file = await service.IdCardsAsync(request, ct);
+            await site.MarkCardsPrintedAsync(ct);
+            return File(file);
+        })
             .RequirePermission(Permissions.StudentsView)
             .RequireFeature(FeatureKey.BarcodeGenerator)
             .WithName("PrintStudentIdCards");
-        students.MapPost("/labels", async (BulkStudentRequest request, IStudentService service, CancellationToken ct) =>
-            File(await service.LabelsAsync(request, ct)))
+        students.MapPost("/labels", async (BulkStudentRequest request, IStudentService service, IPublicSiteService site, CancellationToken ct) =>
+        {
+            var file = await service.LabelsAsync(request, ct);
+            await site.MarkCardsPrintedAsync(ct);
+            return File(file);
+        })
             .RequirePermission(Permissions.StudentsView)
             .RequireFeature(FeatureKey.BarcodeGenerator)
             .WithName("PrintStudentBarcodeLabels");
@@ -166,8 +175,12 @@ public static class AcademicEndpoints
             await using var stream = file.OpenReadStream();
             return Results.Ok(await service.SavePhotoAsync(id, stream, file.FileName, file.ContentType, file.Length, ct));
         }).RequirePermission(Permissions.StudentsEdit).DisableAntiforgery().WithName("UploadStudentPhoto");
-        students.MapGet("/{id:guid}/id-card", async (Guid id, IStudentService service, CancellationToken ct) =>
-            File(await service.IdCardAsync(id, ct)))
+        students.MapGet("/{id:guid}/id-card", async (Guid id, IStudentService service, IPublicSiteService site, CancellationToken ct) =>
+        {
+            var file = await service.IdCardAsync(id, ct);
+            await site.MarkCardsPrintedAsync(ct);
+            return File(file);
+        })
             .RequirePermission(Permissions.StudentsView)
             .RequireFeature(FeatureKey.BarcodeGenerator)
             .WithName("GetStudentIdCard");

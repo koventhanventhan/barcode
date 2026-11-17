@@ -36,6 +36,8 @@ import { ParentsAdminPage } from "@/features/parent/ParentsAdminPage";
 import { PlatformDashboardPage } from "@/features/super-admin/PlatformDashboardPage";
 import { PlansPage } from "@/features/super-admin/PlansPage";
 import { TenantDetailPage } from "@/features/super-admin/TenantDetailPage";
+import { LandingPage } from "@/features/marketing/LandingPage";
+import { SignupPage } from "@/features/marketing/SignupPage";
 import { TenantsPage } from "@/features/super-admin/TenantsPage";
 
 export default function App() {
@@ -49,6 +51,8 @@ export default function App() {
             <BrandingProvider>
               <FeatureProvider>
                 <Routes>
+                  <Route path="/" element={<LandingPage />} />
+                  <Route path="/signup" element={<SignupPage />} />
                   <Route path="/join" element={<JoinPage />} />
                   <Route path="/pay/:orderId" element={<PaymentStatusPage />} />
                   <Route path="/login" element={<GuestOnly><LoginPage /></GuestOnly>} />
@@ -93,7 +97,7 @@ export default function App() {
                     <Route path="/parent/fees" element={<RequireRole roles={["Parent"]}><ParentFeesPage /></RequireRole>} />
                     <Route path="/parent/messages" element={<RequireRole roles={["Parent"]}><ParentMessagesPage /></RequireRole>} />
                   </Route>
-                  <Route path="*" element={<Navigate to="/login" replace />} />
+                  <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </FeatureProvider>
             </BrandingProvider>

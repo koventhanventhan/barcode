@@ -34,6 +34,7 @@ public sealed class DbSeeder(
             await EnsurePlatformBrandingAsync(cancellationToken);
             await EnsureDemoNotificationsAsync(cancellationToken);
             await EnsureDemoFeesAsync(cancellationToken);
+            await EnsureDemoHistoryAsync(cancellationToken);
         }
     }
 
@@ -902,6 +903,334 @@ public sealed class DbSeeder(
             await db.SaveChangesAsync(cancellationToken);
         }
     }
+
+    private async Task EnsureDemoHistoryAsync(CancellationToken cancellationToken)
+    {
+        var demo = await db.Tenants
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(t => !t.IsDeleted && t.IsDemo && t.Subdomain == "demo", cancellationToken);
+        if (demo is null)
+        {
+            return;
+        }
+
+        var hasSessions = await db.ClassSessions
+            .IgnoreQueryFilters()
+            .AnyAsync(s => !s.IsDeleted && s.TenantId == demo.Id, cancellationToken);
+        if (hasSessions)
+        {
+            return;
+        }
+
+        var level = await db.EducationLevels
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(item => !item.IsDeleted && item.Code == "OL", cancellationToken);
+        var branch = await db.Branches
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(item => !item.IsDeleted && item.TenantId == demo.Id && item.IsMain, cancellationToken);
+        var batch = await db.AcademicBatches
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(item => !item.IsDeleted && item.TenantId == demo.Id, cancellationToken);
+        var schedule = await db.ClassSchedules
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(item => !item.IsDeleted && item.TenantId == demo.Id, cancellationToken);
+        var structure = await db.FeeStructures
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(item => !item.IsDeleted && item.TenantId == demo.Id, cancellationToken);
+        if (level is null || branch is null || batch is null || schedule is null || structure is null)
+        {
+            return;
+        }
+
+        var extras = new (string Code, string Name, string Guardian, string Phone, string City, StudentGender Gender)[]
+        {
+            ("S000003", "කසුන් ජයවර්ධන", "නිමල් ජයවර්ධන", "0772001003", "Kandy", StudentGender.Male),
+            ("S000004", "නිමාශි පෙරේරා", "චන්ද්‍රා පෙරේරා", "0712001004", "Galle", StudentGender.Female),
+            ("S000005", "அருண் குமார்", "குமார் ராஜா", "0772001005", "Jaffna", StudentGender.Male),
+            ("S000006", "மீனா ராஜேந்திரன்", "ராஜேந்திரன்", "0762001006", "Batticaloa", StudentGender.Female),
+            ("S000007", "Fathima Rizvi", "Mohamed Rizvi", "0752001007", "Colombo", StudentGender.Female),
+            ("S000008", "Dinesh Bandara", "Anura Bandara", "0702001008", "Kurunegala", StudentGender.Male)
+        };
+
+        var existingCodes = await db.Students
+            .IgnoreQueryFilters()
+            .Where(s => !s.IsDeleted && s.TenantId == demo.Id)
+            .Select(s => s.StudentCode)
+            .ToListAsync(cancellationToken);
+        var known = existingCodes.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var extra in extras)
+        {
+            if (known.Contains(extra.Code))
+            {
+                continue;
+            }
+
+            var student = new Student
+            {
+                TenantId = demo.Id,
+                StudentCode = extra.Code,
+                FullName = extra.Name,
+                GuardianName = extra.Guardian,
+                GuardianPhone = extra.Phone,
+                Address = $"12 School Lane, {extra.City}",
+                City = extra.City,
+                EducationLevelId = level.Id,
+                BranchId = branch.Id,
+                Gender = extra.Gender,
+                Status = StudentStatus.Active,
+                AdmissionDate = new DateOnly(2025, 6, 2)
+            };
+            db.Students.Add(student);
+            await db.SaveChangesAsync(cancellationToken);
+            db.StudentEnrollments.Add(new StudentEnrollment
+            {
+                TenantId = demo.Id,
+                StudentId = student.Id,
+                BatchId = batch.Id,
+                EnrolledOn = student.AdmissionDate,
+                IsActive = true
+            });
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+
+        var students = await db.Students
+            .IgnoreQueryFilters()
+            .Where(s => !s.IsDeleted && s.TenantId == demo.Id)
+            .OrderBy(s => s.StudentCode)
+            .ToListAsync(cancellationToken);
+
+        var today = ColomboClock.Today();
+        var mondays = new List<DateOnly>();
+        var cursor = today;
+        while (mondays.Count < 26)
+        {
+            cursor = cursor.AddDays(-1);
+            if (cursor.DayOfWeek == DayOfWeek.Monday)
+            {
+                mondays.Add(cursor);
+            }
+        }
+
+        mondays.Reverse();
+        var week = 0;
+        foreach (var sessionDate in mondays)
+        {
+            var session = new ClassSession
+            {
+                TenantId = demo.Id,
+                ClassScheduleId = schedule.Id,
+                SessionDate = sessionDate,
+                Status = ClassSessionStatus.Stopped,
+                StartedAt = new DateTimeOffset(sessionDate.ToDateTime(new TimeOnly(16, 0)), TimeSpan.FromHours(5.5)),
+                StoppedAt = new DateTimeOffset(sessionDate.ToDateTime(new TimeOnly(18, 0)), TimeSpan.FromHours(5.5)),
+                StartedByUserId = schedule.TeacherUserId,
+                StartedNotified = true,
+                StoppedNotified = true
+            };
+            db.ClassSessions.Add(session);
+            await db.SaveChangesAsync(cancellationToken);
+
+            for (var index = 0; index < students.Count; index++)
+            {
+                var roll = (index + week) % 10;
+                var status = roll == 0
+                    ? AttendanceMarkStatus.Absent
+                    : roll == 1 ? AttendanceMarkStatus.Late : AttendanceMarkStatus.Present;
+                db.AttendanceMarks.Add(new AttendanceMark
+                {
+                    TenantId = demo.Id,
+                    ClassSessionId = session.Id,
+                    StudentId = students[index].Id,
+                    Status = status,
+                    Source = status == AttendanceMarkStatus.Absent ? AttendanceMarkSource.AutoAbsent : AttendanceMarkSource.Scan,
+                    MarkedAt = session.StartedAt!.Value.AddMinutes(5 + index),
+                    PresentNotified = status != AttendanceMarkStatus.Absent,
+                    AbsentNotified = status == AttendanceMarkStatus.Absent
+                });
+            }
+
+            week++;
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+
+        var existingInvoices = await db.FeeInvoices
+            .IgnoreQueryFilters()
+            .Where(i => !i.IsDeleted && i.TenantId == demo.Id)
+            .Select(i => new { i.StudentId, i.BillingPeriod })
+            .ToListAsync(cancellationToken);
+        var invoiceKeys = existingInvoices
+            .Select(i => $"{i.StudentId:N}:{i.BillingPeriod}")
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var receiptSequence = 100;
+        var invoiceSequence = 100;
+        for (var monthsAgo = 5; monthsAgo >= 0; monthsAgo--)
+        {
+            var periodDate = new DateOnly(today.Year, today.Month, 1).AddMonths(-monthsAgo);
+            var period = $"{periodDate.Year:D4}-{periodDate.Month:D2}";
+            foreach (var student in students)
+            {
+                var key = $"{student.Id:N}:{period}";
+                if (!invoiceKeys.Add(key))
+                {
+                    continue;
+                }
+
+                var paid = monthsAgo > 0;
+                var invoice = new FeeInvoice
+                {
+                    TenantId = demo.Id,
+                    InvoiceNumber = $"INV-{invoiceSequence:D6}",
+                    StudentId = student.Id,
+                    FeeStructureId = structure.Id,
+                    BatchId = batch.Id,
+                    EducationLevelId = level.Id,
+                    BillingPeriod = period,
+                    Title = $"{structure.Name} ({period})",
+                    GrossAmount = structure.Amount,
+                    DiscountAmount = 0m,
+                    NetAmount = structure.Amount,
+                    PaidAmount = paid ? structure.Amount : 0m,
+                    BalanceAmount = paid ? 0m : structure.Amount,
+                    Currency = "LKR",
+                    IssueDate = periodDate,
+                    DueDate = new DateOnly(periodDate.Year, periodDate.Month, 10),
+                    Status = paid ? FeeInvoiceStatus.Paid : FeeInvoiceStatus.Pending,
+                    PaidAt = paid ? new DateTimeOffset(periodDate.ToDateTime(new TimeOnly(10, 0)), TimeSpan.FromHours(5.5)) : null
+                };
+                invoiceSequence++;
+                db.FeeInvoices.Add(invoice);
+                await db.SaveChangesAsync(cancellationToken);
+                if (!paid)
+                {
+                    continue;
+                }
+
+                db.FeePayments.Add(new FeePayment
+                {
+                    TenantId = demo.Id,
+                    InvoiceId = invoice.Id,
+                    StudentId = student.Id,
+                    ReceiptSequence = receiptSequence,
+                    ReceiptNumber = $"RCP-{receiptSequence:D6}",
+                    Amount = structure.Amount,
+                    Currency = "LKR",
+                    Method = PaymentMethod.Cash,
+                    Status = PaymentRecordStatus.Completed,
+                    PaidAt = invoice.PaidAt ?? DateTimeOffset.UtcNow,
+                    Notes = "Demo history payment",
+                    ParentNotified = true,
+                    AdminNotified = true
+                });
+                receiptSequence++;
+            }
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+
+        var hasExam = await db.Exams
+            .IgnoreQueryFilters()
+            .AnyAsync(e => !e.IsDeleted && e.TenantId == demo.Id, cancellationToken);
+        if (hasExam)
+        {
+            return;
+        }
+
+        var maths = await db.Subjects
+            .IgnoreQueryFilters()
+            .FirstAsync(s => !s.IsDeleted && s.TenantId == demo.Id && s.Code == "MATH", cancellationToken);
+        var scheme = new GradingScheme
+        {
+            TenantId = demo.Id,
+            Name = "Sri Lankan grades",
+            IsDefault = true
+        };
+        db.GradingSchemes.Add(scheme);
+        await db.SaveChangesAsync(cancellationToken);
+        db.GradeBoundaries.AddRange(
+            Boundary(demo.Id, scheme.Id, "A", 75, 100, 1),
+            Boundary(demo.Id, scheme.Id, "B", 65, 74, 2),
+            Boundary(demo.Id, scheme.Id, "C", 55, 64, 3),
+            Boundary(demo.Id, scheme.Id, "S", 40, 54, 4),
+            Boundary(demo.Id, scheme.Id, "F", 0, 39, 5));
+        var exam = new Exam
+        {
+            TenantId = demo.Id,
+            Name = "First term test",
+            Kind = ExamKind.Term,
+            BatchId = batch.Id,
+            EducationLevelId = level.Id,
+            GradingSchemeId = scheme.Id,
+            SeriesKey = "2026-T1",
+            Status = ExamStatus.Published,
+            ScheduledAt = DateTimeOffset.UtcNow.AddMonths(-2),
+            Room = "Hall 2",
+            IncludeMarksInNotification = false,
+            PublishedAt = DateTimeOffset.UtcNow.AddMonths(-2).AddDays(7),
+            LockedAt = DateTimeOffset.UtcNow.AddMonths(-2).AddDays(6)
+        };
+        db.Exams.Add(exam);
+        await db.SaveChangesAsync(cancellationToken);
+        var paper = new ExamSubject
+        {
+            TenantId = demo.Id,
+            ExamId = exam.Id,
+            SubjectId = maths.Id,
+            MaxMarks = 100,
+            ScheduledAt = exam.ScheduledAt,
+            Room = "Hall 2",
+            SortOrder = 1
+        };
+        db.ExamSubjects.Add(paper);
+        await db.SaveChangesAsync(cancellationToken);
+
+        var rank = 1;
+        foreach (var student in students)
+        {
+            var marks = 90 - (rank * 4);
+            var grade = marks >= 75 ? "A" : marks >= 65 ? "B" : marks >= 55 ? "C" : marks >= 40 ? "S" : "F";
+            db.ExamMarks.Add(new ExamMark
+            {
+                TenantId = demo.Id,
+                ExamId = exam.Id,
+                ExamSubjectId = paper.Id,
+                StudentId = student.Id,
+                Marks = marks,
+                Grade = grade,
+                SubjectRank = rank
+            });
+            db.ExamResults.Add(new ExamResult
+            {
+                TenantId = demo.Id,
+                ExamId = exam.Id,
+                StudentId = student.Id,
+                TotalMarks = marks,
+                MaxMarks = 100,
+                Percentage = marks,
+                Grade = grade,
+                BatchRank = rank,
+                LevelRank = rank,
+                AttendancePercent = 88,
+                TeacherRemarks = "Steady work through the term.",
+                MarksReleasedNotified = true
+            });
+            rank++;
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    private static GradeBoundary Boundary(Guid tenantId, Guid schemeId, string grade, decimal min, decimal max, int sort) =>
+        new()
+        {
+            TenantId = tenantId,
+            GradingSchemeId = schemeId,
+            Grade = grade,
+            MinPercent = min,
+            MaxPercent = max,
+            SortOrder = sort
+        };
 
     private static Plan BuildPlan(
         string code,

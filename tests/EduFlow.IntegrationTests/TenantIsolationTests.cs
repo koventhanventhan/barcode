@@ -540,6 +540,11 @@ public sealed class TenantIsolationTests(ApiFactory factory) : IClassFixture<Api
                 Reason = $"Leave {suffix}",
                 Status = StaffLeaveStatus.Pending
             });
+            db.TenantOnboardings.Add(new TenantOnboarding
+            {
+                TenantId = tenantId,
+                CardsPrintedAt = DateTimeOffset.UtcNow
+            });
             await db.SaveChangesAsync();
         }
     }

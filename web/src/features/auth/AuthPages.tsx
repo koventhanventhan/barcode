@@ -125,6 +125,9 @@ export function LoginPage() {
         <Link className="text-[13px] text-primary" to="/forgot-password">
           {t("auth.forgot")}
         </Link>
+        <Link className="text-[13px] text-primary" to="/signup">
+          {t("marketing.startTrial")}
+        </Link>
       </form>
     </AuthFrame>
   );

@@ -57,6 +57,8 @@ public interface IAppDbContext
     DbSet<PlatformSetting> PlatformSettings { get; }
     DbSet<StaffAttendanceRecord> StaffAttendanceRecords { get; }
     DbSet<StaffLeaveRequest> StaffLeaveRequests { get; }
+    DbSet<DemoRequest> DemoRequests { get; }
+    DbSet<TenantOnboarding> TenantOnboardings { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     Task<int> SaveChangesHardDeleteAsync(CancellationToken cancellationToken = default);

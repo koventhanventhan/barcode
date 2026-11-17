@@ -7,6 +7,12 @@
 | GET | `/api/info` | Public | Product metadata |
 | GET | `/api/plans` | Public | Active subscription plans with features and limits |
 | GET | `/api/public/branding` | Public | Institute or platform branding. Uses host subdomain or `X-Tenant`. |
+| GET | `/api/public/subdomains/{subdomain}/availability` | Public | Institute address check for signup |
+| POST | `/api/public/signup` | Public | Create an institute, admin, and 14-day trial |
+| POST | `/api/public/demo-requests` | Public | Store a demo request and email the super admin |
+| POST | `/api/public/demo/login` | Public | Read-only session for the shared demo institute |
+| GET | `/api/onboarding` | Bearer | Setup checklist (logo, batches, students, ID cards, messages) |
+| POST | `/api/onboarding/cards-printed` | Bearer | Mark the ID-card step done |
 
 ## Authentication (`/api/auth`)
 | Method | Path | Auth | Description |

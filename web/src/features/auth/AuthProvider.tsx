@@ -28,6 +28,7 @@ export type AuthContextValue = {
   isReadOnly: boolean;
   isImpersonating: boolean;
   login: (email: string, password: string, institute: string, phone?: string) => Promise<RoleName>;
+  adoptSession: (response: AuthResponse, institute: string) => Promise<RoleName>;
   logout: () => Promise<void>;
   hasPermission: (permission: string) => boolean;
   impersonate: (tenantId: string, subdomain: string) => Promise<void>;
@@ -115,6 +116,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
           throw error;
         }
+      },
+      async adoptSession(response, institute) {
+        setTenantSlug(institute);
+        const next = await withMe(response, { isReadOnly: true, isImpersonating: false });
+        return next.user.role;
       },
       async logout() {
         try {

@@ -11,6 +11,8 @@ public sealed class Subscription : TenantEntity
     public DateTimeOffset StartDate { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? EndDate { get; set; }
     public DateTimeOffset? TrialEndsAt { get; set; }
+    public DateTimeOffset? TrialEndingNoticeSentAt { get; set; }
+    public DateTimeOffset? TrialExpiredNoticeSentAt { get; set; }
     public string? SuspendedReason { get; set; }
     public int ExtraStudentsAllowed { get; set; }
     public string? Notes { get; set; }

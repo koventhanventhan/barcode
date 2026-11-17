@@ -81,6 +81,7 @@
     "themeLight": "Use light theme",
     "themeDark": "Use dark theme",
     "readOnly": "This institute is in read-only mode until a subscription is activated.",
+    "demoReadOnly": "This is the shared demo. You can look around. Changes are not saved.",
     "impersonating": "You are viewing {{name}} as a read-only super admin.",
     "exitImpersonation": "Return to platform",
     "skip": "Skip to content"
@@ -470,6 +471,175 @@
       "Broadcast": "Broadcast announcement",
       "BackupResultAdmin": "Backup result (admin)",
       "DailySummaryAdmin": "Daily summary (admin)"
+    }
+  },
+  "marketing": {
+    "metaTitle": "{{product}} — attendance, fees, and parent messages",
+    "nav": "Page",
+    "navProduct": "Product",
+    "navPricing": "Pricing",
+    "navDemo": "Demo",
+    "navFaq": "FAQ",
+    "signIn": "Sign in",
+    "startTrial": "Start a 14-day trial",
+    "eyebrow": "For Sri Lankan schools and tuition institutes",
+    "headline": "Attendance, fees, exams, and parent messages in one institute account.",
+    "subhead": "Scan a card, collect the month’s fees, publish marks, and tell parents — with a switch for every automatic message.",
+    "requestDemo": "Request a demo",
+    "productTitle": "What the institute runs day to day",
+    "pricingTitle": "Plans",
+    "pricingBody": "Prices are set by the platform. A blank price means we quote it for you.",
+    "pricingError": "Plans could not be loaded.",
+    "compare": "Included",
+    "contactUs": "Contact us",
+    "demoTitle": "Look through a working institute",
+    "demoBody": "The demo login is read-only. The institute is restored every night.",
+    "openDemo": "Open the demo",
+    "formTitle": "Ask for a walkthrough",
+    "institute": "Institute name",
+    "contactName": "Your name",
+    "email": "Email",
+    "phone": "Phone",
+    "city": "City",
+    "students": "Approximate students",
+    "message": "What do you want to see?",
+    "submitDemo": "Send request",
+    "faqTitle": "Questions",
+    "contactTitle": "Contact",
+    "contactBody": "Colombo. We reply by email.",
+    "shotCaption": "EduFlow dashboard with today’s attendance, fees collected, and SMS usage.",
+    "shotInstitute": "Royal Vidyalaya",
+    "shotToday": "Today",
+    "shotAttendance": "Attendance",
+    "shotFees": "Collected",
+    "shotSms": "SMS",
+    "shotStudent": "Student",
+    "shotStatus": "Status",
+    "sections": {
+      "attendance": {
+        "title": "Attendance",
+        "scan": "USB scanner or phone camera marks the student present, and says so if they were already marked.",
+        "register": "The register shows the batch for the day, with a reason when a mark is changed.",
+        "board": "A live board counts who is in the room while the class is running."
+      },
+      "fees": {
+        "title": "Fees",
+        "invoices": "Monthly invoices are generated once per student and period.",
+        "receipts": "Cash and bank-slip payments get a sequential receipt with the institute logo.",
+        "payhere": "PayHere checkout is available when the plan includes online payments."
+      },
+      "exams": {
+        "title": "Exams",
+        "marks": "Enter marks in a grid, lock the paper, then publish.",
+        "ranks": "Ties share a rank. The next rank is skipped.",
+        "cards": "Report cards include marks, grade, rank, and attendance."
+      },
+      "messages": {
+        "title": "Messages",
+        "sms": "SMS, email, and WhatsApp follow the plan and the institute switch.",
+        "templates": "Templates are stored per language, with a preview before you save.",
+        "quiet": "Quiet hours hold non-payment SMS until morning, Colombo time."
+      },
+      "portal": {
+        "title": "Parent portal",
+        "children": "A parent sees only the children linked to their account.",
+        "fees": "Invoices and receipts stay on the phone.",
+        "results": "Marks appear after the institute publishes them, if that switch is on."
+      },
+      "backups": {
+        "title": "Backups",
+        "export": "An institute backup is a zip of that tenant’s records and file list.",
+        "retention": "Old backups are dropped according to the retention setting.",
+        "restore": "Restore is a support action, with a dry run first."
+      }
+    },
+    "faq": {
+      "trial": {
+        "q": "How does the free trial work?",
+        "a": "14 days, no card. When it ends, the institute can still be viewed and stays read-only until a subscription is activated."
+      },
+      "price": {
+        "q": "Where do the prices come from?",
+        "a": "From the plans list. If a plan has no monthly price, the page says Contact us."
+      },
+      "sms": {
+        "q": "What happens when SMS quota runs out?",
+        "a": "The default is to send and record the extra segments. An institute can switch that to block instead."
+      },
+      "portal": {
+        "q": "Can parents be turned off?",
+        "a": "Yes. Parent portal off stops parent sign-in and every parent API, and the phone shows a short explanation."
+      },
+      "data": {
+        "q": "Is one institute’s data visible to another?",
+        "a": "No. Every record is stored with the institute id and queries are filtered to that institute."
+      }
+    }
+  },
+  "signup": {
+    "metaTitle": "Start your {{product}} trial",
+    "title": "Start a 14-day trial",
+    "description": "No card. You get an institute address, an admin account, and the plan you pick.",
+    "subdomain": "Institute address",
+    "subdomainHint": "Lowercase letters, numbers, and hyphens. This becomes the sign-in code.",
+    "available": "This address is free.",
+    "taken": "Choose a different address.",
+    "adminName": "Admin name",
+    "plan": "Plan",
+    "haveAccount": "Already have an account? Sign in"
+  },
+  "onboarding": {
+    "title": "Set up the institute",
+    "progress": "{{completed}} of {{total}} done",
+    "done": "Done",
+    "open": "Open",
+    "steps": {
+      "logo": "Add your logo",
+      "batches": "Add batches",
+      "students": "Add students",
+      "cards": "Print ID cards",
+      "messages": "Enable messages"
+    }
+  },
+  "help": {
+    "title": "Help",
+    "open": "Help",
+    "search": "Search help",
+    "back": "All articles",
+    "empty": "No article matches that.",
+    "articles": {
+      "attendance": {
+        "title": "Mark attendance",
+        "body": "Start the class, then scan the student barcode. A second scan tells you the time of the first mark. Students still unmarked when the class stops can be marked absent if that setting is on."
+      },
+      "fees": {
+        "title": "Fees and receipts",
+        "body": "Fee structures belong to a batch. The monthly job creates one invoice per student and period. Record cash or a bank slip to issue the next receipt number."
+      },
+      "exams": {
+        "title": "Exams and ranks",
+        "body": "Add the paper, enter marks, lock, then publish. Students with the same percentage share a rank. Publishing sends the results message once, if that switch is on."
+      },
+      "messages": {
+        "title": "Message switches",
+        "body": "Each automatic message has its own switch, channel, and template. Turning the switch off skips queued messages as well as new ones. Tamil and Sinhala text uses the shorter Unicode SMS size."
+      },
+      "portal": {
+        "title": "Parent portal",
+        "body": "Link a parent to one or more students. They sign in with a mobile number. If the institute turns the portal off, sign-in and the parent pages stop."
+      },
+      "backups": {
+        "title": "Institute backups",
+        "body": "Backup now, or let the schedule run. The zip holds this institute only. Download it from the backup history. Restore is done by support after a dry run."
+      },
+      "plans": {
+        "title": "Plans and limits",
+        "body": "Student, batch, subject, staff, SMS, and storage limits are enforced when you save. The error names the limit and the maximum. A higher plan, or an extra allowance, is how you go past it."
+      },
+      "switches": {
+        "title": "Feature switches",
+        "body": "A feature works only when the plan includes it and the institute switch is on. Locked features show Upgrade plan. Every switch change is written to the audit log."
+      }
     }
   },
   "errors": {

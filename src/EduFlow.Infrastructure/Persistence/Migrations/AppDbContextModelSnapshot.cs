@@ -553,6 +553,61 @@ namespace EduFlow.Infrastructure.Persistence.Migrations
                     b.ToTable("ClassSessions");
                 });
 
+            modelBuilder.Entity("EduFlow.Domain.Entities.DemoRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("ApproximateStudents")
+                        .HasColumnType("int");
+
+                    b.Property<string>("City")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("ContactName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("InstituteName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Message")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Email");
+
+                    b.ToTable("DemoRequests");
+                });
+
             modelBuilder.Entity("EduFlow.Domain.Entities.EducationLevel", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2019,6 +2074,11 @@ namespace EduFlow.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("IsDemoReadOnly")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
                     b.Property<string>("ReplacedByTokenHash")
                         .HasColumnType("nvarchar(max)");
 
@@ -2541,7 +2601,13 @@ namespace EduFlow.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTimeOffset?>("TrialEndingNoticeSentAt")
+                        .HasColumnType("datetimeoffset");
+
                     b.Property<DateTimeOffset?>("TrialEndsAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("TrialExpiredNoticeSentAt")
                         .HasColumnType("datetimeoffset");
 
                     b.Property<DateTimeOffset?>("UpdatedAt")
@@ -3017,6 +3083,38 @@ namespace EduFlow.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("TenantNotificationTypeSettings");
+                });
+
+            modelBuilder.Entity("EduFlow.Domain.Entities.TenantOnboarding", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("CardsPrintedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId")
+                        .IsUnique();
+
+                    b.ToTable("TenantOnboardings");
                 });
 
             modelBuilder.Entity("EduFlow.Domain.Entities.TenantPaymentGatewayConfig", b =>

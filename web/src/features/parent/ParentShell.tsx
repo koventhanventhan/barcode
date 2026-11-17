@@ -8,6 +8,7 @@ import { useFeature } from "@/components/feature-gate";
 import { PageSkeleton } from "@/components/skeletons";
 import { ProductName } from "@/config/brand";
 import { useAuth } from "@/features/auth/AuthProvider";
+import { HelpWidget } from "@/features/help/HelpWidget";
 import { useBranding } from "@/features/branding/BrandingProvider";
 import { ApiError, api } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -203,6 +204,7 @@ export function ParentShell() {
             ))}
           </ul>
         </nav>
+        <HelpWidget className="bottom-20" />
       </div>
     </ParentContext.Provider>
   );

@@ -26,6 +26,7 @@ function value(account: AuthUser | null): AuthContextValue {
     isReadOnly: false,
     isImpersonating: false,
     login: async () => "Staff",
+    adoptSession: async () => "Staff",
     logout: async () => undefined,
     hasPermission: () => false,
     impersonate: async () => undefined,

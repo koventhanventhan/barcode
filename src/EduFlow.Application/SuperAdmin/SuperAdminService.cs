@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using EduFlow.Application.Academics;
 using EduFlow.Application.Common.Interfaces;
 using EduFlow.Application.Common.Security;
+using EduFlow.Application.Marketing;
 using EduFlow.Application.Fees;
 using EduFlow.Domain;
 using EduFlow.Domain.Constants;
@@ -58,7 +59,8 @@ public sealed partial class SuperAdminService(
     IFeatureService featureService,
     ITokenService tokenService,
     IAuditService auditService,
-    IFeeDocumentService feeDocuments) : ISuperAdminService
+    IFeeDocumentService feeDocuments,
+    ITransactionalEmailService transactionalEmail) : ISuperAdminService
 {
     [GeneratedRegex("^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")]
     private static partial Regex SubdomainRegex();
@@ -1017,6 +1019,15 @@ public sealed partial class SuperAdminService(
             await db.SaveChangesAsync(cancellationToken);
         }
 
+        await transactionalEmail.SendPlatformInvoiceAsync(
+            tenantId,
+            invoice.InvoiceNumber,
+            invoice.Amount,
+            invoice.Currency,
+            invoice.DueDate,
+            "Issued",
+            cancellationToken);
+
         return (await MapPlatformInvoicesAsync([invoice], cancellationToken)).Single();
     }
 
@@ -1079,6 +1090,15 @@ public sealed partial class SuperAdminService(
 
             await db.SaveChangesAsync(cancellationToken);
         }
+
+        await transactionalEmail.SendPlatformInvoiceAsync(
+            invoice.TenantId,
+            invoice.InvoiceNumber,
+            invoice.Amount,
+            invoice.Currency,
+            invoice.DueDate,
+            "Paid",
+            cancellationToken);
 
         featureService.InvalidateTenantCache(invoice.TenantId);
         return (await MapPlatformInvoicesAsync([invoice], cancellationToken)).Single();

@@ -12,4 +12,7 @@ public sealed class AppLinks(IConfiguration configuration) : IAppLinks
 
     public string ParentResetUrl(string phone, string token) =>
         $"{BaseUrl}/reset-password?phone={Uri.EscapeDataString(phone)}&token={Uri.EscapeDataString(token)}";
+
+    public string PasswordResetUrl(string email, string token) =>
+        $"{BaseUrl}/reset-password?email={Uri.EscapeDataString(email)}&token={Uri.EscapeDataString(token)}";
 }

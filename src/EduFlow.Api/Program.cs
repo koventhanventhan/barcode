@@ -208,6 +208,7 @@ app.MapFeeEndpoints();
 app.MapExamEndpoints();
 app.MapParentEndpoints();
 app.MapOperationsEndpoints();
+app.MapPublicEndpoints();
 app.MapHub<EduFlow.Api.Hubs.AttendanceHub>("/hubs/attendance");
 
 if (builder.Configuration.GetValue("Hangfire:EnableRecurringJobs", false))
@@ -237,6 +238,14 @@ if (builder.Configuration.GetValue("Hangfire:EnableRecurringJobs", false))
         EduFlow.Infrastructure.Backups.PlatformDatabaseBackupHangfireJob.RecurringJobId,
         job => job.ExecuteAsync(CancellationToken.None),
         Cron.Daily(21, 0));
+    recurringJobs?.AddOrUpdate<EduFlow.Infrastructure.Marketing.TrialLifecycleHangfireJob>(
+        EduFlow.Infrastructure.Marketing.TrialLifecycleHangfireJob.RecurringJobId,
+        job => job.ExecuteAsync(CancellationToken.None),
+        Cron.Daily(2, 30));
+    recurringJobs?.AddOrUpdate<EduFlow.Infrastructure.Marketing.DemoTenantResetHangfireJob>(
+        EduFlow.Infrastructure.Marketing.DemoTenantResetHangfireJob.RecurringJobId,
+        job => job.ExecuteAsync(CancellationToken.None),
+        Cron.Daily(18, 30));
 }
 
 if (builder.Configuration.GetValue<bool>("Diagnostics:ThrowOnGet"))

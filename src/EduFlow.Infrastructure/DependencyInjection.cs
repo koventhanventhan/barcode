@@ -166,6 +166,12 @@ public static class DependencyInjection
         services.AddScoped<IParentPortalService, ParentPortalService>();
         services.AddScoped<IBackupAndCleanupService, BackupAndCleanupService>();
         services.AddScoped<IDatabaseBackupExecutor, DatabaseBackupExecutor>();
+        services.AddScoped<EduFlow.Application.Marketing.ITransactionalEmailService, EduFlow.Application.Marketing.TransactionalEmailService>();
+        services.AddScoped<EduFlow.Application.Marketing.IPublicSiteService, EduFlow.Application.Marketing.PublicSiteService>();
+        services.AddScoped<EduFlow.Application.Marketing.ITrialNoticeService, EduFlow.Application.Marketing.TrialNoticeService>();
+        services.AddScoped<EduFlow.Infrastructure.Marketing.IDemoTenantResetService, EduFlow.Infrastructure.Marketing.DemoTenantResetService>();
+        services.AddScoped<EduFlow.Infrastructure.Marketing.TrialLifecycleHangfireJob>();
+        services.AddScoped<EduFlow.Infrastructure.Marketing.DemoTenantResetHangfireJob>();
         services.AddSingleton<IAppLinks, AppLinks>();
         services.AddScoped<NotificationService>();
         services.AddScoped<INotificationService>(sp => sp.GetRequiredService<NotificationService>());

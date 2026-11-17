@@ -27,7 +27,8 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options) : ITokenServic
     public GeneratedAccessToken GenerateAccessToken(
         User user,
         IReadOnlyList<string> permissions,
-        string? tenantSubdomain = null)
+        string? tenantSubdomain = null,
+        bool readOnlyDemo = false)
     {
         var now = DateTimeOffset.UtcNow;
         var expiresAt = now.AddMinutes(_options.AccessTokenMinutes);
@@ -56,6 +57,12 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options) : ITokenServic
         foreach (var permission in permissions.Distinct())
         {
             claims.Add(new Claim("permission", permission));
+        }
+
+        if (readOnlyDemo)
+        {
+            claims.Add(new Claim("read_only", "true"));
+            claims.Add(new Claim("demo_session", "true"));
         }
 
         return WriteToken(claims, expiresAt);

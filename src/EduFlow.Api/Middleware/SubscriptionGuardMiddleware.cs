@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using EduFlow.Application.Common.Interfaces;
 using EduFlow.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -47,11 +48,17 @@ public sealed class SubscriptionGuardMiddleware(RequestDelegate next)
 
         if (tenantContext.IsReadOnly && !isReadOnlyHttpMethod)
         {
+            var demoSession = string.Equals(
+                context.User.FindFirstValue("demo_session"),
+                "true",
+                StringComparison.OrdinalIgnoreCase);
             context.Response.StatusCode = StatusCodes.Status403Forbidden;
             await context.Response.WriteAsJsonAsync(new
             {
-                code = "IMPERSONATION_READ_ONLY",
-                message = "Super Admin impersonation session is strictly read-only."
+                code = demoSession ? "DEMO_READ_ONLY" : "IMPERSONATION_READ_ONLY",
+                message = demoSession
+                    ? "This shared demo is read-only. Start a free trial to make changes."
+                    : "Super Admin impersonation session is strictly read-only."
             });
             return;
         }

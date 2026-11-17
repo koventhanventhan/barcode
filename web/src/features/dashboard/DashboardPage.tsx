@@ -10,6 +10,7 @@ import type { Branch, SmsQuotaSummary, SubscriptionSummary } from "@/lib/types";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { type ExamSummary } from "@/features/exams/api";
 import { SmsQuotaCard } from "@/features/features/SmsQuotaCard";
+import { OnboardingChecklist } from "@/features/marketing/OnboardingChecklist";
 
 export function DashboardPage() {
   const { t } = useTranslation();
@@ -57,6 +58,7 @@ export function DashboardPage() {
   return (
     <div>
       <PageHeader title={t("dashboard.title")} description={t("dashboard.description")} crumbs={[{ label: t("nav.overview") }, { label: t("nav.dashboard") }]} />
+      {hasPermission("settings.manage") || hasPermission("students.edit") ? <OnboardingChecklist /> : null}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label={t("dashboard.plan")} value={data.planName} hint={data.planCode} />
         <StatCard label={t("dashboard.status")} value={data.status} />

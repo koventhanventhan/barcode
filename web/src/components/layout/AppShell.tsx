@@ -31,6 +31,7 @@ import { useTranslation } from "react-i18next";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { ProductName } from "@/config/brand";
 import { useAuth } from "@/features/auth/AuthProvider";
+import { HelpWidget } from "@/features/help/HelpWidget";
 import { useBranding } from "@/features/branding/BrandingProvider";
 import type { PlatformAnnouncement } from "@/features/operations/api";
 import { api } from "@/lib/api";
@@ -243,6 +244,8 @@ export function AppShell() {
               {t("shell.exitImpersonation")}
             </button>
           </div>
+        ) : auth.isReadOnly ? (
+          <div className="border-b border-border bg-secondary px-4 py-2 text-[13px]">{t("shell.demoReadOnly")}</div>
         ) : readOnly ? (
           <div className="border-b border-border bg-secondary px-4 py-2 text-[13px]">{t("shell.readOnly")}</div>
         ) : null}
@@ -258,6 +261,7 @@ export function AppShell() {
         <main id="content" className="px-3 py-5 sm:px-6">
           <Outlet />
         </main>
+        <HelpWidget />
         {open ? (
           <button type="button" className="sr-only" onClick={() => setOpen(false)}>
             <X />

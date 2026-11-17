@@ -13,6 +13,7 @@ public sealed class RefreshToken : TenantEntity
     public DateTimeOffset? RevokedAt { get; set; }
     public string? RevokedReason { get; set; }
     public string? CreatedByIp { get; set; }
+    public bool IsDemoReadOnly { get; set; }
 
     public bool IsRevoked => RevokedAt.HasValue;
     public bool IsExpired => DateTimeOffset.UtcNow >= ExpiresAt;

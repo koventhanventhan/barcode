@@ -131,7 +131,7 @@ public static class AuthEndpoints
         return app;
     }
 
-    private static void AppendRefreshTokenCookie(HttpContext httpContext, string refreshToken)
+    public static void AppendRefreshTokenCookie(HttpContext httpContext, string refreshToken)
     {
         httpContext.Response.Cookies.Append(
             RefreshTokenCookieName,

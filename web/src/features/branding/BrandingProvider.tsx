@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useQuery } from "@tanstack/react-query";
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useLocation } from "react-router-dom";
 import { ProductName } from "@/config/brand";
 import { api } from "@/lib/api";
 import { applyBrandToDocument, resolveThemeMode } from "@/lib/color";
@@ -36,6 +37,8 @@ const fallback: Branding = {
 };
 
 export function BrandingProvider({ children }: { children: ReactNode }) {
+  const location = useLocation();
+  const marketing = location.pathname === "/" || location.pathname === "/signup";
   const [institute, setInstituteState] = useState(getTenantSlug);
   useEffect(() => subscribeTenantSlug(() => setInstituteState(getTenantSlug())), []);
   const [themeOverride, setThemeState] = useState<"light" | "dark" | null>(getThemeOverride);
@@ -54,10 +57,10 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
       fontPreference: branding.fontPreference,
       mode: resolvedMode,
     });
-    document.title = branding.instituteDisplayName || ProductName;
+    if (!marketing) document.title = branding.instituteDisplayName || ProductName;
     const link = document.querySelector<HTMLLinkElement>("link[rel='icon']");
     if (link && branding.faviconUrl) link.href = branding.faviconUrl;
-  }, [branding, resolvedMode]);
+  }, [branding, resolvedMode, marketing]);
 
   const value = useMemo<BrandingContextValue>(
     () => ({

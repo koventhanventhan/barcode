@@ -67,6 +67,8 @@ public sealed class AppDbContext(
     public DbSet<PlatformSetting> PlatformSettings => Set<PlatformSetting>();
     public DbSet<StaffAttendanceRecord> StaffAttendanceRecords => Set<StaffAttendanceRecord>();
     public DbSet<StaffLeaveRequest> StaffLeaveRequests => Set<StaffLeaveRequest>();
+    public DbSet<DemoRequest> DemoRequests => Set<DemoRequest>();
+    public DbSet<TenantOnboarding> TenantOnboardings => Set<TenantOnboarding>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -312,6 +314,7 @@ public sealed class AppDbContext(
         modelBuilder.Entity<RefreshToken>(b =>
         {
             b.Property(x => x.TokenHash).HasMaxLength(128).IsRequired();
+            b.Property(x => x.IsDemoReadOnly).HasDefaultValue(false);
             b.HasIndex(x => x.TokenHash).IsUnique();
             b.HasIndex(x => x.FamilyId);
             b.HasOne(x => x.User)
@@ -747,6 +750,22 @@ public sealed class AppDbContext(
             b.HasQueryFilter(x => !x.IsDeleted
                 && ((!CurrentTenantId.HasValue && x.TenantId == Guid.Empty)
                     || (CurrentTenantId.HasValue && x.TenantId == CurrentTenantId.Value)));
+        });
+
+        modelBuilder.Entity<DemoRequest>(b =>
+        {
+            b.Property(x => x.InstituteName).HasMaxLength(120).IsRequired();
+            b.Property(x => x.ContactName).HasMaxLength(120).IsRequired();
+            b.Property(x => x.Email).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Phone).HasMaxLength(40);
+            b.Property(x => x.City).HasMaxLength(80);
+            b.Property(x => x.Message).HasMaxLength(2000);
+            b.HasIndex(x => x.Email);
+        });
+
+        modelBuilder.Entity<TenantOnboarding>(b =>
+        {
+            b.HasIndex(x => x.TenantId).IsUnique();
         });
     }
 }

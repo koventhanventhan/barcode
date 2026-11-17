@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#f4f6f5"/>
+  <rect x="48" y="48" width="1104" height="534" rx="8" fill="#ffffff" stroke="#d5ddd8"/>
+  <rect x="48" y="48" width="1104" height="72" rx="8" fill="#1f4e46"/>
+  <text x="80" y="94" fill="#f8fafc" font-family="Inter, Segoe UI, sans-serif" font-size="28" font-weight="600">EduFlow</text>
+  <text x="80" y="180" fill="#14211c" font-family="Inter, Segoe UI, sans-serif" font-size="40" font-weight="600">Attendance, fees, and parent messages</text>
+  <text x="80" y="230" fill="#5d6b65" font-family="Inter, Segoe UI, sans-serif" font-size="22">For Sri Lankan schools and tuition institutes</text>
+  <rect x="80" y="280" width="300" height="110" rx="6" fill="#ffffff" stroke="#d5ddd8"/>
+  <text x="100" y="320" fill="#5d6b65" font-family="Inter, Segoe UI, sans-serif" font-size="16">Attendance today</text>
+  <text x="100" y="360" fill="#14211c" font-family="Inter, Segoe UI, sans-serif" font-size="28" font-weight="600">92%</text>
+  <rect x="400" y="280" width="300" height="110" rx="6" fill="#ffffff" stroke="#d5ddd8"/>
+  <text x="420" y="320" fill="#5d6b65" font-family="Inter, Segoe UI, sans-serif" font-size="16">Fees collected</text>
+  <text x="420" y="360" fill="#14211c" font-family="Inter, Segoe UI, sans-serif" font-size="28" font-weight="600">LKR 128,500</text>
+  <rect x="720" y="280" width="300" height="110" rx="6" fill="#ffffff" stroke="#d5ddd8"/>
+  <text x="740" y="320" fill="#5d6b65" font-family="Inter, Segoe UI, sans-serif" font-size="16">SMS this month</text>
+  <text x="740" y="360" fill="#14211c" font-family="Inter, Segoe UI, sans-serif" font-size="28" font-weight="600">184 / 1,500</text>
+</svg>

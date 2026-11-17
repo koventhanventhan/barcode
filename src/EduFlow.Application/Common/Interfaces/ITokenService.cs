@@ -11,7 +11,8 @@ public interface ITokenService
     GeneratedAccessToken GenerateAccessToken(
         User user,
         IReadOnlyList<string> permissions,
-        string? tenantSubdomain = null);
+        string? tenantSubdomain = null,
+        bool readOnlyDemo = false);
 
     GeneratedAccessToken GenerateReadOnlyImpersonationToken(
         User superAdmin,

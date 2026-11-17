@@ -1,5 +1,6 @@
 using EduFlow.Application.Common.Interfaces;
 using EduFlow.Application.Common.Security;
+using EduFlow.Application.Marketing;
 using EduFlow.Application.Parents;
 using EduFlow.Domain.Constants;
 using EduFlow.Domain.Entities;
@@ -19,6 +20,7 @@ public interface IAuthService
     Task ResetPasswordAsync(ResetPasswordRequest request, CancellationToken cancellationToken = default);
     Task<InviteUserResponse> InviteUserAsync(InviteUserRequest request, CancellationToken cancellationToken = default);
     Task<AuthResponse> AcceptInviteAsync(AcceptInviteRequest request, CancellationToken cancellationToken = default);
+    Task<AuthResponse> LoginDemoReadOnlyAsync(CancellationToken cancellationToken = default);
 }
 
 public sealed class AuthService(
@@ -30,7 +32,8 @@ public sealed class AuthService(
     IEmailSender emailSender,
     IAuditService auditService,
     ISmsProvider smsProvider,
-    IAppLinks links) : IAuthService
+    IAppLinks links,
+    ITransactionalEmailService transactionalEmail) : IAuthService
 {
     private const int MaxFailedLoginAttempts = 5;
     private static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
@@ -244,7 +247,8 @@ public sealed class AuthService(
                 TokenHash = newRefreshTokenHash,
                 FamilyId = existingToken.FamilyId,
                 ExpiresAt = now.Add(RefreshTokenLifetime),
-                CreatedByIp = tenantContext.IpAddress
+                CreatedByIp = tenantContext.IpAddress,
+                IsDemoReadOnly = existingToken.IsDemoReadOnly
             };
 
             db.RefreshTokens.Add(rotatedEntity);
@@ -253,7 +257,7 @@ public sealed class AuthService(
 
         var permissions = await ResolvePermissionsAsync(user, cancellationToken);
         var tenantSubdomain = await ResolveTenantSubdomainAsync(user.TenantId, cancellationToken);
-        var generatedJwt = tokenService.GenerateAccessToken(user, permissions, tenantSubdomain);
+        var generatedJwt = tokenService.GenerateAccessToken(user, permissions, tenantSubdomain, existingToken.IsDemoReadOnly);
 
         return new AuthResponse(
             generatedJwt.Token,
@@ -565,7 +569,8 @@ public sealed class AuthService(
     private async Task<AuthResponse> IssueTokensForUserAsync(
         User user,
         Guid familyId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool readOnlyDemo = false)
     {
         var now = DateTimeOffset.UtcNow;
         var rawRefreshToken = PasswordHasher.GenerateSecureToken();
@@ -584,7 +589,8 @@ public sealed class AuthService(
                 TokenHash = refreshTokenHash,
                 FamilyId = familyId,
                 ExpiresAt = now.Add(RefreshTokenLifetime),
-                CreatedByIp = tenantContext.IpAddress
+                CreatedByIp = tenantContext.IpAddress,
+                IsDemoReadOnly = readOnlyDemo
             };
 
             db.RefreshTokens.Add(refreshToken);
@@ -593,7 +599,7 @@ public sealed class AuthService(
 
         var permissions = await ResolvePermissionsAsync(user, cancellationToken);
         var tenantSubdomain = await ResolveTenantSubdomainAsync(user.TenantId, cancellationToken);
-        var generatedJwt = tokenService.GenerateAccessToken(user, permissions, tenantSubdomain);
+        var generatedJwt = tokenService.GenerateAccessToken(user, permissions, tenantSubdomain, readOnlyDemo);
 
         return new AuthResponse(
             generatedJwt.Token,
@@ -724,19 +730,36 @@ public sealed class AuthService(
             return;
         }
 
-        await emailSender.SendAsync(
-            new EmailMessage(
-                To: user.Email,
-                Subject: "Reset your password",
-                HtmlBody: $"<p>Use token <code>{rawToken}</code> to reset your password before {expiresAt:O}.</p>",
-                PlainTextBody: $"Use token {rawToken} to reset your password.",
-                Metadata: new Dictionary<string, string>
-                {
-                    ["Type"] = "PasswordReset",
-                    ["Token"] = rawToken,
-                    ["Email"] = user.Email
-                }),
-            cancellationToken);
+        await transactionalEmail.SendPasswordResetAsync(user, rawToken, expiresAt, cancellationToken);
+    }
+
+    public async Task<AuthResponse> LoginDemoReadOnlyAsync(CancellationToken cancellationToken = default)
+    {
+        var user = await db.Users
+            .IgnoreQueryFilters()
+            .Include(u => u.CustomRole)
+            .ThenInclude(r => r!.Permissions)
+            .FirstOrDefaultAsync(
+                u => !u.IsDeleted && u.IsActive && u.Email == "admin@demo.eduflow.lk",
+                cancellationToken);
+
+        if (user is null)
+        {
+            throw new DomainValidationException(
+                "DEMO_UNAVAILABLE",
+                "The demo institute is not ready yet. Try again in a minute.",
+                503);
+        }
+
+        var tenantIsDemo = await db.Tenants
+            .IgnoreQueryFilters()
+            .AnyAsync(t => !t.IsDeleted && t.Id == user.TenantId && t.IsDemo, cancellationToken);
+        if (!tenantIsDemo)
+        {
+            throw new DomainValidationException("DEMO_UNAVAILABLE", "The demo institute is not available.", 503);
+        }
+
+        return await IssueTokensForUserAsync(user, Guid.NewGuid(), cancellationToken, readOnlyDemo: true);
     }
 
     private async Task<string?> ResolveTenantSubdomainAsync(Guid tenantId, CancellationToken cancellationToken)
