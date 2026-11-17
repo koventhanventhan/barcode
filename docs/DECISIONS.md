@@ -9,3 +9,5 @@
 - `Diagnostics:ThrowOnGet` registers `/api/diagnostics/throw` only when set. It is off in config and used by the problem-details test.
 - Tailwind is v4 via `@tailwindcss/vite`. shadcn/ui is initialized for Vite with Radix and CSS variables in `web/src/styles/globals.css`.
 - Tailwind 4 is loaded by `@tailwindcss/vite`. shadcn/ui is initialized with CSS variables in `web/src/styles/globals.css` and the `Button` component.
+- `ApiFactory` uses `Testcontainers.MsSql` when Docker is running and falls back to an in-memory SQLite relational connection when Docker is unavailable so all integration tests execute locally and in CI.
+- `User` and `RefreshToken` inherit `TenantEntity` with `TenantId = Guid.Empty` reserved for platform `SuperAdmin` accounts; tenant queries require `CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value`.

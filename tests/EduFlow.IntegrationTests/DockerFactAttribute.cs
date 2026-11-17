@@ -4,7 +4,7 @@ namespace EduFlow.IntegrationTests;
 
 public sealed class DockerFactAttribute : FactAttribute
 {
-    private static readonly Lazy<bool> DockerAvailable = new(ProbeDocker);
+    public static readonly Lazy<bool> DockerAvailable = new(ProbeDocker);
 
     public DockerFactAttribute()
     {

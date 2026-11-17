@@ -1,18 +1,12 @@
 # Architecture
 
-EduFlow is a multi-tenant school SaaS. Phase 0 is the repository skeleton only.
+EduFlow is a multi-tenant student management SaaS built on .NET 8 Clean Architecture and React 18.
 
 ## Projects
 
-- `EduFlow.Domain` — entities and constants. No infrastructure references.
-- `EduFlow.Application` — use cases. References Domain.
-- `EduFlow.Infrastructure` — EF Core, storage, and providers. References Application.
-- `EduFlow.Api` — HTTP host, Swagger, health checks, exception handling. References Application and Infrastructure.
-- `web` — React client.
-- `tests` — xUnit unit tests and WebApplicationFactory / Testcontainers integration tests.
-
-`ProductName.Value` in the domain and `ProductName` in `web/src/config/brand.ts` are the only product-name constants.
-
-## Request pipeline
-
-Unhandled exceptions become RFC 7807 problem details. `/health` reports process liveness. Tenant resolution, auth, and persistence start in Phase 1.
+- `EduFlow.Domain` — Entities (`BaseEntity`, `TenantEntity`, `ITenantEntity`), enums (`FeatureKey`, `LimitKey`, `RoleType`, `SubscriptionStatus`), permission catalog, and domain exceptions.
+- `EduFlow.Application` — Multi-tenant interfaces (`ITenantContext`, `IAppDbContext`, `IFeatureService`, `ILimitService`, `IAuditService`, `IEmailSender`, `ITokenService`), PBKDF2 password hashing, password policy, and application services (`AuthService`, `SuperAdminService`, `TenantManagementService`, `FeatureService`, `LimitService`).
+- `EduFlow.Infrastructure` — EF Core 8 `AppDbContext` (global query filters on `TenantId` and `!IsDeleted`, automatic `TenantId` stamping, soft delete, cross-tenant write protection), SQL Server migrations, `JwtTokenService`, `DbSeeder`, and providers.
+- `EduFlow.Api` — Minimal API endpoints, `TenantResolutionMiddleware` (subdomain -> `X-Tenant` -> JWT claim with cross-tenant mismatch protection), `SubscriptionGuardMiddleware` (suspended -> blocked; expired/impersonating -> read-only), `RequireFeatureEndpointFilter`, permission authorization policies, rate limiting, and RFC 7807 / structured error handling.
+- `web` — React 18 + TypeScript + Vite client.
+- `tests` — `EduFlow.UnitTests` and `EduFlow.IntegrationTests`.
