@@ -116,6 +116,18 @@ export function TenantDetailPage() {
     onError: (error) => toast.error(error instanceof Error ? error.message : t("errors.generic")),
   });
 
+  const clearOverride = useMutation({
+    mutationFn: (feature: string) =>
+      api(`/api/super-admin/tenants/${id}/feature-overrides/${feature}`, {
+        method: "DELETE",
+      }),
+    onSuccess: async () => {
+      toast.success(t("tenants.updated"));
+      await refresh();
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : t("errors.generic")),
+  });
+
   if (tenant.isLoading) return <PageSkeleton />;
   if (!tenant.data) return <p className="text-sm">{t("errors.load")}</p>;
   const detail = tenant.data;
@@ -360,6 +372,11 @@ export function TenantDetailPage() {
                   <Button size="sm" variant="outline" onClick={() => override.mutate({ feature, enabled: !(current?.isEnabled ?? false) })}>
                     {current?.isEnabled ? t("features.off") : t("features.on")}
                   </Button>
+                  {current ? (
+                    <Button size="sm" variant="outline" onClick={() => clearOverride.mutate(feature)}>
+                      {t("common.reset")}
+                    </Button>
+                  ) : null}
                 </span>
               </li>
             );

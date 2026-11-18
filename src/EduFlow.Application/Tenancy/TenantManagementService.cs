@@ -77,10 +77,9 @@ public sealed class TenantManagementService(
         var code = request.Code.Trim().ToUpperInvariant();
         var tenantId = tenantContext.TenantId
             ?? throw new DomainValidationException("TENANT_REQUIRED", "Tenant context is required.");
-        if (await db.Branches.AnyAsync(cancellationToken)
-            && !await featureService.IsEnabledAsync(tenantId, FeatureKey.MultiBranch, cancellationToken))
+        if (await db.Branches.AnyAsync(cancellationToken))
         {
-            throw new FeatureNotInPlanException(FeatureKey.MultiBranch);
+            await EnsureMultiBranchEnabledAsync(tenantId, cancellationToken);
         }
 
         var duplicate = await db.Branches.AnyAsync(b => b.Code == code, cancellationToken);
@@ -498,10 +497,7 @@ public sealed class TenantManagementService(
     {
         var tenantId = tenantContext.TenantId
             ?? throw new DomainValidationException("TENANT_REQUIRED", "Tenant context is required.");
-        if (!await featureService.IsEnabledAsync(tenantId, FeatureKey.MultiBranch, cancellationToken))
-        {
-            throw new FeatureNotInPlanException(FeatureKey.MultiBranch);
-        }
+        await EnsureMultiBranchEnabledAsync(tenantId, cancellationToken);
 
         var user = await db.Users.FirstOrDefaultAsync(u => u.Id == id, cancellationToken)
             ?? throw new EntityNotFoundException(nameof(User), id.ToString());
@@ -546,11 +542,9 @@ public sealed class TenantManagementService(
             return [];
         }
 
-        if (distinct.Count > 1
-            && roleType is RoleType.Staff or RoleType.Teacher
-            && !await featureService.IsEnabledAsync(tenantId, FeatureKey.MultiBranch, cancellationToken))
+        if (distinct.Count > 1 && roleType is RoleType.Staff or RoleType.Teacher)
         {
-            throw new FeatureNotInPlanException(FeatureKey.MultiBranch);
+            await EnsureMultiBranchEnabledAsync(tenantId, cancellationToken);
         }
 
         var found = await db.Branches.CountAsync(branch => distinct.Contains(branch.Id), cancellationToken);
@@ -560,5 +554,19 @@ public sealed class TenantManagementService(
         }
 
         return distinct;
+    }
+
+    private async Task EnsureMultiBranchEnabledAsync(Guid tenantId, CancellationToken cancellationToken)
+    {
+        var evaluation = await featureService.EvaluateAsync(tenantId, FeatureKey.MultiBranch, cancellationToken);
+        if (!evaluation.IsInPlan)
+        {
+            throw new FeatureNotInPlanException(FeatureKey.MultiBranch);
+        }
+
+        if (!evaluation.IsEnabled)
+        {
+            throw new FeatureDisabledException(FeatureKey.MultiBranch);
+        }
     }
 }

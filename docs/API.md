@@ -48,7 +48,7 @@ Requires `SuperAdmin` role:
 - `GET/PUT /api/settings/bank-account` (`settings.manage` to change) — Institute bank transfer details shown to parents on `/api/parent/bank-account`
 - `GET/PUT /api/settings/branding`, `POST /api/settings/branding/reset`, `POST /api/settings/branding/assets` (`settings.manage` to change)
 - `GET/PUT /api/super-admin/branding`, `POST /api/super-admin/branding/reset`, `POST /api/super-admin/branding/assets`
-- `GET/POST/PUT/DELETE /api/branches` (`branches.view`, `branches.manage`). A second branch requires `MultiBranch` (`FEATURE_NOT_IN_PLAN` otherwise).
+- `GET/POST/PUT/DELETE /api/branches` (`branches.view`, `branches.manage`). A second branch requires `MultiBranch` (`FEATURE_NOT_IN_PLAN` when absent from plan, `FEATURE_DISABLED` when tenant switch is off).
 - `GET /api/me/branches` — branches the signed-in user may select, and `canViewAll` for the institute-admin consolidated view. Send `X-Branch` (or `all`) on later requests.
 - `PUT /api/users/{id}/branches` (`users.manage`, `MultiBranch`) — limit a staff or teacher account to specific branches.
 - `GET /api/permissions`, `GET/POST/PUT/DELETE /api/roles` (`roles.view`, `roles.manage`)
@@ -114,7 +114,7 @@ Requires `SuperAdmin` role:
 - `POST /api/exams/{id}/schedule|lock|unlock|publish|unpublish` (`exams.manage`) — Schedule sends `ExamScheduled` once. Publish ranks the cohort and sends `MarksReleased` once per student.
 - `GET/PUT /api/exams/{id}/marks` (`exams.manage`) — Keyboard grid and bulk paste. Locked and published exams reject edits.
 - `GET /api/exams/{id}/ranks?scope=batch|level|subject` and `GET /api/exams/{id}/distribution` (`reports.view`) — Competition ranking, ties share a place.
-- `GET /api/exams/students/{studentId}/trends` (`reports.view`) — Published percentages over time.
+- `GET /api/exams/students/{studentId}/trends` (`reports.view`, `[RequireFeature(FeatureKey.PerformanceReports)]`) — Published percentages over time.
 - `GET /api/exams/summary` (`reports.view`) — Upcoming and published counts for the dashboard.
 - `GET /api/exams/{id}/report-cards` (`reports.view`, `[RequireFeature(FeatureKey.PerformanceReports)]`) — Branded report-card PDF.
 - `POST /api/exams/reminders/run` (`exams.manage`) — Enqueue `ExamReminder` using tenant days plus hours, overridable per exam.

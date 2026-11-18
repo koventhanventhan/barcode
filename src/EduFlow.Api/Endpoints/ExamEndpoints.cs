@@ -50,6 +50,7 @@ public static class ExamEndpoints
         group.MapGet("/students/{studentId:guid}/trends", async (Guid studentId, IExamService service, CancellationToken ct) =>
             Results.Ok(await service.GetStudentTrendsAsync(studentId, ct)))
             .RequirePermission(Permissions.ReportsView)
+            .RequireFeature(FeatureKey.PerformanceReports)
             .WithName("GetStudentExamTrends");
 
         group.MapPost("/reminders/run", async (RunExamRemindersRequest? request, IExamService service, CancellationToken ct) =>

@@ -570,7 +570,7 @@ public sealed class ExamService(
 
     public async Task<IReadOnlyList<StudentTrendPointDto>> GetStudentTrendsAsync(Guid studentId, CancellationToken cancellationToken = default)
     {
-        TenantGuard.Require(tenantContext);
+        await EnsurePerformanceReportsEnabledAsync(cancellationToken);
         var results = await db.ExamResults.AsNoTracking()
             .Where(r => r.StudentId == studentId && r.Grade != "")
             .ToListAsync(cancellationToken);
@@ -596,17 +596,7 @@ public sealed class ExamService(
 
     public async Task<StoredDownload> GetReportCardsPdfAsync(Guid examId, Guid? studentId, CancellationToken cancellationToken = default)
     {
-        var tenantId = TenantGuard.Require(tenantContext);
-        var evaluation = await featureService.EvaluateAsync(tenantId, FeatureKey.PerformanceReports, cancellationToken);
-        if (!evaluation.IsInPlan)
-        {
-            throw new FeatureNotInPlanException(FeatureKey.PerformanceReports);
-        }
-
-        if (!evaluation.IsEnabled)
-        {
-            throw new FeatureDisabledException(FeatureKey.PerformanceReports);
-        }
+        var tenantId = await EnsurePerformanceReportsEnabledAsync(cancellationToken);
 
         var exam = await RequireExamAsync(examId, cancellationToken);
         if (exam.Status != ExamStatus.Published)
@@ -1413,6 +1403,23 @@ public sealed class ExamService(
         }
 
         return trimmed;
+    }
+
+    private async Task<Guid> EnsurePerformanceReportsEnabledAsync(CancellationToken cancellationToken)
+    {
+        var tenantId = TenantGuard.Require(tenantContext);
+        var evaluation = await featureService.EvaluateAsync(tenantId, FeatureKey.PerformanceReports, cancellationToken);
+        if (!evaluation.IsInPlan)
+        {
+            throw new FeatureNotInPlanException(FeatureKey.PerformanceReports);
+        }
+
+        if (!evaluation.IsEnabled)
+        {
+            throw new FeatureDisabledException(FeatureKey.PerformanceReports);
+        }
+
+        return tenantId;
     }
 
     private static string Sanitize(string value)
