@@ -14,6 +14,7 @@ export type FeeStructureDto = {
   batchId: string | null;
   batchName: string | null;
   dueDayOfMonth: number;
+  autoIssueOnAdmission: boolean;
   description: string | null;
   isActive: boolean;
   createdAt: string;
@@ -57,6 +58,8 @@ export type FeePaymentDto = {
   notes: string | null;
   voidedOrRefundedAt: string | null;
   voidOrRefundReason: string | null;
+  receiptPrintCount: number;
+  lastPrintedAt: string | null;
   createdAt: string;
 };
 
@@ -82,6 +85,7 @@ export type FeeInvoiceDto = {
   concessionId: string | null;
   concessionDescription: string | null;
   netAmount: number;
+  creditAppliedAmount: number;
   paidAmount: number;
   balanceAmount: number;
   currency: string;
@@ -234,6 +238,137 @@ export type PlatformSubscriptionInvoiceDto = {
   paymentReference: string | null;
   notes: string | null;
   createdAt: string;
+};
+
+export type TenantBankAccountDto = {
+  bankName: string;
+  branchName: string | null;
+  accountName: string;
+  accountNumber: string;
+  instructions: string | null;
+  isEnabled: boolean;
+  isConfigured: boolean;
+};
+
+export type BankPaymentSubmissionDto = {
+  id: string;
+  invoiceId: string;
+  invoiceNumber: string;
+  invoiceTitle: string;
+  studentId: string;
+  studentCode: string;
+  studentName: string;
+  submittedByUserId: string;
+  submittedByName: string;
+  submittedByRole: string;
+  amount: number;
+  invoiceBalanceAmount: number;
+  currency: string;
+  referenceNumber: string | null;
+  transferDate: string | null;
+  slipFileName: string;
+  status: "Pending" | "Approved" | "Rejected";
+  notes: string | null;
+  reviewedByUserId: string | null;
+  reviewedByName: string | null;
+  reviewedAt: string | null;
+  rejectionReason: string | null;
+  feePaymentId: string | null;
+  receiptNumber: string | null;
+  createdAt: string;
+};
+
+export type SiblingDiscountRuleDto = {
+  isEnabled: boolean;
+  discountType: DiscountType;
+  secondChildValue: number;
+  thirdPlusChildValue: number;
+  applyToMonthly: boolean;
+  applyToOneTime: boolean;
+  applyToAdmission: boolean;
+  stackWithConcession: boolean;
+};
+
+export type StudentCreditTransactionDto = {
+  id: string;
+  studentId: string;
+  studentCode: string;
+  studentName: string;
+  entryType: string;
+  amount: number;
+  signedAmount: number;
+  balanceAfter: number;
+  method: string | null;
+  referenceNumber: string | null;
+  invoiceId: string | null;
+  invoiceNumber: string | null;
+  feePaymentId: string | null;
+  recordedByName: string | null;
+  occurredAt: string;
+  notes: string | null;
+};
+
+export type StudentCreditBalanceDto = {
+  studentId: string;
+  studentCode: string;
+  studentName: string;
+  guardianName: string;
+  guardianPhone: string;
+  balance: number;
+  currency: string;
+  lastActivityAt: string | null;
+  transactions: StudentCreditTransactionDto[];
+};
+
+export type CashierClosingByMethodDto = {
+  method: string;
+  transactionCount: number;
+  invoicePaymentsTotal: number;
+  advanceDepositsTotal: number;
+  refundedTotal: number;
+  netCollectedTotal: number;
+};
+
+export type CashierClosingByUserDto = {
+  userId: string | null;
+  cashierName: string;
+  cashierEmail: string | null;
+  transactionCount: number;
+  cashTotal: number;
+  bankTransferTotal: number;
+  payHereTotal: number;
+  advanceDepositsTotal: number;
+  refundedTotal: number;
+  netCollectedTotal: number;
+};
+
+export type CashierClosingItemDto = {
+  kind: string;
+  referenceCode: string;
+  occurredAt: string;
+  studentId: string;
+  studentCode: string;
+  studentName: string;
+  invoiceNumber: string | null;
+  method: string;
+  cashierName: string;
+  grossAmount: number;
+  refundedAmount: number;
+  netAmount: number;
+  status: string;
+};
+
+export type CashierClosingReportDto = {
+  date: string;
+  currency: string;
+  totalTransactions: number;
+  invoicePaymentsTotal: number;
+  advanceDepositsTotal: number;
+  refundedTotal: number;
+  grandTotalCollected: number;
+  byMethod: CashierClosingByMethodDto[];
+  byUser: CashierClosingByUserDto[];
+  items: CashierClosingItemDto[];
 };
 
 export function formatMoney(amount: number, currency = "LKR"): string {

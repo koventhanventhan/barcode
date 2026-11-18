@@ -33,6 +33,7 @@ import type {
 } from "@/lib/types";
 import { SmsQuotaCard } from "./SmsQuotaCard";
 import { StorageUsageCard } from "./StorageUsageCard";
+import { BankAccountSettingsCard } from "./BankAccountSettingsCard";
 
 export function FeaturesPage() {
   const { t } = useTranslation();
@@ -330,6 +331,7 @@ export function FeaturesPage() {
         <SmsQuotaCard quota={workspace.quota} showLogLink />
       ) : null}
       <StorageUsageCard />
+      <BankAccountSettingsCard disabled={!canManage} />
 
       <FeatureGroup
         title={t("features.modules")}

@@ -37,10 +37,13 @@ public sealed class DemoTenantResetService(
             await db.Exams.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync(cancellationToken);
             await db.GradeBoundaries.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync(cancellationToken);
             await db.GradingSchemes.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync(cancellationToken);
+            await db.BankPaymentSubmissions.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync(cancellationToken);
+            await db.StudentCreditTransactions.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync(cancellationToken);
             await db.FeePayments.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync(cancellationToken);
             await db.PayHereCheckoutSessions.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync(cancellationToken);
             await db.FeeInvoices.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync(cancellationToken);
             await db.StudentConcessions.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync(cancellationToken);
+            await db.SiblingDiscountRules.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync(cancellationToken);
             await db.FeeStructures.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync(cancellationToken);
             await db.NotificationOutboxes.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync(cancellationToken);
             await db.ParentStudentLinks.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync(cancellationToken);

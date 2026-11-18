@@ -1,10 +1,12 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { EmptyState } from "@/components/empty-state";
 import { useToast } from "@/components/toast";
 import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { downloadApi } from "@/lib/download";
 import {
@@ -12,6 +14,8 @@ import {
   formatMoney,
   weekdayName,
   type ParentAttendanceItem,
+  type ParentBankAccount,
+  type ParentBankSlip,
   type ParentCheckout,
   type ParentClassItem,
   type ParentDashboard,
@@ -211,8 +215,16 @@ export function ParentResultsPage() {
 export function ParentFeesPage() {
   const { t } = useTranslation();
   const toast = useToast();
+  const queryClient = useQueryClient();
   const { studentId, home } = useParentPortal();
   const [checkout, setCheckout] = useState<ParentCheckout | null>(null);
+  const [slipTarget, setSlipTarget] = useState<ParentInvoice | null>(null);
+  const [slipAmount, setSlipAmount] = useState("");
+  const [slipRef, setSlipRef] = useState("");
+  const [slipDate, setSlipDate] = useState("");
+  const [slipNotes, setSlipNotes] = useState("");
+  const [slipFile, setSlipFile] = useState<File | null>(null);
+
   const invoices = useQuery({
     queryKey: ["parent-invoices", studentId],
     enabled: Boolean(studentId),
@@ -223,6 +235,16 @@ export function ParentFeesPage() {
     enabled: Boolean(studentId),
     queryFn: () => api<ParentPayment[]>(childPath(studentId, "payments")),
   });
+  const bankAccount = useQuery({
+    queryKey: ["parent-bank-account"],
+    queryFn: () => api<ParentBankAccount>("/api/parent/bank-account"),
+  });
+  const bankSlips = useQuery({
+    queryKey: ["parent-bank-slips", studentId],
+    enabled: Boolean(studentId),
+    queryFn: () => api<ParentBankSlip[]>(childPath(studentId, "bank-slips")),
+  });
+
   const pay = useMutation({
     mutationFn: (invoiceId: string) =>
       api<ParentCheckout>(`${childPath(studentId, `invoices/${invoiceId}/pay`)}`, {
@@ -233,9 +255,67 @@ export function ParentFeesPage() {
     onError: (error) => toast.error(error instanceof Error ? error.message : t("errors.generic")),
   });
 
+  const uploadSlip = useMutation({
+    mutationFn: async () => {
+      if (!slipTarget || !slipFile) throw new Error(t("fees.slipFileRequired"));
+      const fd = new FormData();
+      fd.append("amount", slipAmount);
+      if (slipRef.trim()) fd.append("referenceNumber", slipRef.trim());
+      if (slipDate) fd.append("transferDate", slipDate);
+      if (slipNotes.trim()) fd.append("notes", slipNotes.trim());
+      fd.append("file", slipFile);
+      return api<ParentBankSlip>(childPath(studentId, `invoices/${slipTarget.id}/bank-slips`), {
+        method: "POST",
+        body: fd,
+      });
+    },
+    onSuccess: async () => {
+      toast.success(t("fees.bankSlipSubmitted"));
+      setSlipTarget(null);
+      setSlipFile(null);
+      setSlipRef("");
+      setSlipDate("");
+      setSlipNotes("");
+      await queryClient.invalidateQueries({ queryKey: ["parent-bank-slips", studentId] });
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : t("errors.generic")),
+  });
+
+  const bank = bankAccount.data;
+
   return (
     <ParentFrame title={t("parent.navFees")}>
       {!home.canPayOnline ? <p className="text-sm text-muted">{t("parent.payHidden")}</p> : null}
+
+      {bank && bank.isConfigured && bank.isEnabled ? (
+        <section className="rounded-lg border border-border bg-card p-3">
+          <h2 className="text-sm font-semibold">{t("fees.bankDetailsForTransfer")}</h2>
+          <dl className="mt-2 grid gap-1 text-xs sm:grid-cols-2">
+            <div>
+              <dt className="text-muted">{t("fees.bankName")}</dt>
+              <dd className="font-medium">
+                {bank.bankName}
+                {bank.branchName ? ` · ${bank.branchName}` : ""}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-muted">{t("fees.accountNumber")}</dt>
+              <dd className="font-mono font-semibold">{bank.accountNumber}</dd>
+            </div>
+            <div className="sm:col-span-2">
+              <dt className="text-muted">{t("fees.accountHolder")}</dt>
+              <dd className="font-medium">{bank.accountName}</dd>
+            </div>
+            {bank.instructions ? (
+              <div className="sm:col-span-2">
+                <dt className="text-muted">{t("fees.bankInstructions")}</dt>
+                <dd>{bank.instructions}</dd>
+              </div>
+            ) : null}
+          </dl>
+        </section>
+      ) : null}
+
       <h2 className="text-sm font-semibold">{t("parent.invoices")}</h2>
       {invoices.data?.length ? (
         <ul className="grid gap-2">
@@ -247,13 +327,35 @@ export function ParentFeesPage() {
                   <p className="text-[12px] text-muted">
                     {invoice.invoiceNumber} · {t("parent.dueDate", { date: invoice.dueDate })} · {invoice.status}
                   </p>
+                  {invoice.creditAppliedAmount && invoice.creditAppliedAmount > 0 ? (
+                    <p className="text-[11px] text-muted">
+                      {t("fees.creditApplied")}: {formatMoney(invoice.creditAppliedAmount, invoice.currency)}
+                    </p>
+                  ) : null}
                 </div>
                 <p className="text-sm font-medium tabular-nums">{formatMoney(invoice.balanceAmount, invoice.currency)}</p>
               </div>
-              {home.canPayOnline && invoice.balanceAmount > 0 ? (
-                <Button className="mt-3" disabled={pay.isPending} onClick={() => pay.mutate(invoice.id)}>
-                  {t("parent.pay")}
-                </Button>
+              {invoice.balanceAmount > 0 ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {home.canPayOnline ? (
+                    <Button disabled={pay.isPending} onClick={() => pay.mutate(invoice.id)}>
+                      {t("parent.pay")}
+                    </Button>
+                  ) : null}
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setSlipTarget(invoice);
+                      setSlipAmount(String(invoice.balanceAmount));
+                      setSlipRef("");
+                      setSlipDate("");
+                      setSlipNotes("");
+                      setSlipFile(null);
+                    }}
+                  >
+                    {t("fees.uploadBankSlip")}
+                  </Button>
+                </div>
               ) : null}
             </li>
           ))}
@@ -278,24 +380,160 @@ export function ParentFeesPage() {
           </Link>
         </section>
       ) : null}
+
+      {bankSlips.data?.length ? (
+        <>
+          <h2 className="text-sm font-semibold">{t("fees.submittedBankSlips")}</h2>
+          <ul className="grid gap-2">
+            {bankSlips.data.map((slip) => (
+              <li key={slip.id} className="rounded-lg border border-border bg-card px-3 py-3 text-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-medium">
+                      {slip.invoiceNumber} · {formatMoney(slip.amount, slip.currency)}
+                    </p>
+                    <p className="text-[12px] text-muted">
+                      {slip.status}
+                      {slip.referenceNumber ? ` · ${slip.referenceNumber}` : ""}
+                      {slip.receiptNumber ? ` · ${slip.receiptNumber}` : ""}
+                    </p>
+                    {slip.rejectionReason ? (
+                      <p className="mt-1 text-xs text-red-600">{slip.rejectionReason}</p>
+                    ) : null}
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      void downloadApi(
+                        childPath(studentId, `bank-slips/${slip.id}/file`),
+                        slip.slipFileName,
+                      ).catch((e: unknown) => toast.error(e instanceof Error ? e.message : t("errors.generic")))
+                    }
+                  >
+                    {t("fees.viewSlip")}
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+
       <h2 className="text-sm font-semibold">{t("parent.payments")}</h2>
       {payments.data?.length ? (
         <ul className="grid gap-2">
           {payments.data.map((payment) => (
             <li key={payment.id} className="rounded-lg border border-border bg-card px-3 py-3 text-sm">
-              <div className="flex justify-between gap-3">
-                <span>{payment.receiptNumber}</span>
-                <span className="tabular-nums">{formatMoney(payment.amount, payment.currency)}</span>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <span>{payment.receiptNumber}</span>
+                  <span className="ml-2 tabular-nums">{formatMoney(payment.amount, payment.currency)}</span>
+                  <p className="mt-1 text-[12px] text-muted">
+                    {payment.method} · {new Date(payment.paidAt).toLocaleString()} · {payment.status}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    void downloadApi(
+                      childPath(studentId, `payments/${payment.id}/receipt`),
+                      `${payment.receiptNumber.toLowerCase()}.pdf`,
+                    ).catch((e: unknown) => toast.error(e instanceof Error ? e.message : t("errors.generic")))
+                  }
+                >
+                  PDF
+                </Button>
               </div>
-              <p className="mt-1 text-[12px] text-muted">
-                {payment.method} · {new Date(payment.paidAt).toLocaleString()} · {payment.status}
-              </p>
             </li>
           ))}
         </ul>
       ) : (
         <EmptyState title={t("parent.noPayments")} />
       )}
+
+      <Dialog
+        open={Boolean(slipTarget)}
+        onOpenChange={(open) => !open && setSlipTarget(null)}
+        title={t("fees.uploadBankSlip")}
+        description={slipTarget ? `${slipTarget.invoiceNumber} · ${formatMoney(slipTarget.balanceAmount, slipTarget.currency)}` : ""}
+      >
+        <form
+          className="grid gap-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            uploadSlip.mutate();
+          }}
+        >
+          <div>
+            <label className="text-xs font-medium" htmlFor="p-slip-amt">
+              {t("fees.amount")}
+            </label>
+            <Input
+              id="p-slip-amt"
+              type="number"
+              step="0.01"
+              min="0.01"
+              value={slipAmount}
+              onChange={(e) => setSlipAmount(e.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium" htmlFor="p-slip-ref">
+              {t("fees.reference")}
+            </label>
+            <Input
+              id="p-slip-ref"
+              value={slipRef}
+              onChange={(e) => setSlipRef(e.target.value)}
+              placeholder="BANK-REF-001"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium" htmlFor="p-slip-date">
+              {t("fees.transferDate")}
+            </label>
+            <Input
+              id="p-slip-date"
+              type="date"
+              value={slipDate}
+              onChange={(e) => setSlipDate(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium" htmlFor="p-slip-file">
+              {t("fees.bankSlipAttachment")}
+            </label>
+            <Input
+              id="p-slip-file"
+              type="file"
+              accept=".pdf,.png,.jpg,.jpeg,.webp"
+              onChange={(e) => setSlipFile(e.target.files?.[0] ?? null)}
+              required
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium" htmlFor="p-slip-notes">
+              {t("students.notes")}
+            </label>
+            <Input
+              id="p-slip-notes"
+              value={slipNotes}
+              onChange={(e) => setSlipNotes(e.target.value)}
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => setSlipTarget(null)}>
+              {t("common.cancel")}
+            </Button>
+            <Button type="submit" disabled={uploadSlip.isPending}>
+              {t("fees.submitBankSlip")}
+            </Button>
+          </div>
+        </form>
+      </Dialog>
     </ParentFrame>
   );
 }

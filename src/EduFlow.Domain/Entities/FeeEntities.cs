@@ -12,6 +12,7 @@ public sealed class FeeStructure : TenantEntity
     public Guid? EducationLevelId { get; set; }
     public Guid? BatchId { get; set; }
     public int DueDayOfMonth { get; set; } = 10;
+    public bool AutoIssueOnAdmission { get; set; }
     public string? Description { get; set; }
     public bool IsActive { get; set; } = true;
 }
@@ -44,6 +45,7 @@ public sealed class FeeInvoice : TenantEntity, IBranchOwned
     public Guid? ConcessionId { get; set; }
     public string? ConcessionDescription { get; set; }
     public decimal NetAmount { get; set; }
+    public decimal CreditAppliedAmount { get; set; }
     public decimal PaidAmount { get; set; }
     public decimal BalanceAmount { get; set; }
     public string Currency { get; set; } = "LKR";
@@ -83,6 +85,8 @@ public sealed class FeePayment : TenantEntity, IBranchOwned
     public Guid? VoidedOrRefundedByUserId { get; set; }
     public bool ParentNotified { get; set; }
     public bool AdminNotified { get; set; }
+    public int ReceiptPrintCount { get; set; }
+    public DateTimeOffset? LastPrintedAt { get; set; }
 }
 
 public sealed class TenantPaymentGatewayConfig : TenantEntity
@@ -128,5 +132,67 @@ public sealed class PlatformSubscriptionInvoice : TenantEntity
     public PlatformInvoiceStatus Status { get; set; } = PlatformInvoiceStatus.Pending;
     public DateTimeOffset? PaidAt { get; set; }
     public string? PaymentReference { get; set; }
+    public string? Notes { get; set; }
+}
+
+public sealed class TenantBankAccountSetting : TenantEntity
+{
+    public string BankName { get; set; } = string.Empty;
+    public string? BranchName { get; set; }
+    public string AccountName { get; set; } = string.Empty;
+    public string AccountNumber { get; set; } = string.Empty;
+    public string? Instructions { get; set; }
+    public bool IsEnabled { get; set; } = true;
+}
+
+public sealed class BankPaymentSubmission : TenantEntity, IBranchOwned
+{
+    public Guid? BranchId { get; set; }
+    public Guid InvoiceId { get; set; }
+    public Guid StudentId { get; set; }
+    public Guid SubmittedByUserId { get; set; }
+    public string SubmittedByRole { get; set; } = "Parent";
+    public decimal Amount { get; set; }
+    public string Currency { get; set; } = "LKR";
+    public string? ReferenceNumber { get; set; }
+    public DateOnly? TransferDate { get; set; }
+    public string SlipUrl { get; set; } = string.Empty;
+    public string SlipFileName { get; set; } = string.Empty;
+    public string? SlipContentType { get; set; }
+    public long SlipBytes { get; set; }
+    public string? Notes { get; set; }
+    public BankPaymentStatus Status { get; set; } = BankPaymentStatus.Pending;
+    public Guid? ReviewedByUserId { get; set; }
+    public DateTimeOffset? ReviewedAt { get; set; }
+    public string? RejectionReason { get; set; }
+    public Guid? FeePaymentId { get; set; }
+}
+
+public sealed class SiblingDiscountRule : TenantEntity
+{
+    public bool IsEnabled { get; set; }
+    public DiscountType DiscountType { get; set; } = DiscountType.Percentage;
+    public decimal SecondChildValue { get; set; } = 10m;
+    public decimal ThirdPlusChildValue { get; set; } = 20m;
+    public bool ApplyToMonthly { get; set; } = true;
+    public bool ApplyToOneTime { get; set; }
+    public bool ApplyToAdmission { get; set; }
+    public bool StackWithConcession { get; set; }
+}
+
+public sealed class StudentCreditTransaction : TenantEntity, IBranchOwned
+{
+    public Guid? BranchId { get; set; }
+    public Guid StudentId { get; set; }
+    public StudentCreditEntryType EntryType { get; set; } = StudentCreditEntryType.Deposit;
+    public decimal Amount { get; set; }
+    public decimal SignedAmount { get; set; }
+    public decimal BalanceAfter { get; set; }
+    public PaymentMethod? Method { get; set; }
+    public string? ReferenceNumber { get; set; }
+    public Guid? InvoiceId { get; set; }
+    public Guid? FeePaymentId { get; set; }
+    public Guid? RecordedByUserId { get; set; }
+    public DateTimeOffset OccurredAt { get; set; } = DateTimeOffset.UtcNow;
     public string? Notes { get; set; }
 }

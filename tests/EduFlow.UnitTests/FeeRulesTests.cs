@@ -122,4 +122,81 @@ public sealed class FeeRulesTests
         gateway.VerifyWebhookSignature(merchantId, plainSecret, orderId, "100.00", "LKR", 2, validSig).Should().BeFalse();
         gateway.VerifyWebhookSignature(merchantId, plainSecret, orderId, "3500.00", "LKR", 2, "00000000000000000000000000000000").Should().BeFalse();
     }
+
+    [Fact]
+    public void Credit_balance_application_and_settlement_decimal_math_is_exact()
+    {
+        var (applied1, remaining1) = FeeRules.CalculateCreditApplication(5000.50m, 3500.25m);
+        applied1.Should().Be(3500.25m);
+        remaining1.Should().Be(1500.25m);
+
+        var (applied2, remaining2) = FeeRules.CalculateCreditApplication(remaining1, 4000.00m);
+        applied2.Should().Be(1500.25m);
+        remaining2.Should().Be(0.00m);
+
+        var partial = FeeRules.ComputeInvoiceSettlement(
+            4000.00m,
+            [],
+            isVoided: false,
+            creditAppliedAmount: applied2);
+        partial.PaidAmount.Should().Be(0.00m);
+        partial.BalanceAmount.Should().Be(2499.75m);
+        partial.Status.Should().Be(FeeInvoiceStatus.PartiallyPaid);
+
+        var paid = FeeRules.ComputeInvoiceSettlement(
+            4000.00m,
+            [(2499.75m, 0m, PaymentRecordStatus.Completed)],
+            isVoided: false,
+            creditAppliedAmount: applied2);
+        paid.PaidAmount.Should().Be(2499.75m);
+        paid.BalanceAmount.Should().Be(0.00m);
+        paid.Status.Should().Be(FeeInvoiceStatus.Paid);
+    }
+
+    [Fact]
+    public void Sibling_rank_and_combined_discount_math_handles_non_stacked_and_stacked_rules()
+    {
+        var id1 = Guid.NewGuid();
+        var id2 = Guid.NewGuid();
+        var id3 = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow;
+
+        var group = new[]
+        {
+            (id3, new DateOnly(2026, 3, 1), now.AddDays(2), "S000003"),
+            (id1, new DateOnly(2025, 1, 10), now, "S000001"),
+            (id2, new DateOnly(2026, 1, 15), now.AddDays(1), "S000002")
+        };
+
+        FeeRules.GetSiblingRank(id1, group).Should().Be(1);
+        FeeRules.GetSiblingRank(id2, group).Should().Be(2);
+        FeeRules.GetSiblingRank(id3, group).Should().Be(3);
+
+        var best = FeeRules.CalculateCombinedInvoiceDiscount(
+            4000.00m,
+            DiscountType.Percentage, 15m, "Merit",
+            DiscountType.Percentage, 10m, siblingRank: 2,
+            stackWithConcession: false);
+        best.DiscountAmount.Should().Be(600.00m);
+        best.NetAmount.Should().Be(3400.00m);
+        best.UsedConcession.Should().BeTrue();
+
+        var stacked = FeeRules.CalculateCombinedInvoiceDiscount(
+            4000.00m,
+            DiscountType.Percentage, 50m, "Half Scholarship",
+            DiscountType.Percentage, 20m, siblingRank: 3,
+            stackWithConcession: true);
+        stacked.DiscountAmount.Should().Be(2400.00m);
+        stacked.NetAmount.Should().Be(1600.00m);
+        stacked.UsedConcession.Should().BeTrue();
+        stacked.Description.Should().Contain("Sibling Discount");
+    }
+
+    [Fact]
+    public void Colombo_day_window_uses_utc_plus_0530_boundaries()
+    {
+        var (startUtc, endUtc) = FeeRules.GetColomboDayWindowUtc(new DateOnly(2026, 11, 18));
+        startUtc.UtcDateTime.Should().Be(new DateTime(2026, 11, 17, 18, 30, 0, DateTimeKind.Utc));
+        endUtc.UtcDateTime.Should().Be(new DateTime(2026, 11, 18, 18, 30, 0, DateTimeKind.Utc));
+    }
 }

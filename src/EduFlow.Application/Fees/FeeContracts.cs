@@ -14,6 +14,7 @@ public sealed record FeeStructureDto(
     Guid? BatchId,
     string? BatchName,
     int DueDayOfMonth,
+    bool AutoIssueOnAdmission,
     string? Description,
     bool IsActive,
     DateTimeOffset CreatedAt);
@@ -27,7 +28,8 @@ public sealed record UpsertFeeStructureRequest(
     int DueDayOfMonth = 10,
     string? Description = null,
     bool IsActive = true,
-    string Currency = "LKR");
+    string Currency = "LKR",
+    bool AutoIssueOnAdmission = false);
 
 public sealed record StudentConcessionDto(
     Guid Id,
@@ -114,6 +116,8 @@ public sealed record FeePaymentDto(
     string? Notes,
     DateTimeOffset? VoidedOrRefundedAt,
     string? VoidOrRefundReason,
+    int ReceiptPrintCount,
+    DateTimeOffset? LastPrintedAt,
     DateTimeOffset CreatedAt);
 
 public sealed record FeeInvoiceDto(
@@ -138,6 +142,7 @@ public sealed record FeeInvoiceDto(
     Guid? ConcessionId,
     string? ConcessionDescription,
     decimal NetAmount,
+    decimal CreditAppliedAmount,
     decimal PaidAmount,
     decimal BalanceAmount,
     string Currency,
@@ -161,7 +166,8 @@ public sealed record RecordManualPaymentRequest(
     PaymentMethod Method = PaymentMethod.Cash,
     string? ReferenceNumber = null,
     DateTimeOffset? PaidAt = null,
-    string? Notes = null);
+    string? Notes = null,
+    bool ApplyExcessToCredit = false);
 
 public sealed record RefundOrVoidPaymentRequest(
     string Reason,
@@ -356,7 +362,186 @@ public sealed record ReceiptPdfContent(
     string? ReferenceNumber,
     DateTimeOffset PaidAt,
     string Status,
+    string? Notes,
+    decimal CreditAppliedAmount = 0m,
+    bool IsReprint = false,
+    int ReprintNumber = 0);
+
+public sealed record TenantBankAccountDto(
+    string BankName,
+    string? BranchName,
+    string AccountName,
+    string AccountNumber,
+    string? Instructions,
+    bool IsEnabled,
+    bool IsConfigured);
+
+public sealed record UpdateTenantBankAccountRequest(
+    string BankName,
+    string AccountName,
+    string AccountNumber,
+    string? BranchName = null,
+    string? Instructions = null,
+    bool IsEnabled = true);
+
+public sealed record SubmitBankPaymentMetadata(
+    Guid InvoiceId,
+    decimal Amount,
+    string? ReferenceNumber = null,
+    DateOnly? TransferDate = null,
+    string? Notes = null);
+
+public sealed record BankPaymentSubmissionDto(
+    Guid Id,
+    Guid InvoiceId,
+    string InvoiceNumber,
+    string InvoiceTitle,
+    Guid StudentId,
+    string StudentCode,
+    string StudentName,
+    Guid SubmittedByUserId,
+    string SubmittedByName,
+    string SubmittedByRole,
+    decimal Amount,
+    decimal InvoiceBalanceAmount,
+    string Currency,
+    string? ReferenceNumber,
+    DateOnly? TransferDate,
+    string SlipFileName,
+    string Status,
+    string? Notes,
+    Guid? ReviewedByUserId,
+    string? ReviewedByName,
+    DateTimeOffset? ReviewedAt,
+    string? RejectionReason,
+    Guid? FeePaymentId,
+    string? ReceiptNumber,
+    DateTimeOffset CreatedAt);
+
+public sealed record ApproveBankPaymentRequest(string? Notes = null);
+
+public sealed record RejectBankPaymentRequest(string Reason);
+
+public sealed record SiblingDiscountRuleDto(
+    bool IsEnabled,
+    string DiscountType,
+    decimal SecondChildValue,
+    decimal ThirdPlusChildValue,
+    bool ApplyToMonthly,
+    bool ApplyToOneTime,
+    bool ApplyToAdmission,
+    bool StackWithConcession);
+
+public sealed record UpdateSiblingDiscountRuleRequest(
+    bool IsEnabled,
+    DiscountType DiscountType,
+    decimal SecondChildValue,
+    decimal ThirdPlusChildValue,
+    bool ApplyToMonthly = true,
+    bool ApplyToOneTime = false,
+    bool ApplyToAdmission = false,
+    bool StackWithConcession = false);
+
+public sealed record StudentCreditTransactionDto(
+    Guid Id,
+    Guid StudentId,
+    string StudentCode,
+    string StudentName,
+    string EntryType,
+    decimal Amount,
+    decimal SignedAmount,
+    decimal BalanceAfter,
+    string? Method,
+    string? ReferenceNumber,
+    Guid? InvoiceId,
+    string? InvoiceNumber,
+    Guid? FeePaymentId,
+    string? RecordedByName,
+    DateTimeOffset OccurredAt,
     string? Notes);
+
+public sealed record StudentCreditBalanceDto(
+    Guid StudentId,
+    string StudentCode,
+    string StudentName,
+    string GuardianName,
+    string GuardianPhone,
+    decimal Balance,
+    string Currency,
+    DateTimeOffset? LastActivityAt,
+    IReadOnlyList<StudentCreditTransactionDto> Transactions);
+
+public sealed record RecordStudentCreditRequest(
+    Guid StudentId,
+    decimal Amount,
+    PaymentMethod Method = PaymentMethod.Cash,
+    string? ReferenceNumber = null,
+    string? Notes = null);
+
+public sealed record ApplyCreditToInvoiceRequest(decimal? MaxAmount = null);
+
+public sealed record GenerateAdmissionInvoicesRequest(
+    Guid? StudentId = null,
+    Guid? FeeStructureId = null,
+    Guid? BatchId = null,
+    Guid? EducationLevelId = null,
+    DateOnly? DueDateOverride = null,
+    bool AutoIssueOnly = false);
+
+public sealed record CashierClosingByMethodDto(
+    string Method,
+    int TransactionCount,
+    decimal InvoicePaymentsTotal,
+    decimal AdvanceDepositsTotal,
+    decimal RefundedTotal,
+    decimal NetCollectedTotal);
+
+public sealed record CashierClosingByUserDto(
+    Guid? UserId,
+    string CashierName,
+    string? CashierEmail,
+    int TransactionCount,
+    decimal CashTotal,
+    decimal BankTransferTotal,
+    decimal PayHereTotal,
+    decimal AdvanceDepositsTotal,
+    decimal RefundedTotal,
+    decimal NetCollectedTotal);
+
+public sealed record CashierClosingItemDto(
+    string Kind,
+    string ReferenceCode,
+    DateTimeOffset OccurredAt,
+    Guid StudentId,
+    string StudentCode,
+    string StudentName,
+    string? InvoiceNumber,
+    string Method,
+    string CashierName,
+    decimal GrossAmount,
+    decimal RefundedAmount,
+    decimal NetAmount,
+    string Status);
+
+public sealed record CashierClosingReportDto(
+    DateOnly Date,
+    string Currency,
+    int TotalTransactions,
+    decimal InvoicePaymentsTotal,
+    decimal AdvanceDepositsTotal,
+    decimal RefundedTotal,
+    decimal GrandTotalCollected,
+    IReadOnlyList<CashierClosingByMethodDto> ByMethod,
+    IReadOnlyList<CashierClosingByUserDto> ByUser,
+    IReadOnlyList<CashierClosingItemDto> Items);
+
+public sealed record CashierClosingPdfContent(
+    string InstituteName,
+    string? InstituteAddress,
+    string? InstitutePhone,
+    string PrimaryHex,
+    byte[]? Logo,
+    CashierClosingReportDto Report);
 
 public sealed record PlatformInvoicePdfContent(
     string PlatformName,
@@ -384,6 +569,7 @@ public sealed record FeeReportExportRow(
     string BatchName,
     string BillingPeriod,
     decimal NetAmount,
+    decimal CreditAppliedAmount,
     decimal PaidAmount,
     decimal BalanceAmount,
     DateOnly DueDate,
@@ -394,6 +580,7 @@ public interface IFeeDocumentService
     byte[] BuildReceiptPdf(ReceiptPdfContent content);
     byte[] BuildPlatformInvoicePdf(PlatformInvoicePdfContent content);
     byte[] BuildFeeReportPdf(string instituteName, string primaryHex, IReadOnlyList<FeeReportExportRow> rows);
+    byte[] BuildCashierClosingPdf(CashierClosingPdfContent content);
 }
 
 public interface IFeeService
@@ -408,8 +595,13 @@ public interface IFeeService
     Task<StudentConcessionDto> UpdateConcessionAsync(Guid id, UpsertStudentConcessionRequest request, CancellationToken cancellationToken = default);
     Task DeleteConcessionAsync(Guid id, CancellationToken cancellationToken = default);
 
+    Task<SiblingDiscountRuleDto> GetSiblingDiscountRuleAsync(CancellationToken cancellationToken = default);
+    Task<SiblingDiscountRuleDto> UpdateSiblingDiscountRuleAsync(UpdateSiblingDiscountRuleRequest request, CancellationToken cancellationToken = default);
+
     Task<GenerateInvoicesResultDto> GenerateMonthlyInvoicesAsync(GenerateMonthlyInvoicesRequest request, Guid? tenantIdOverride = null, CancellationToken cancellationToken = default);
+    Task<GenerateInvoicesResultDto> GenerateAdmissionInvoicesAsync(GenerateAdmissionInvoicesRequest request, Guid? tenantIdOverride = null, CancellationToken cancellationToken = default);
     Task<FeeInvoiceDto> CreateSingleInvoiceAsync(CreateSingleInvoiceRequest request, CancellationToken cancellationToken = default);
+    Task<FeeInvoiceDto> ApplyCreditToInvoiceAsync(Guid invoiceId, ApplyCreditToInvoiceRequest? request = null, CancellationToken cancellationToken = default);
     Task<FeeInvoicePageDto> GetInvoicesAsync(FeeInvoiceListQuery query, CancellationToken cancellationToken = default);
     Task<FeeInvoiceDto> GetInvoiceAsync(Guid id, CancellationToken cancellationToken = default);
     Task<FeeInvoiceDto> VoidInvoiceAsync(Guid id, VoidInvoiceRequest request, CancellationToken cancellationToken = default);
@@ -418,7 +610,22 @@ public interface IFeeService
     Task<FeePaymentDto> UploadPaymentAttachmentAsync(Guid paymentId, Stream content, string fileName, string? contentType, long length, CancellationToken cancellationToken = default);
     Task<FeePaymentDto> RefundOrVoidPaymentAsync(Guid paymentId, RefundOrVoidPaymentRequest request, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<FeePaymentDto>> GetPaymentsAsync(Guid? invoiceId = null, Guid? studentId = null, int take = 100, CancellationToken cancellationToken = default);
-    Task<StoredDownload> GetReceiptPdfAsync(Guid paymentId, CancellationToken cancellationToken = default);
+    Task<StoredDownload> GetReceiptPdfAsync(Guid paymentId, bool reprint = false, CancellationToken cancellationToken = default);
+
+    Task<TenantBankAccountDto> GetBankAccountSettingsAsync(Guid? tenantIdOverride = null, CancellationToken cancellationToken = default);
+    Task<TenantBankAccountDto> UpdateBankAccountSettingsAsync(UpdateTenantBankAccountRequest request, CancellationToken cancellationToken = default);
+    Task<BankPaymentSubmissionDto> SubmitBankPaymentAsync(SubmitBankPaymentMetadata metadata, Stream content, string fileName, string? contentType, long length, string submittedByRole = "Admin", Guid? tenantIdOverride = null, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<BankPaymentSubmissionDto>> GetBankPaymentSubmissionsAsync(string? status = null, Guid? invoiceId = null, Guid? studentId = null, CancellationToken cancellationToken = default);
+    Task<StoredDownload> GetBankPaymentSlipAsync(Guid submissionId, Guid? studentIdScope = null, CancellationToken cancellationToken = default);
+    Task<BankPaymentSubmissionDto> ApproveBankPaymentAsync(Guid submissionId, ApproveBankPaymentRequest? request = null, CancellationToken cancellationToken = default);
+    Task<BankPaymentSubmissionDto> RejectBankPaymentAsync(Guid submissionId, RejectBankPaymentRequest request, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<StudentCreditBalanceDto>> GetStudentCreditsAsync(Guid? studentId = null, CancellationToken cancellationToken = default);
+    Task<StudentCreditBalanceDto> GetStudentCreditSummaryAsync(Guid studentId, CancellationToken cancellationToken = default);
+    Task<StudentCreditTransactionDto> RecordStudentCreditAsync(RecordStudentCreditRequest request, CancellationToken cancellationToken = default);
+
+    Task<CashierClosingReportDto> GetCashierClosingReportAsync(DateOnly? date = null, CancellationToken cancellationToken = default);
+    Task<StoredDownload> ExportCashierClosingReportAsync(string? format, DateOnly? date = null, CancellationToken cancellationToken = default);
 
     Task<RunFeeRemindersResultDto> ProcessFeeRemindersAsync(DateOnly? dateOverride = null, Guid? tenantIdOverride = null, CancellationToken cancellationToken = default);
 

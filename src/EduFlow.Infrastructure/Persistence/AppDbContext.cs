@@ -56,6 +56,10 @@ public sealed class AppDbContext(
     public DbSet<StudentConcession> StudentConcessions => Set<StudentConcession>();
     public DbSet<FeeInvoice> FeeInvoices => Set<FeeInvoice>();
     public DbSet<FeePayment> FeePayments => Set<FeePayment>();
+    public DbSet<TenantBankAccountSetting> TenantBankAccountSettings => Set<TenantBankAccountSetting>();
+    public DbSet<BankPaymentSubmission> BankPaymentSubmissions => Set<BankPaymentSubmission>();
+    public DbSet<SiblingDiscountRule> SiblingDiscountRules => Set<SiblingDiscountRule>();
+    public DbSet<StudentCreditTransaction> StudentCreditTransactions => Set<StudentCreditTransaction>();
     public DbSet<TenantPaymentGatewayConfig> TenantPaymentGatewayConfigs => Set<TenantPaymentGatewayConfig>();
     public DbSet<PayHereCheckoutSession> PayHereCheckoutSessions => Set<PayHereCheckoutSession>();
     public DbSet<PlatformSubscriptionInvoice> PlatformSubscriptionInvoices => Set<PlatformSubscriptionInvoice>();
@@ -598,6 +602,7 @@ public sealed class AppDbContext(
             b.Property(x => x.DiscountAmount).HasPrecision(18, 2);
             b.Property(x => x.ConcessionDescription).HasMaxLength(200);
             b.Property(x => x.NetAmount).HasPrecision(18, 2);
+            b.Property(x => x.CreditAppliedAmount).HasPrecision(18, 2);
             b.Property(x => x.PaidAmount).HasPrecision(18, 2);
             b.Property(x => x.BalanceAmount).HasPrecision(18, 2);
             b.Property(x => x.Currency).HasMaxLength(10).IsRequired();
@@ -638,6 +643,56 @@ public sealed class AppDbContext(
             b.Property(x => x.ReturnUrlOverride).HasMaxLength(500);
             b.Property(x => x.CancelUrlOverride).HasMaxLength(500);
             b.HasIndex(x => x.TenantId).IsUnique();
+        });
+
+        modelBuilder.Entity<TenantBankAccountSetting>(b =>
+        {
+            b.Property(x => x.BankName).HasMaxLength(150).IsRequired();
+            b.Property(x => x.BranchName).HasMaxLength(150);
+            b.Property(x => x.AccountName).HasMaxLength(150).IsRequired();
+            b.Property(x => x.AccountNumber).HasMaxLength(80).IsRequired();
+            b.Property(x => x.Instructions).HasMaxLength(500);
+            b.HasIndex(x => x.TenantId).IsUnique();
+        });
+
+        modelBuilder.Entity<BankPaymentSubmission>(b =>
+        {
+            b.Property(x => x.SubmittedByRole).HasMaxLength(40).IsRequired();
+            b.Property(x => x.Amount).HasPrecision(18, 2);
+            b.Property(x => x.Currency).HasMaxLength(10).IsRequired();
+            b.Property(x => x.ReferenceNumber).HasMaxLength(120);
+            b.Property(x => x.SlipUrl).HasMaxLength(500).IsRequired();
+            b.Property(x => x.SlipFileName).HasMaxLength(250).IsRequired();
+            b.Property(x => x.SlipContentType).HasMaxLength(120);
+            b.Property(x => x.Notes).HasMaxLength(500);
+            b.Property(x => x.RejectionReason).HasMaxLength(300);
+            b.HasIndex(x => new { x.TenantId, x.Status, x.CreatedAt });
+            b.HasIndex(x => new { x.TenantId, x.InvoiceId });
+            b.HasIndex(x => new { x.TenantId, x.StudentId });
+            b.HasOne<FeeInvoice>().WithMany().HasForeignKey(x => x.InvoiceId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<Student>().WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<FeePayment>().WithMany().HasForeignKey(x => x.FeePaymentId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<SiblingDiscountRule>(b =>
+        {
+            b.Property(x => x.SecondChildValue).HasPrecision(18, 2);
+            b.Property(x => x.ThirdPlusChildValue).HasPrecision(18, 2);
+            b.HasIndex(x => x.TenantId).IsUnique();
+        });
+
+        modelBuilder.Entity<StudentCreditTransaction>(b =>
+        {
+            b.Property(x => x.Amount).HasPrecision(18, 2);
+            b.Property(x => x.SignedAmount).HasPrecision(18, 2);
+            b.Property(x => x.BalanceAfter).HasPrecision(18, 2);
+            b.Property(x => x.ReferenceNumber).HasMaxLength(120);
+            b.Property(x => x.Notes).HasMaxLength(500);
+            b.HasIndex(x => new { x.TenantId, x.StudentId, x.OccurredAt });
+            b.HasIndex(x => new { x.TenantId, x.OccurredAt, x.EntryType });
+            b.HasOne<Student>().WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<FeeInvoice>().WithMany().HasForeignKey(x => x.InvoiceId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<FeePayment>().WithMany().HasForeignKey(x => x.FeePaymentId).OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<PayHereCheckoutSession>(b =>

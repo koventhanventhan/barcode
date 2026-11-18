@@ -5,6 +5,7 @@ using EduFlow.Application.Common.Interfaces;
 using EduFlow.Application.Parents;
 using EduFlow.Domain.Constants;
 using EduFlow.Domain.Enums;
+using Microsoft.AspNetCore.Mvc;
 
 namespace EduFlow.Api.Endpoints;
 
@@ -88,6 +89,57 @@ public static class ParentEndpoints
         parent.MapGet("/children/{studentId:guid}/payments", async (Guid studentId, IParentPortalService service, CancellationToken ct) =>
             Results.Ok(await service.GetPaymentsAsync(studentId, ct)))
             .WithName("GetParentPayments");
+
+        parent.MapGet("/children/{studentId:guid}/payments/{paymentId:guid}/receipt", async (
+            Guid studentId,
+            Guid paymentId,
+            [FromQuery] bool? reprint,
+            IParentPortalService service,
+            CancellationToken ct) =>
+            ToFile(await service.GetPaymentReceiptAsync(studentId, paymentId, reprint ?? false, ct)))
+            .WithName("GetParentPaymentReceipt");
+
+        parent.MapGet("/bank-account", async (IParentPortalService service, CancellationToken ct) =>
+            Results.Ok(await service.GetBankAccountAsync(ct)))
+            .WithName("GetParentBankAccount");
+
+        parent.MapGet("/children/{studentId:guid}/bank-slips", async (Guid studentId, IParentPortalService service, CancellationToken ct) =>
+            Results.Ok(await service.GetBankSlipsAsync(studentId, ct)))
+            .WithName("GetParentBankSlips");
+
+        parent.MapPost("/children/{studentId:guid}/invoices/{invoiceId:guid}/bank-slips", async (
+            Guid studentId,
+            Guid invoiceId,
+            HttpRequest httpRequest,
+            IParentPortalService service,
+            CancellationToken ct) =>
+        {
+            var (amount, reference, transferDate, notes, file) = await FeeEndpoints.ReadBankSlipFormAsync(httpRequest, ct);
+            await using var stream = file.OpenReadStream();
+            var created = await service.SubmitBankSlipAsync(
+                studentId,
+                invoiceId,
+                amount,
+                reference,
+                transferDate,
+                notes,
+                stream,
+                file.FileName,
+                file.ContentType,
+                file.Length,
+                ct);
+            return Results.Created($"/api/parent/children/{studentId}/bank-slips/{created.Id}", created);
+        })
+        .DisableAntiforgery()
+        .WithName("SubmitParentBankSlip");
+
+        parent.MapGet("/children/{studentId:guid}/bank-slips/{submissionId:guid}/file", async (
+            Guid studentId,
+            Guid submissionId,
+            IParentPortalService service,
+            CancellationToken ct) =>
+            ToFile(await service.GetBankSlipFileAsync(studentId, submissionId, ct)))
+            .WithName("DownloadParentBankSlip");
 
         parent.MapPost("/children/{studentId:guid}/invoices/{invoiceId:guid}/pay", async (
             Guid studentId,

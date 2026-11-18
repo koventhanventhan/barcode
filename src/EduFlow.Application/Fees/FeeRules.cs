@@ -59,7 +59,8 @@ public static partial class FeeRules
     public static (decimal PaidAmount, decimal BalanceAmount, FeeInvoiceStatus Status) ComputeInvoiceSettlement(
         decimal netAmount,
         IEnumerable<(decimal Amount, decimal RefundedAmount, PaymentRecordStatus Status)> payments,
-        bool isVoided = false)
+        bool isVoided = false,
+        decimal creditAppliedAmount = 0m)
     {
         if (isVoided)
         {
@@ -67,17 +68,127 @@ public static partial class FeeRules
         }
 
         var net = RoundMoney(Math.Max(0m, netAmount));
+        var credit = Math.Clamp(RoundMoney(Math.Max(0m, creditAppliedAmount)), 0m, net);
         var paid = RoundMoney(payments.Sum(p => EffectivePaymentAmount(p.Amount, p.RefundedAmount, p.Status)));
-        var balance = RoundMoney(Math.Max(0m, net - paid));
+        var balance = RoundMoney(Math.Max(0m, net - credit - paid));
 
-        var status = net == 0m || paid >= net
+        var status = net == 0m || RoundMoney(credit + paid) >= net
             ? FeeInvoiceStatus.Paid
-            : paid > 0m
+            : RoundMoney(credit + paid) > 0m
                 ? FeeInvoiceStatus.PartiallyPaid
                 : FeeInvoiceStatus.Pending;
 
         return (paid, balance, status);
     }
+
+    public static int GetSiblingRank(
+        Guid targetStudentId,
+        IEnumerable<(Guid Id, DateOnly AdmissionDate, DateTimeOffset CreatedAt, string StudentCode)> siblingGroup)
+    {
+        var ordered = siblingGroup
+            .GroupBy(x => x.Id)
+            .Select(g => g.First())
+            .OrderBy(x => x.AdmissionDate)
+            .ThenBy(x => x.CreatedAt)
+            .ThenBy(x => x.StudentCode, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(x => x.Id)
+            .ToList();
+
+        var index = ordered.FindIndex(x => x.Id == targetStudentId);
+        return index >= 0 ? index + 1 : 1;
+    }
+
+    public static (decimal DiscountAmount, decimal NetAmount, bool UsedConcession, string? Description) CalculateCombinedInvoiceDiscount(
+        decimal grossAmount,
+        DiscountType? concessionType,
+        decimal? concessionValue,
+        string? concessionName,
+        DiscountType? siblingType,
+        decimal? siblingValue,
+        int siblingRank,
+        bool stackWithConcession,
+        string currency = "LKR")
+    {
+        var gross = RoundMoney(Math.Max(0m, grossAmount));
+        var concessionDiscount = concessionType.HasValue && concessionValue.HasValue && concessionValue.Value > 0m
+            ? CalculateDiscount(gross, concessionType.Value, concessionValue.Value)
+            : 0m;
+        var hasConcession = concessionDiscount > 0m;
+
+        var siblingDiscountRaw = siblingRank >= 2 && siblingType.HasValue && siblingValue.HasValue && siblingValue.Value > 0m
+            ? CalculateDiscount(gross, siblingType.Value, siblingValue.Value)
+            : 0m;
+
+        if (!hasConcession && siblingDiscountRaw <= 0m)
+        {
+            return (0m, gross, false, null);
+        }
+
+        var concessionText = hasConcession
+            ? $"{concessionName} ({FormatDiscountValue(concessionType!.Value, concessionValue!.Value, currency)})"
+            : null;
+
+        var rankLabel = siblingRank == 2 ? "2nd child" : $"{siblingRank}th child";
+        var siblingText = siblingDiscountRaw > 0m
+            ? $"Sibling Discount ({rankLabel}: {FormatDiscountValue(siblingType!.Value, siblingValue!.Value, currency)})"
+            : null;
+
+        if (!stackWithConcession)
+        {
+            if (concessionDiscount >= siblingDiscountRaw && hasConcession)
+            {
+                return (concessionDiscount, RoundMoney(Math.Max(0m, gross - concessionDiscount)), true, concessionText);
+            }
+
+            if (siblingDiscountRaw > 0m)
+            {
+                return (siblingDiscountRaw, RoundMoney(Math.Max(0m, gross - siblingDiscountRaw)), false, siblingText);
+            }
+        }
+
+        // Stacked: apply individual concession first, then sibling discount on the remaining amount.
+        var afterConcession = RoundMoney(Math.Max(0m, gross - concessionDiscount));
+        var stackedSiblingDiscount = siblingRank >= 2 && siblingType.HasValue && siblingValue.HasValue && siblingValue.Value > 0m
+            ? CalculateDiscount(afterConcession, siblingType.Value, siblingValue.Value)
+            : 0m;
+
+        var totalDiscount = Math.Clamp(RoundMoney(concessionDiscount + stackedSiblingDiscount), 0m, gross);
+        var net = RoundMoney(Math.Max(0m, gross - totalDiscount));
+        var parts = new[] { concessionText, stackedSiblingDiscount > 0m ? siblingText : null }
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .ToArray();
+
+        return (totalDiscount, net, hasConcession, parts.Length > 0 ? string.Join(" + ", parts) : null);
+    }
+
+    public static (decimal AppliedAmount, decimal RemainingCredit) CalculateCreditApplication(
+        decimal availableCredit,
+        decimal invoiceBalance)
+    {
+        var credit = RoundMoney(Math.Max(0m, availableCredit));
+        var balance = RoundMoney(Math.Max(0m, invoiceBalance));
+        if (credit <= 0m || balance <= 0m)
+        {
+            return (0m, credit);
+        }
+
+        var applied = RoundMoney(Math.Min(credit, balance));
+        var remaining = RoundMoney(Math.Max(0m, credit - applied));
+        return (applied, remaining);
+    }
+
+    public static (DateTimeOffset StartUtc, DateTimeOffset EndUtc) GetColomboDayWindowUtc(DateOnly date)
+    {
+        var colomboOffset = TimeSpan.FromMinutes(330);
+        var startLocal = new DateTimeOffset(date.ToDateTime(TimeOnly.MinValue), colomboOffset);
+        var startUtc = startLocal.ToUniversalTime();
+        return (startUtc, startUtc.AddDays(1));
+    }
+
+    private static string FormatDiscountValue(DiscountType type, decimal value, string currency) =>
+        type == DiscountType.Percentage
+            ? $"{value:0.##}%"
+            : FormatCurrency(value, currency);
 
     public static string NormalizeMonthlyPeriod(string? billingPeriod, DateOnly today)
     {

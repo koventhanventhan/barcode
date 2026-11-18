@@ -40,6 +40,10 @@ public interface IAppDbContext
     DbSet<StudentConcession> StudentConcessions { get; }
     DbSet<FeeInvoice> FeeInvoices { get; }
     DbSet<FeePayment> FeePayments { get; }
+    DbSet<TenantBankAccountSetting> TenantBankAccountSettings { get; }
+    DbSet<BankPaymentSubmission> BankPaymentSubmissions { get; }
+    DbSet<SiblingDiscountRule> SiblingDiscountRules { get; }
+    DbSet<StudentCreditTransaction> StudentCreditTransactions { get; }
     DbSet<TenantPaymentGatewayConfig> TenantPaymentGatewayConfigs { get; }
     DbSet<PayHereCheckoutSession> PayHereCheckoutSessions { get; }
     DbSet<PlatformSubscriptionInvoice> PlatformSubscriptionInvoices { get; }

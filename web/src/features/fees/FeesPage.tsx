@@ -19,6 +19,8 @@ import { useAuth } from "@/features/auth/AuthProvider";
 import { api } from "@/lib/api";
 import { downloadApi } from "@/lib/download";
 import {
+  type BankPaymentSubmissionDto,
+  type CashierClosingReportDto,
   type DiscountType,
   type FeeDashboardDto,
   type FeeFrequency,
@@ -31,10 +33,12 @@ import {
   type PayHereGatewaySettingsDto,
   type PaymentMethod,
   type RunFeeRemindersResultDto,
+  type SiblingDiscountRuleDto,
   type StudentConcessionDto,
+  type StudentCreditBalanceDto,
 } from "./api";
 
-type TabKey = "overview" | "invoices" | "structures" | "payhere";
+type TabKey = "overview" | "invoices" | "bankSlips" | "credits" | "structures" | "cashierClosing" | "payhere";
 
 export function FeesPage() {
   const { t } = useTranslation();
@@ -68,6 +72,26 @@ export function FeesPage() {
   const [paymentReference, setPaymentReference] = useState("");
   const [paymentNotes, setPaymentNotes] = useState("");
   const [paymentFile, setPaymentFile] = useState<File | null>(null);
+  const [applyExcessToCredit, setApplyExcessToCredit] = useState(false);
+
+  const [adminSlipInvoice, setAdminSlipInvoice] = useState<FeeInvoiceDto | null>(null);
+  const [adminSlipAmount, setAdminSlipAmount] = useState("");
+  const [adminSlipRef, setAdminSlipRef] = useState("");
+  const [adminSlipDate, setAdminSlipDate] = useState("");
+  const [adminSlipNotes, setAdminSlipNotes] = useState("");
+  const [adminSlipFile, setAdminSlipFile] = useState<File | null>(null);
+
+  const [bankSlipStatusFilter, setBankSlipStatusFilter] = useState("Pending");
+  const [rejectSlipTarget, setRejectSlipTarget] = useState<BankPaymentSubmissionDto | null>(null);
+  const [rejectSlipReason, setRejectSlipReason] = useState("");
+
+  const [creditStudentId, setCreditStudentId] = useState("");
+  const [creditAmount, setCreditAmount] = useState("");
+  const [creditMethod, setCreditMethod] = useState<PaymentMethod>("Cash");
+  const [creditReference, setCreditReference] = useState("");
+  const [creditNotes, setCreditNotes] = useState("");
+
+  const [closingDate, setClosingDate] = useState(() => new Date().toISOString().slice(0, 10));
 
   const [historyInvoice, setHistoryInvoice] = useState<FeeInvoiceDto | null>(null);
   const [refundPaymentId, setRefundPaymentId] = useState<string | null>(null);
@@ -84,6 +108,17 @@ export function FeesPage() {
   const [structureLevelId, setStructureLevelId] = useState("");
   const [structureBatchId, setStructureBatchId] = useState("");
   const [structureDueDay, setStructureDueDay] = useState("10");
+  const [structureAutoAdmission, setStructureAutoAdmission] = useState(true);
+
+  // Sibling discount rule state
+  const [siblingEnabled, setSiblingEnabled] = useState(false);
+  const [siblingType, setSiblingType] = useState<DiscountType>("Percentage");
+  const [siblingSecondVal, setSiblingSecondVal] = useState("10");
+  const [siblingThirdVal, setSiblingThirdVal] = useState("20");
+  const [siblingMonthly, setSiblingMonthly] = useState(true);
+  const [siblingOneTime, setSiblingOneTime] = useState(false);
+  const [siblingAdmission, setSiblingAdmission] = useState(false);
+  const [siblingStack, setSiblingStack] = useState(false);
 
   // Concession form state
   const [concessionStudentId, setConcessionStudentId] = useState("");
@@ -150,6 +185,41 @@ export function FeesPage() {
       api<{ items: Array<{ id: string; studentCode: string; fullName: string }> }>("/api/students?pageSize=100"),
   });
 
+  const bankSlipsQuery = useQuery({
+    queryKey: ["fee-bank-slips", bankSlipStatusFilter],
+    queryFn: () => {
+      const qs = bankSlipStatusFilter ? `?status=${encodeURIComponent(bankSlipStatusFilter)}` : "";
+      return api<BankPaymentSubmissionDto[]>(`/api/fees/bank-slips${qs}`);
+    },
+  });
+
+  const creditsQuery = useQuery({
+    queryKey: ["fee-credits"],
+    queryFn: () => api<StudentCreditBalanceDto[]>("/api/fees/credits"),
+  });
+
+  const siblingDiscountQuery = useQuery({
+    queryKey: ["fee-sibling-discount"],
+    queryFn: async () => {
+      const res = await api<SiblingDiscountRuleDto>("/api/fees/sibling-discount");
+      setSiblingEnabled(res.isEnabled);
+      setSiblingType(res.discountType);
+      setSiblingSecondVal(String(res.secondChildValue));
+      setSiblingThirdVal(String(res.thirdPlusChildValue));
+      setSiblingMonthly(res.applyToMonthly);
+      setSiblingOneTime(res.applyToOneTime);
+      setSiblingAdmission(res.applyToAdmission);
+      setSiblingStack(res.stackWithConcession);
+      return res;
+    },
+  });
+
+  const cashierClosingQuery = useQuery({
+    queryKey: ["fee-cashier-closing", closingDate],
+    enabled: tab === "cashierClosing",
+    queryFn: () => api<CashierClosingReportDto>(`/api/fees/reports/cashier-closing?date=${encodeURIComponent(closingDate)}`),
+  });
+
   const payHereSettingsQuery = useQuery({
     queryKey: ["payhere-settings"],
     enabled: canSettings && tab === "payhere",
@@ -168,6 +238,10 @@ export function FeesPage() {
       queryClient.invalidateQueries({ queryKey: ["fee-invoices"] }),
       queryClient.invalidateQueries({ queryKey: ["fee-structures"] }),
       queryClient.invalidateQueries({ queryKey: ["fee-concessions"] }),
+      queryClient.invalidateQueries({ queryKey: ["fee-bank-slips"] }),
+      queryClient.invalidateQueries({ queryKey: ["fee-credits"] }),
+      queryClient.invalidateQueries({ queryKey: ["fee-sibling-discount"] }),
+      queryClient.invalidateQueries({ queryKey: ["fee-cashier-closing"] }),
     ]);
   }
 
@@ -187,6 +261,39 @@ export function FeesPage() {
           skipped: res.skippedExistingCount,
         }),
       );
+      await refreshAll();
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : t("errors.generic")),
+  });
+
+  const generateAdmissionMutation = useMutation({
+    mutationFn: () =>
+      api<GenerateInvoicesResultDto>("/api/fees/invoices/generate-admission", {
+        method: "POST",
+        body: JSON.stringify({
+          batchId: batchFilter || undefined,
+        }),
+      }),
+    onSuccess: async (res) => {
+      toast.success(
+        t("fees.generatedToast", {
+          created: res.createdCount,
+          skipped: res.skippedExistingCount,
+        }),
+      );
+      await refreshAll();
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : t("errors.generic")),
+  });
+
+  const applyCreditMutation = useMutation({
+    mutationFn: (invoiceId: string) =>
+      api<FeeInvoiceDto>(`/api/fees/invoices/${invoiceId}/apply-credit`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      }),
+    onSuccess: async () => {
+      toast.success(t("fees.creditAppliedToast"));
       await refreshAll();
     },
     onError: (err) => toast.error(err instanceof Error ? err.message : t("errors.generic")),
@@ -234,6 +341,7 @@ export function FeesPage() {
           method: paymentMethod,
           referenceNumber: paymentReference.trim() || undefined,
           notes: paymentNotes.trim() || undefined,
+          applyExcessToCredit,
         }),
       });
       if (paymentFile) {
@@ -252,6 +360,105 @@ export function FeesPage() {
       setPaymentFile(null);
       setPaymentReference("");
       setPaymentNotes("");
+      setApplyExcessToCredit(false);
+      await refreshAll();
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : t("errors.generic")),
+  });
+
+  const submitAdminSlipMutation = useMutation({
+    mutationFn: async () => {
+      if (!adminSlipInvoice || !adminSlipFile) throw new Error(t("fees.slipFileRequired"));
+      const fd = new FormData();
+      fd.append("amount", adminSlipAmount);
+      if (adminSlipRef.trim()) fd.append("referenceNumber", adminSlipRef.trim());
+      if (adminSlipDate) fd.append("transferDate", adminSlipDate);
+      if (adminSlipNotes.trim()) fd.append("notes", adminSlipNotes.trim());
+      fd.append("file", adminSlipFile);
+      return api<BankPaymentSubmissionDto>(`/api/fees/invoices/${adminSlipInvoice.id}/bank-slips`, {
+        method: "POST",
+        body: fd,
+      });
+    },
+    onSuccess: async () => {
+      toast.success(t("fees.bankSlipSubmitted"));
+      setAdminSlipInvoice(null);
+      setAdminSlipFile(null);
+      setAdminSlipRef("");
+      setAdminSlipDate("");
+      setAdminSlipNotes("");
+      await refreshAll();
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : t("errors.generic")),
+  });
+
+  const approveBankSlipMutation = useMutation({
+    mutationFn: (id: string) =>
+      api<BankPaymentSubmissionDto>(`/api/fees/bank-slips/${id}/approve`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      }),
+    onSuccess: async (res) => {
+      toast.success(t("fees.bankSlipApprovedToast", { receipt: res.receiptNumber ?? "" }));
+      await refreshAll();
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : t("errors.generic")),
+  });
+
+  const rejectBankSlipMutation = useMutation({
+    mutationFn: () =>
+      api<BankPaymentSubmissionDto>(`/api/fees/bank-slips/${rejectSlipTarget?.id}/reject`, {
+        method: "POST",
+        body: JSON.stringify({ reason: rejectSlipReason }),
+      }),
+    onSuccess: async () => {
+      toast.success(t("fees.bankSlipRejectedToast"));
+      setRejectSlipTarget(null);
+      setRejectSlipReason("");
+      await refreshAll();
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : t("errors.generic")),
+  });
+
+  const recordCreditMutation = useMutation({
+    mutationFn: () =>
+      api("/api/fees/credits", {
+        method: "POST",
+        body: JSON.stringify({
+          studentId: creditStudentId,
+          amount: Number(creditAmount),
+          method: creditMethod,
+          referenceNumber: creditReference.trim() || undefined,
+          notes: creditNotes.trim() || undefined,
+        }),
+      }),
+    onSuccess: async () => {
+      toast.success(t("fees.creditRecordedToast"));
+      setCreditAmount("");
+      setCreditReference("");
+      setCreditNotes("");
+      await refreshAll();
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : t("errors.generic")),
+  });
+
+  const saveSiblingDiscountMutation = useMutation({
+    mutationFn: () =>
+      api<SiblingDiscountRuleDto>("/api/fees/sibling-discount", {
+        method: "PUT",
+        body: JSON.stringify({
+          isEnabled: siblingEnabled,
+          discountType: siblingType,
+          secondChildValue: Number(siblingSecondVal) || 0,
+          thirdPlusChildValue: Number(siblingThirdVal) || 0,
+          applyToMonthly: siblingMonthly,
+          applyToOneTime: siblingOneTime,
+          applyToAdmission: siblingAdmission,
+          stackWithConcession: siblingStack,
+        }),
+      }),
+    onSuccess: async () => {
+      toast.success(t("fees.siblingRuleSaved"));
       await refreshAll();
     },
     onError: (err) => toast.error(err instanceof Error ? err.message : t("errors.generic")),
@@ -315,6 +522,7 @@ export function FeesPage() {
           educationLevelId: structureLevelId || undefined,
           batchId: structureBatchId || undefined,
           dueDayOfMonth: Number(structureDueDay) || 10,
+          autoIssueOnAdmission: structureFrequency === "Admission" && structureAutoAdmission,
           isActive: true,
         }),
       }),
@@ -405,6 +613,11 @@ export function FeesPage() {
   const students = studentsQuery.data?.items ?? [];
   const structures = structuresQuery.data ?? [];
   const concessions = concessionsQuery.data ?? [];
+  const bankSlips = bankSlipsQuery.data ?? [];
+  const studentCredits = creditsQuery.data ?? [];
+  const creditByStudent = new Map(studentCredits.map((c) => [c.studentId, c.balance]));
+  const pendingSlipsCount = bankSlips.filter((s) => s.status === "Pending").length;
+  const closingReport = cashierClosingQuery.data;
 
   return (
     <div>
@@ -437,6 +650,14 @@ export function FeesPage() {
                 <Button
                   size="sm"
                   variant="outline"
+                  disabled={generateAdmissionMutation.isPending}
+                  onClick={() => generateAdmissionMutation.mutate()}
+                >
+                  {t("fees.issueAdmission")}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
                   disabled={remindersMutation.isPending}
                   onClick={() => remindersMutation.mutate()}
                 >
@@ -455,7 +676,7 @@ export function FeesPage() {
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2">
         <div className="flex flex-wrap gap-1" role="tablist">
-          {(["overview", "invoices", "structures", "payhere"] as const).map((key) => (
+          {(["overview", "invoices", "bankSlips", "credits", "structures", "cashierClosing", "payhere"] as const).map((key) => (
             <button
               key={key}
               type="button"
@@ -467,6 +688,7 @@ export function FeesPage() {
               }`}
             >
               {t(`fees.tab.${key}`)}
+              {key === "bankSlips" && pendingSlipsCount > 0 ? ` (${pendingSlipsCount})` : ""}
             </button>
           ))}
         </div>
@@ -641,19 +863,36 @@ export function FeesPage() {
                             {formatMoney(p.effectiveAmount, p.currency)}
                           </td>
                           <td className="px-3 py-2 text-right">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() =>
-                                void downloadApi(
-                                  `/api/fees/payments/${p.id}/receipt`,
-                                  `${p.receiptNumber.toLowerCase()}.pdf`,
-                                ).catch((e) => toast.error(e instanceof Error ? e.message : t("errors.generic")))
-                              }
-                            >
-                              <Receipt className="mr-1 h-3.5 w-3.5" />
-                              PDF
-                            </Button>
+                            <div className="flex justify-end gap-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                  void downloadApi(
+                                    `/api/fees/payments/${p.id}/receipt`,
+                                    `${p.receiptNumber.toLowerCase()}.pdf`,
+                                  ).catch((e) => toast.error(e instanceof Error ? e.message : t("errors.generic")))
+                                }
+                              >
+                                <Receipt className="mr-1 h-3.5 w-3.5" />
+                                PDF
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                  void downloadApi(
+                                    `/api/fees/payments/${p.id}/receipt?reprint=true`,
+                                    `${p.receiptNumber.toLowerCase()}-reprint.pdf`,
+                                  )
+                                    .then(() => refreshAll())
+                                    .catch((e) => toast.error(e instanceof Error ? e.message : t("errors.generic")))
+                                }
+                              >
+                                {t("fees.reprint")}
+                                {p.receiptPrintCount > 0 ? ` (${p.receiptPrintCount})` : ""}
+                              </Button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -741,7 +980,12 @@ export function FeesPage() {
                           ) : null}
                         </td>
                         <td className="px-3 py-2 text-right tabular-nums">
-                          {formatMoney(inv.paidAmount, inv.currency)}
+                          <div>{formatMoney(inv.paidAmount, inv.currency)}</div>
+                          {inv.creditAppliedAmount > 0 ? (
+                            <div className="text-[11px] text-muted">
+                              +{formatMoney(inv.creditAppliedAmount, inv.currency)} {t("fees.creditShort")}
+                            </div>
+                          ) : null}
                         </td>
                         <td className="px-3 py-2 text-right font-semibold tabular-nums">
                           {formatMoney(inv.balanceAmount, inv.currency)}
@@ -762,16 +1006,43 @@ export function FeesPage() {
                         <td className="px-3 py-2 text-right">
                           <div className="flex flex-wrap justify-end gap-1">
                             {canCollect && canPay ? (
-                              <Button
-                                size="sm"
-                                onClick={() => {
-                                  setPaymentInvoice(inv);
-                                  setPaymentAmount(String(inv.balanceAmount));
-                                  setPaymentMethod("Cash");
-                                }}
-                              >
-                                {t("fees.recordPayment")}
-                              </Button>
+                              <>
+                                <Button
+                                  size="sm"
+                                  onClick={() => {
+                                    setPaymentInvoice(inv);
+                                    setPaymentAmount(String(inv.balanceAmount));
+                                    setPaymentMethod("Cash");
+                                    setApplyExcessToCredit(false);
+                                  }}
+                                >
+                                  {t("fees.recordPayment")}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setAdminSlipInvoice(inv);
+                                    setAdminSlipAmount(String(inv.balanceAmount));
+                                    setAdminSlipRef("");
+                                    setAdminSlipDate("");
+                                    setAdminSlipNotes("");
+                                    setAdminSlipFile(null);
+                                  }}
+                                >
+                                  {t("fees.uploadBankSlip")}
+                                </Button>
+                                {(creditByStudent.get(inv.studentId) ?? 0) > 0 ? (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={applyCreditMutation.isPending}
+                                    onClick={() => applyCreditMutation.mutate(inv.id)}
+                                  >
+                                    {t("fees.applyCredit")}
+                                  </Button>
+                                ) : null}
+                              </>
                             ) : null}
                             {canPay && onlinePayFeature.isEnabled ? (
                               <Button
@@ -816,6 +1087,348 @@ export function FeesPage() {
             </div>
           )}
         </section>
+      ) : null}
+
+      {tab === "bankSlips" ? (
+        <section className="rounded-lg border border-border bg-card">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border p-3">
+            <div>
+              <h2 className="text-sm font-semibold">{t("fees.bankSlipsTitle")}</h2>
+              <p className="text-xs text-muted">{t("fees.bankSlipsDescription")}</p>
+            </div>
+            <select
+              value={bankSlipStatusFilter}
+              onChange={(e) => setBankSlipStatusFilter(e.target.value)}
+              className="h-8 rounded-md border border-border bg-card px-2 text-xs"
+              aria-label={t("students.status")}
+            >
+              <option value="">{t("students.allStatuses")}</option>
+              <option value="Pending">Pending</option>
+              <option value="Approved">Approved</option>
+              <option value="Rejected">Rejected</option>
+            </select>
+          </div>
+          {bankSlips.length === 0 ? (
+            <p className="p-6 text-sm text-muted">{t("fees.noBankSlips")}</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="border-b border-border bg-secondary/40 text-xs text-muted">
+                  <tr>
+                    <th className="px-3 py-2">{t("fees.invoiceNumber")}</th>
+                    <th className="px-3 py-2">{t("students.name")}</th>
+                    <th className="px-3 py-2 text-right">{t("fees.amount")}</th>
+                    <th className="px-3 py-2">{t("fees.reference")}</th>
+                    <th className="px-3 py-2">{t("students.status")}</th>
+                    <th className="px-3 py-2 text-right">{t("notifications.colActions")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bankSlips.map((slip) => (
+                    <tr key={slip.id} className="border-b border-border last:border-0">
+                      <td className="px-3 py-2">
+                        <div className="font-mono text-xs font-medium">{slip.invoiceNumber}</div>
+                        <div className="text-[11px] text-muted">{slip.submittedByRole} · {slip.submittedByName}</div>
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="font-medium">{slip.studentName}</div>
+                        <div className="text-xs text-muted">{slip.studentCode}</div>
+                      </td>
+                      <td className="px-3 py-2 text-right font-medium tabular-nums">
+                        {formatMoney(slip.amount, slip.currency)}
+                      </td>
+                      <td className="px-3 py-2 text-xs">
+                        <div>{slip.referenceNumber || slip.slipFileName}</div>
+                        {slip.transferDate ? <div className="text-muted">{slip.transferDate}</div> : null}
+                      </td>
+                      <td className="px-3 py-2 text-xs">
+                        <span className="rounded border border-border bg-secondary px-2 py-0.5 font-medium">
+                          {slip.status}
+                        </span>
+                        {slip.receiptNumber ? <div className="mt-1 font-mono text-[11px]">{slip.receiptNumber}</div> : null}
+                        {slip.rejectionReason ? <div className="mt-1 text-[11px] text-red-600">{slip.rejectionReason}</div> : null}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <div className="flex flex-wrap justify-end gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              void downloadApi(`/api/fees/bank-slips/${slip.id}/file`, slip.slipFileName).catch((e) =>
+                                toast.error(e instanceof Error ? e.message : t("errors.generic")),
+                              )
+                            }
+                          >
+                            {t("fees.viewSlip")}
+                          </Button>
+                          {canCollect && slip.status === "Pending" ? (
+                            <>
+                              <Button
+                                size="sm"
+                                disabled={approveBankSlipMutation.isPending}
+                                onClick={() => approveBankSlipMutation.mutate(slip.id)}
+                              >
+                                {t("fees.approve")}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="danger"
+                                onClick={() => {
+                                  setRejectSlipTarget(slip);
+                                  setRejectSlipReason("");
+                                }}
+                              >
+                                {t("fees.reject")}
+                              </Button>
+                            </>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      ) : null}
+
+      {tab === "credits" ? (
+        <div className="grid gap-4 xl:grid-cols-2">
+          <section className="rounded-lg border border-border bg-card p-4">
+            <h2 className="text-sm font-semibold">{t("fees.recordCreditTitle")}</h2>
+            <p className="mb-3 text-xs text-muted">{t("fees.recordCreditDescription")}</p>
+            {canCollect ? (
+              <form
+                className="grid gap-3"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  recordCreditMutation.mutate();
+                }}
+              >
+                <div>
+                  <label className="text-xs font-medium" htmlFor="cr-student">
+                    {t("students.name")}
+                  </label>
+                  <select
+                    id="cr-student"
+                    value={creditStudentId}
+                    onChange={(e) => setCreditStudentId(e.target.value)}
+                    className="h-9 w-full rounded-md border border-border bg-card px-2 text-sm"
+                    required
+                  >
+                    <option value="">{t("fees.selectStudent")}</option>
+                    {students.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.fullName} ({s.studentCode})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-xs font-medium" htmlFor="cr-amount">
+                      {t("fees.amount")} (LKR)
+                    </label>
+                    <Input
+                      id="cr-amount"
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      value={creditAmount}
+                      onChange={(e) => setCreditAmount(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium" htmlFor="cr-method">
+                      {t("fees.method")}
+                    </label>
+                    <select
+                      id="cr-method"
+                      value={creditMethod}
+                      onChange={(e) => setCreditMethod(e.target.value as PaymentMethod)}
+                      className="h-9 w-full rounded-md border border-border bg-card px-2 text-sm"
+                    >
+                      <option value="Cash">Cash</option>
+                      <option value="BankTransfer">BankTransfer</option>
+                    </select>
+                  </div>
+                </div>
+                <Input
+                  value={creditReference}
+                  onChange={(e) => setCreditReference(e.target.value)}
+                  placeholder={t("fees.reference")}
+                />
+                <Input
+                  value={creditNotes}
+                  onChange={(e) => setCreditNotes(e.target.value)}
+                  placeholder={t("students.notes")}
+                />
+                <div>
+                  <Button type="submit" size="sm" disabled={recordCreditMutation.isPending}>
+                    {t("fees.saveCreditDeposit")}
+                  </Button>
+                </div>
+              </form>
+            ) : null}
+          </section>
+
+          <section className="rounded-lg border border-border bg-card p-4">
+            <h2 className="text-sm font-semibold">{t("fees.creditBalancesTitle")}</h2>
+            <p className="mb-3 text-xs text-muted">{t("fees.creditBalancesDescription")}</p>
+            {studentCredits.length === 0 ? (
+              <p className="text-sm text-muted">{t("fees.noCredits")}</p>
+            ) : (
+              <ul className="divide-y divide-border">
+                {studentCredits.map((c) => (
+                  <li key={c.studentId} className="py-2.5 text-sm">
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <span className="font-medium">{c.studentName}</span>
+                        <span className="ml-1.5 text-xs text-muted">({c.studentCode})</span>
+                      </div>
+                      <span className="font-semibold tabular-nums">{formatMoney(c.balance, c.currency)}</span>
+                    </div>
+                    {c.transactions.length > 0 ? (
+                      <div className="mt-1 text-xs text-muted">
+                        {c.transactions[0].entryType}: {formatMoney(c.transactions[0].amount, c.currency)}
+                        {c.transactions[0].invoiceNumber ? ` · ${c.transactions[0].invoiceNumber}` : ""}
+                      </div>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
+      ) : null}
+
+      {tab === "cashierClosing" ? (
+        <div className="grid gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-card p-3">
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-medium" htmlFor="closing-date">
+                {t("attendance.date")}
+              </label>
+              <Input
+                id="closing-date"
+                type="date"
+                value={closingDate}
+                onChange={(e) => setClosingDate(e.target.value)}
+                className="h-8 w-40 text-xs"
+              />
+            </div>
+            {exportFeature.isEnabled ? (
+              <div className="flex items-center gap-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    void downloadApi(
+                      `/api/fees/reports/cashier-closing/export?format=csv&date=${encodeURIComponent(closingDate)}`,
+                      `cashier-closing-${closingDate}.csv`,
+                    ).catch((e) => toast.error(e instanceof Error ? e.message : t("errors.generic")))
+                  }
+                >
+                  <Download className="mr-1 h-3.5 w-3.5" />
+                  {t("students.exportCsv")}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    void downloadApi(
+                      `/api/fees/reports/cashier-closing/export?format=pdf&date=${encodeURIComponent(closingDate)}`,
+                      `cashier-closing-${closingDate}.pdf`,
+                    ).catch((e) => toast.error(e instanceof Error ? e.message : t("errors.generic")))
+                  }
+                >
+                  <FileText className="mr-1 h-3.5 w-3.5" />
+                  {t("students.exportPdf")}
+                </Button>
+              </div>
+            ) : null}
+          </div>
+
+          {closingReport ? (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <StatCard label={t("fees.grandTotalCollected")} value={formatMoney(closingReport.grandTotalCollected, closingReport.currency)} hint={`${closingReport.totalTransactions} tx`} />
+                <StatCard label={t("fees.invoicePaymentsTotal")} value={formatMoney(closingReport.invoicePaymentsTotal, closingReport.currency)} />
+                <StatCard label={t("fees.advanceDepositsTotal")} value={formatMoney(closingReport.advanceDepositsTotal, closingReport.currency)} />
+                <StatCard label={t("fees.refundedTotal")} value={formatMoney(closingReport.refundedTotal, closingReport.currency)} />
+              </div>
+
+              <div className="grid gap-4 xl:grid-cols-2">
+                <section className="rounded-lg border border-border bg-card">
+                  <div className="border-b border-border px-4 py-3">
+                    <h2 className="text-sm font-semibold">{t("fees.closingByMethod")}</h2>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                      <thead className="border-b border-border bg-secondary/40 text-xs text-muted">
+                        <tr>
+                          <th className="px-3 py-2">{t("fees.method")}</th>
+                          <th className="px-3 py-2 text-right">{t("fees.txCount")}</th>
+                          <th className="px-3 py-2 text-right">{t("fees.advanceDepositsTotal")}</th>
+                          <th className="px-3 py-2 text-right">{t("fees.netAmount")}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {closingReport.byMethod.map((m) => (
+                          <tr key={m.method} className="border-b border-border last:border-0">
+                            <td className="px-3 py-2 font-medium">{m.method}</td>
+                            <td className="px-3 py-2 text-right tabular-nums">{m.transactionCount}</td>
+                            <td className="px-3 py-2 text-right tabular-nums">{formatMoney(m.advanceDepositsTotal, closingReport.currency)}</td>
+                            <td className="px-3 py-2 text-right font-semibold tabular-nums">{formatMoney(m.netCollectedTotal, closingReport.currency)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+
+                <section className="rounded-lg border border-border bg-card">
+                  <div className="border-b border-border px-4 py-3">
+                    <h2 className="text-sm font-semibold">{t("fees.closingByUser")}</h2>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                      <thead className="border-b border-border bg-secondary/40 text-xs text-muted">
+                        <tr>
+                          <th className="px-3 py-2">{t("fees.cashier")}</th>
+                          <th className="px-3 py-2 text-right">Cash</th>
+                          <th className="px-3 py-2 text-right">Bank</th>
+                          <th className="px-3 py-2 text-right">{t("fees.netAmount")}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {closingReport.byUser.length === 0 ? (
+                          <tr>
+                            <td colSpan={4} className="p-4 text-sm text-muted">{t("fees.noPaymentsYet")}</td>
+                          </tr>
+                        ) : (
+                          closingReport.byUser.map((u) => (
+                            <tr key={u.userId ?? u.cashierName} className="border-b border-border last:border-0">
+                              <td className="px-3 py-2">
+                                <div className="font-medium">{u.cashierName}</div>
+                                <div className="text-xs text-muted">{u.transactionCount} tx</div>
+                              </td>
+                              <td className="px-3 py-2 text-right tabular-nums">{formatMoney(u.cashTotal, closingReport.currency)}</td>
+                              <td className="px-3 py-2 text-right tabular-nums">{formatMoney(u.bankTransferTotal, closingReport.currency)}</td>
+                              <td className="px-3 py-2 text-right font-semibold tabular-nums">{formatMoney(u.netCollectedTotal, closingReport.currency)}</td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              </div>
+            </>
+          ) : null}
+        </div>
       ) : null}
 
       {tab === "structures" ? (
@@ -927,6 +1540,16 @@ export function FeesPage() {
                     {t("fees.addStructure")}
                   </Button>
                 </div>
+                {structureFrequency === "Admission" ? (
+                  <label className="sm:col-span-2 flex items-center gap-2 text-xs">
+                    <input
+                      type="checkbox"
+                      checked={structureAutoAdmission}
+                      onChange={(e) => setStructureAutoAdmission(e.target.checked)}
+                    />
+                    <span>{t("fees.autoIssueOnAdmission")}</span>
+                  </label>
+                ) : null}
               </form>
             ) : null}
 
@@ -937,7 +1560,8 @@ export function FeesPage() {
                     <div className="font-medium">{s.name}</div>
                     <div className="text-xs text-muted">
                       {s.frequency} · {formatMoney(s.amount, s.currency)} ·{" "}
-                      {s.batchName || s.educationLevelName || "-"} · {t("fees.dueDayShort", { day: s.dueDayOfMonth })}
+                      {s.batchName || s.educationLevelName || t("fees.instituteWide")} · {t("fees.dueDayShort", { day: s.dueDayOfMonth })}
+                      {s.autoIssueOnAdmission ? ` · ${t("fees.autoAdmissionBadge")}` : ""}
                     </div>
                   </div>
                   {canCollect ? (
@@ -1081,6 +1705,96 @@ export function FeesPage() {
                 </li>
               ))}
             </ul>
+          </section>
+
+          <section className="rounded-lg border border-border bg-card p-4 xl:col-span-2">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-semibold">{t("fees.siblingRuleTitle")}</h2>
+                <p className="text-xs text-muted">{t("fees.siblingRuleDescription")}</p>
+              </div>
+              <Switch
+                checked={siblingEnabled}
+                disabled={!canCollect || siblingDiscountQuery.isLoading}
+                aria-label={t("fees.siblingRuleEnabled")}
+                onCheckedChange={setSiblingEnabled}
+              />
+            </div>
+
+            <form
+              className="mt-4 grid gap-3 sm:grid-cols-4"
+              onSubmit={(e) => {
+                e.preventDefault();
+                saveSiblingDiscountMutation.mutate();
+              }}
+            >
+              <div>
+                <label className="text-xs font-medium" htmlFor="sib-type">
+                  {t("notifications.colType")}
+                </label>
+                <select
+                  id="sib-type"
+                  value={siblingType}
+                  disabled={!canCollect}
+                  onChange={(e) => setSiblingType(e.target.value as DiscountType)}
+                  className="h-9 w-full rounded-md border border-border bg-card px-2 text-sm"
+                >
+                  <option value="Percentage">%</option>
+                  <option value="FixedAmount">LKR</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-medium" htmlFor="sib-2nd">
+                  {t("fees.siblingSecondChild")}
+                </label>
+                <Input
+                  id="sib-2nd"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={siblingSecondVal}
+                  disabled={!canCollect}
+                  onChange={(e) => setSiblingSecondVal(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium" htmlFor="sib-3rd">
+                  {t("fees.siblingThirdChild")}
+                </label>
+                <Input
+                  id="sib-3rd"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={siblingThirdVal}
+                  disabled={!canCollect}
+                  onChange={(e) => setSiblingThirdVal(e.target.value)}
+                />
+              </div>
+              <div className="flex items-end">
+                <Button type="submit" size="sm" disabled={!canCollect || saveSiblingDiscountMutation.isPending}>
+                  {t("common.save")}
+                </Button>
+              </div>
+              <div className="sm:col-span-4 flex flex-wrap gap-4 text-xs">
+                <label className="flex items-center gap-1.5">
+                  <input type="checkbox" checked={siblingMonthly} disabled={!canCollect} onChange={(e) => setSiblingMonthly(e.target.checked)} />
+                  <span>Monthly</span>
+                </label>
+                <label className="flex items-center gap-1.5">
+                  <input type="checkbox" checked={siblingOneTime} disabled={!canCollect} onChange={(e) => setSiblingOneTime(e.target.checked)} />
+                  <span>OneTime</span>
+                </label>
+                <label className="flex items-center gap-1.5">
+                  <input type="checkbox" checked={siblingAdmission} disabled={!canCollect} onChange={(e) => setSiblingAdmission(e.target.checked)} />
+                  <span>Admission</span>
+                </label>
+                <label className="flex items-center gap-1.5">
+                  <input type="checkbox" checked={siblingStack} disabled={!canCollect} onChange={(e) => setSiblingStack(e.target.checked)} />
+                  <span>{t("fees.siblingStack")}</span>
+                </label>
+              </div>
+            </form>
           </section>
         </div>
       ) : null}
@@ -1265,7 +1979,7 @@ export function FeesPage() {
                 type="number"
                 step="0.01"
                 min="0.01"
-                max={paymentInvoice?.balanceAmount}
+                max={applyExcessToCredit ? undefined : paymentInvoice?.balanceAmount}
                 value={paymentAmount}
                 onChange={(e) => setPaymentAmount(e.target.value)}
                 required
@@ -1318,6 +2032,14 @@ export function FeesPage() {
               onChange={(e) => setPaymentNotes(e.target.value)}
             />
           </div>
+          <label className="flex items-center gap-2 text-xs">
+            <input
+              type="checkbox"
+              checked={applyExcessToCredit}
+              onChange={(e) => setApplyExcessToCredit(e.target.checked)}
+            />
+            <span>{t("fees.applyExcessToCredit")}</span>
+          </label>
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => setPaymentInvoice(null)}>
               {t("common.cancel")}
@@ -1374,6 +2096,19 @@ export function FeesPage() {
                       }
                     >
                       PDF
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        void downloadApi(
+                          `/api/fees/payments/${p.id}/receipt?reprint=true`,
+                          `${p.receiptNumber.toLowerCase()}-reprint.pdf`,
+                        ).then(() => refreshAll())
+                      }
+                    >
+                      {t("fees.reprint")}
+                      {p.receiptPrintCount > 0 ? ` (${p.receiptPrintCount})` : ""}
                     </Button>
                     {canCollect && p.status !== "Voided" && p.effectiveAmount > 0 ? (
                       <Button
@@ -1456,6 +2191,130 @@ export function FeesPage() {
             </Button>
             <Button type="submit" variant="danger" disabled={voidInvoiceMutation.isPending}>
               {t("fees.void")}
+            </Button>
+          </div>
+        </form>
+      </Dialog>
+
+      {/* Admin Upload Bank Slip Dialog */}
+      <Dialog
+        open={Boolean(adminSlipInvoice)}
+        onOpenChange={(open) => !open && setAdminSlipInvoice(null)}
+        title={t("fees.uploadBankSlip")}
+        description={
+          adminSlipInvoice
+            ? `${adminSlipInvoice.invoiceNumber} · ${adminSlipInvoice.studentName} · ${formatMoney(adminSlipInvoice.balanceAmount, adminSlipInvoice.currency)}`
+            : ""
+        }
+      >
+        <form
+          className="grid gap-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            submitAdminSlipMutation.mutate();
+          }}
+        >
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-xs font-medium" htmlFor="aslip-amt">
+                {t("fees.amount")}
+              </label>
+              <Input
+                id="aslip-amt"
+                type="number"
+                step="0.01"
+                min="0.01"
+                value={adminSlipAmount}
+                onChange={(e) => setAdminSlipAmount(e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium" htmlFor="aslip-date">
+                {t("fees.transferDate")}
+              </label>
+              <Input
+                id="aslip-date"
+                type="date"
+                value={adminSlipDate}
+                onChange={(e) => setAdminSlipDate(e.target.value)}
+              />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-medium" htmlFor="aslip-ref">
+              {t("fees.reference")}
+            </label>
+            <Input
+              id="aslip-ref"
+              value={adminSlipRef}
+              onChange={(e) => setAdminSlipRef(e.target.value)}
+              placeholder="BANK-REF-001"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium" htmlFor="aslip-file">
+              {t("fees.bankSlipAttachment")}
+            </label>
+            <Input
+              id="aslip-file"
+              type="file"
+              accept=".pdf,.png,.jpg,.jpeg,.webp"
+              onChange={(e) => setAdminSlipFile(e.target.files?.[0] ?? null)}
+              required
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium" htmlFor="aslip-notes">
+              {t("students.notes")}
+            </label>
+            <Input
+              id="aslip-notes"
+              value={adminSlipNotes}
+              onChange={(e) => setAdminSlipNotes(e.target.value)}
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => setAdminSlipInvoice(null)}>
+              {t("common.cancel")}
+            </Button>
+            <Button type="submit" disabled={submitAdminSlipMutation.isPending}>
+              {t("fees.submitBankSlip")}
+            </Button>
+          </div>
+        </form>
+      </Dialog>
+
+      {/* Reject Bank Slip Dialog */}
+      <Dialog
+        open={Boolean(rejectSlipTarget)}
+        onOpenChange={(open) => !open && setRejectSlipTarget(null)}
+        title={t("fees.rejectBankSlipTitle")}
+        description={
+          rejectSlipTarget
+            ? `${rejectSlipTarget.invoiceNumber} · ${rejectSlipTarget.studentName} · ${formatMoney(rejectSlipTarget.amount, rejectSlipTarget.currency)}`
+            : ""
+        }
+      >
+        <form
+          className="grid gap-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            rejectBankSlipMutation.mutate();
+          }}
+        >
+          <Input
+            value={rejectSlipReason}
+            onChange={(e) => setRejectSlipReason(e.target.value)}
+            placeholder={t("attendance.reason")}
+            required
+          />
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => setRejectSlipTarget(null)}>
+              {t("common.cancel")}
+            </Button>
+            <Button type="submit" variant="danger" disabled={rejectBankSlipMutation.isPending}>
+              {t("fees.reject")}
             </Button>
           </div>
         </form>

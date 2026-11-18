@@ -70,6 +70,16 @@ public static class FeeEndpoints
         .RequirePermission(Permissions.FeesCollect)
         .WithName("DeleteStudentConcession");
 
+        group.MapGet("/sibling-discount", async (IFeeService service, CancellationToken ct) =>
+            Results.Ok(await service.GetSiblingDiscountRuleAsync(ct)))
+            .RequirePermission(Permissions.FeesView)
+            .WithName("GetSiblingDiscountRule");
+
+        group.MapPut("/sibling-discount", async ([FromBody] UpdateSiblingDiscountRuleRequest request, IFeeService service, CancellationToken ct) =>
+            Results.Ok(await service.UpdateSiblingDiscountRuleAsync(request, ct)))
+            .RequirePermission(Permissions.FeesCollect)
+            .WithName("UpdateSiblingDiscountRule");
+
         group.MapGet("/invoices", async (
             [FromQuery] string? search,
             [FromQuery] string? status,
@@ -104,6 +114,16 @@ public static class FeeEndpoints
             Results.Ok(await service.GenerateMonthlyInvoicesAsync(request, tenantIdOverride: null, ct)))
             .RequirePermission(Permissions.FeesCollect)
             .WithName("GenerateMonthlyFeeInvoices");
+
+        group.MapPost("/invoices/generate-admission", async ([FromBody] GenerateAdmissionInvoicesRequest request, IFeeService service, CancellationToken ct) =>
+            Results.Ok(await service.GenerateAdmissionInvoicesAsync(request, tenantIdOverride: null, ct)))
+            .RequirePermission(Permissions.FeesCollect)
+            .WithName("GenerateAdmissionFeeInvoices");
+
+        group.MapPost("/invoices/{id:guid}/apply-credit", async (Guid id, [FromBody] ApplyCreditToInvoiceRequest? request, IFeeService service, CancellationToken ct) =>
+            Results.Ok(await service.ApplyCreditToInvoiceAsync(id, request, ct)))
+            .RequirePermission(Permissions.FeesCollect)
+            .WithName("ApplyCreditToFeeInvoice");
 
         group.MapPost("/invoices/{id:guid}/void", async (Guid id, [FromBody] VoidInvoiceRequest request, IFeeService service, CancellationToken ct) =>
             Results.Ok(await service.VoidInvoiceAsync(id, request, ct)))
@@ -159,10 +179,104 @@ public static class FeeEndpoints
             .RequirePermission(Permissions.FeesCollect)
             .WithName("RefundOrVoidFeePayment");
 
-        group.MapGet("/payments/{id:guid}/receipt", async (Guid id, IFeeService service, CancellationToken ct) =>
-            ToFileResult(await service.GetReceiptPdfAsync(id, ct)))
+        group.MapGet("/payments/{id:guid}/receipt", async (Guid id, [FromQuery] bool? reprint, IFeeService service, CancellationToken ct) =>
+            ToFileResult(await service.GetReceiptPdfAsync(id, reprint ?? false, ct)))
             .RequirePermission(Permissions.FeesView)
             .WithName("GetFeePaymentReceiptPdf");
+
+        group.MapPost("/payments/{id:guid}/reprint", async (Guid id, IFeeService service, CancellationToken ct) =>
+            ToFileResult(await service.GetReceiptPdfAsync(id, reprint: true, ct)))
+            .RequirePermission(Permissions.FeesView)
+            .WithName("ReprintFeePaymentReceiptPdf");
+
+        group.MapGet("/bank-slips", async (
+            [FromQuery] string? status,
+            [FromQuery] Guid? invoiceId,
+            [FromQuery] Guid? studentId,
+            IFeeService service,
+            CancellationToken ct) =>
+            Results.Ok(await service.GetBankPaymentSubmissionsAsync(status, invoiceId, studentId, ct)))
+            .RequirePermission(Permissions.FeesView)
+            .WithName("GetBankPaymentSubmissions");
+
+        group.MapPost("/invoices/{invoiceId:guid}/bank-slips", async (
+            Guid invoiceId,
+            HttpRequest httpRequest,
+            IFeeService service,
+            CancellationToken ct) =>
+        {
+            var (amount, reference, transferDate, notes, file) = await ReadBankSlipFormAsync(httpRequest, ct);
+            await using var stream = file.OpenReadStream();
+            var created = await service.SubmitBankPaymentAsync(
+                new SubmitBankPaymentMetadata(invoiceId, amount, reference, transferDate, notes),
+                stream,
+                file.FileName,
+                file.ContentType,
+                file.Length,
+                submittedByRole: "Admin",
+                tenantIdOverride: null,
+                ct);
+            return Results.Created($"/api/fees/bank-slips/{created.Id}", created);
+        })
+        .RequirePermission(Permissions.FeesCollect)
+        .DisableAntiforgery()
+        .WithName("SubmitAdminBankPaymentSlip");
+
+        group.MapGet("/bank-slips/{id:guid}/file", async (Guid id, IFeeService service, CancellationToken ct) =>
+            ToFileResult(await service.GetBankPaymentSlipAsync(id, studentIdScope: null, ct)))
+            .RequirePermission(Permissions.FeesView)
+            .WithName("DownloadBankPaymentSlip");
+
+        group.MapPost("/bank-slips/{id:guid}/approve", async (
+            Guid id,
+            [FromBody] ApproveBankPaymentRequest? request,
+            IFeeService service,
+            CancellationToken ct) =>
+            Results.Ok(await service.ApproveBankPaymentAsync(id, request, ct)))
+            .RequirePermission(Permissions.FeesCollect)
+            .WithName("ApproveBankPaymentSlip");
+
+        group.MapPost("/bank-slips/{id:guid}/reject", async (
+            Guid id,
+            [FromBody] RejectBankPaymentRequest request,
+            IFeeService service,
+            CancellationToken ct) =>
+            Results.Ok(await service.RejectBankPaymentAsync(id, request, ct)))
+            .RequirePermission(Permissions.FeesCollect)
+            .WithName("RejectBankPaymentSlip");
+
+        group.MapGet("/credits", async ([FromQuery] Guid? studentId, IFeeService service, CancellationToken ct) =>
+            Results.Ok(await service.GetStudentCreditsAsync(studentId, ct)))
+            .RequirePermission(Permissions.FeesView)
+            .WithName("GetStudentCredits");
+
+        group.MapGet("/students/{studentId:guid}/credits", async (Guid studentId, IFeeService service, CancellationToken ct) =>
+            Results.Ok(await service.GetStudentCreditSummaryAsync(studentId, ct)))
+            .RequirePermission(Permissions.FeesView)
+            .WithName("GetStudentCreditSummary");
+
+        group.MapPost("/credits", async ([FromBody] RecordStudentCreditRequest request, IFeeService service, CancellationToken ct) =>
+        {
+            var created = await service.RecordStudentCreditAsync(request, ct);
+            return Results.Created($"/api/fees/credits/{created.Id}", created);
+        })
+        .RequirePermission(Permissions.FeesCollect)
+        .WithName("RecordStudentCreditDeposit");
+
+        group.MapGet("/reports/cashier-closing", async ([FromQuery] DateOnly? date, IFeeService service, CancellationToken ct) =>
+            Results.Ok(await service.GetCashierClosingReportAsync(date, ct)))
+            .RequirePermission(Permissions.FeesView)
+            .WithName("GetCashierClosingReport");
+
+        group.MapGet("/reports/cashier-closing/export", async (
+            [FromQuery] string? format,
+            [FromQuery] DateOnly? date,
+            IFeeService service,
+            CancellationToken ct) =>
+            ToFileResult(await service.ExportCashierClosingReportAsync(format, date, ct)))
+            .RequirePermission(Permissions.FeesView)
+            .RequireFeature(FeatureKey.DataExport)
+            .WithName("ExportCashierClosingReport");
 
         group.MapPost("/reminders/run", async ([FromBody] RunFeeRemindersRequest? request, IFeeService service, CancellationToken ct) =>
             Results.Ok(await service.ProcessFeeRemindersAsync(request?.DateOverride, tenantIdOverride: null, ct)))
@@ -277,6 +391,40 @@ public static class FeeEndpoints
 
         var result = await feeService.ProcessPayHereWebhookAsync(payload, ct);
         return Results.Ok(result);
+    }
+
+    internal static async Task<(decimal Amount, string? Reference, DateOnly? TransferDate, string? Notes, IFormFile File)> ReadBankSlipFormAsync(
+        HttpRequest request,
+        CancellationToken ct)
+    {
+        if (!request.HasFormContentType)
+        {
+            throw new DomainValidationException("INVALID_FORM", "Submit the bank slip as multipart/form-data.");
+        }
+
+        var form = await request.ReadFormAsync(ct);
+        var file = form.Files.GetFile("file") ?? form.Files.FirstOrDefault()
+            ?? throw new DomainValidationException("ATTACHMENT_REQUIRED", "Upload a bank slip PDF or image file.");
+
+        if (!decimal.TryParse(form["amount"].ToString(), NumberStyles.Number, CultureInfo.InvariantCulture, out var amount))
+        {
+            throw new DomainValidationException("INVALID_PAYMENT_AMOUNT", "Enter a valid decimal payment amount.");
+        }
+
+        DateOnly? transferDate = null;
+        var rawDate = form["transferDate"].ToString().Trim();
+        if (!string.IsNullOrWhiteSpace(rawDate))
+        {
+            if (!DateOnly.TryParse(rawDate, CultureInfo.InvariantCulture, out var parsedDate))
+            {
+                throw new DomainValidationException("INVALID_TRANSFER_DATE", "Transfer date must be in YYYY-MM-DD format.");
+            }
+            transferDate = parsedDate;
+        }
+
+        var reference = form["referenceNumber"].ToString();
+        var notes = form["notes"].ToString();
+        return (amount, string.IsNullOrWhiteSpace(reference) ? null : reference, transferDate, string.IsNullOrWhiteSpace(notes) ? null : notes, file);
     }
 
     private static IResult ToFileResult(StoredDownload download) =>

@@ -65,11 +65,39 @@ export type ParentInvoice = {
   title: string;
   billingPeriod: string;
   netAmount: number;
+  creditAppliedAmount?: number;
   paidAmount: number;
   balanceAmount: number;
   currency: string;
   dueDate: string;
   status: string;
+};
+
+export type ParentBankAccount = {
+  bankName: string;
+  branchName: string | null;
+  accountName: string;
+  accountNumber: string;
+  instructions: string | null;
+  isEnabled: boolean;
+  isConfigured: boolean;
+};
+
+export type ParentBankSlip = {
+  id: string;
+  invoiceId: string;
+  invoiceNumber: string;
+  invoiceTitle: string;
+  amount: number;
+  currency: string;
+  referenceNumber: string | null;
+  transferDate: string | null;
+  slipFileName: string;
+  status: "Pending" | "Approved" | "Rejected";
+  notes: string | null;
+  rejectionReason: string | null;
+  receiptNumber: string | null;
+  createdAt: string;
 };
 
 export type ParentPayment = {

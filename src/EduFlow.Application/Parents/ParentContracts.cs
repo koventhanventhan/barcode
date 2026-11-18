@@ -89,7 +89,8 @@ public sealed record ParentInvoiceDto(
     decimal BalanceAmount,
     string Currency,
     DateOnly DueDate,
-    string Status);
+    string Status,
+    decimal CreditAppliedAmount = 0m);
 
 public sealed record ParentPaymentDto(
     Guid Id,
@@ -141,6 +142,11 @@ public interface IParentPortalService
     Task<StoredDownload> GetReportCardAsync(Guid studentId, Guid examId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ParentInvoiceDto>> GetInvoicesAsync(Guid studentId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ParentPaymentDto>> GetPaymentsAsync(Guid studentId, CancellationToken cancellationToken = default);
+    Task<StoredDownload> GetPaymentReceiptAsync(Guid studentId, Guid paymentId, bool reprint = false, CancellationToken cancellationToken = default);
+    Task<TenantBankAccountDto> GetBankAccountAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<BankPaymentSubmissionDto>> GetBankSlipsAsync(Guid studentId, CancellationToken cancellationToken = default);
+    Task<BankPaymentSubmissionDto> SubmitBankSlipAsync(Guid studentId, Guid invoiceId, decimal amount, string? referenceNumber, DateOnly? transferDate, string? notes, Stream content, string fileName, string? contentType, long length, CancellationToken cancellationToken = default);
+    Task<StoredDownload> GetBankSlipFileAsync(Guid studentId, Guid submissionId, CancellationToken cancellationToken = default);
     Task<PayHereCheckoutSessionDto> PayInvoiceAsync(Guid studentId, Guid invoiceId, ParentPayInvoiceRequest request, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ParentMessageDto>> GetMessagesAsync(CancellationToken cancellationToken = default);
 }

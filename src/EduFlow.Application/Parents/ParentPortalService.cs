@@ -276,7 +276,8 @@ public sealed class ParentPortalService(
             i.BalanceAmount,
             i.Currency,
             i.DueDate,
-            i.Status.ToString())).ToList();
+            i.Status.ToString(),
+            i.CreditAppliedAmount)).ToList();
     }
 
     public async Task<IReadOnlyList<ParentPaymentDto>> GetPaymentsAsync(Guid studentId, CancellationToken cancellationToken = default)
@@ -301,6 +302,82 @@ public sealed class ParentPortalService(
             p.Method.ToString(),
             p.Status.ToString(),
             p.PaidAt)).ToList();
+    }
+
+    public async Task<StoredDownload> GetPaymentReceiptAsync(
+        Guid studentId,
+        Guid paymentId,
+        bool reprint = false,
+        CancellationToken cancellationToken = default)
+    {
+        var parent = await RequireSignedInParentAsync(cancellationToken);
+        await EnsureLinkedAsync(parent.Id, studentId, cancellationToken);
+        var belongs = await db.FeePayments.AsNoTracking()
+            .AnyAsync(p => p.Id == paymentId && p.StudentId == studentId, cancellationToken);
+        if (!belongs)
+        {
+            throw new EntityNotFoundException(nameof(FeePayment), paymentId.ToString());
+        }
+
+        return await feeService.GetReceiptPdfAsync(paymentId, reprint, cancellationToken);
+    }
+
+    public async Task<TenantBankAccountDto> GetBankAccountAsync(CancellationToken cancellationToken = default)
+    {
+        var parent = await RequireSignedInParentAsync(cancellationToken);
+        return await feeService.GetBankAccountSettingsAsync(parent.TenantId, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<BankPaymentSubmissionDto>> GetBankSlipsAsync(
+        Guid studentId,
+        CancellationToken cancellationToken = default)
+    {
+        var parent = await RequireSignedInParentAsync(cancellationToken);
+        await EnsureLinkedAsync(parent.Id, studentId, cancellationToken);
+        return await feeService.GetBankPaymentSubmissionsAsync(studentId: studentId, cancellationToken: cancellationToken);
+    }
+
+    public async Task<BankPaymentSubmissionDto> SubmitBankSlipAsync(
+        Guid studentId,
+        Guid invoiceId,
+        decimal amount,
+        string? referenceNumber,
+        DateOnly? transferDate,
+        string? notes,
+        Stream content,
+        string fileName,
+        string? contentType,
+        long length,
+        CancellationToken cancellationToken = default)
+    {
+        var parent = await RequireSignedInParentAsync(cancellationToken);
+        await EnsureLinkedAsync(parent.Id, studentId, cancellationToken);
+        var ownsInvoice = await db.FeeInvoices.AsNoTracking()
+            .AnyAsync(i => i.Id == invoiceId && i.StudentId == studentId, cancellationToken);
+        if (!ownsInvoice)
+        {
+            throw new EntityNotFoundException(nameof(FeeInvoice), invoiceId.ToString());
+        }
+
+        return await feeService.SubmitBankPaymentAsync(
+            new SubmitBankPaymentMetadata(invoiceId, amount, referenceNumber, transferDate, notes),
+            content,
+            fileName,
+            contentType,
+            length,
+            submittedByRole: "Parent",
+            tenantIdOverride: parent.TenantId,
+            cancellationToken: cancellationToken);
+    }
+
+    public async Task<StoredDownload> GetBankSlipFileAsync(
+        Guid studentId,
+        Guid submissionId,
+        CancellationToken cancellationToken = default)
+    {
+        var parent = await RequireSignedInParentAsync(cancellationToken);
+        await EnsureLinkedAsync(parent.Id, studentId, cancellationToken);
+        return await feeService.GetBankPaymentSlipAsync(submissionId, studentIdScope: studentId, cancellationToken);
     }
 
     public async Task<PayHereCheckoutSessionDto> PayInvoiceAsync(

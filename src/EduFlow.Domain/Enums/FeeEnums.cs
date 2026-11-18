@@ -58,3 +58,18 @@ public enum FeeReminderStage
     OnDueDate = 2,
     Overdue = 3
 }
+
+public enum BankPaymentStatus
+{
+    Pending = 1,
+    Approved = 2,
+    Rejected = 3
+}
+
+public enum StudentCreditEntryType
+{
+    Deposit = 1,
+    AppliedToInvoice = 2,
+    Refunded = 3,
+    Reversal = 4
+}

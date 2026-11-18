@@ -256,6 +256,118 @@ namespace EduFlow.Infrastructure.Persistence.Migrations
                     b.ToTable("AuditLogs");
                 });
 
+            modelBuilder.Entity("EduFlow.Domain.Entities.BankPaymentSubmission", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid?>("BranchId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<Guid?>("FeePaymentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("InvoiceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ReferenceNumber")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("RejectionReason")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<DateTimeOffset?>("ReviewedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("ReviewedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("SlipBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("SlipContentType")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("SlipFileName")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<string>("SlipUrl")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("SubmittedByRole")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<Guid>("SubmittedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly?>("TransferDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BranchId");
+
+                    b.HasIndex("FeePaymentId");
+
+                    b.HasIndex("InvoiceId");
+
+                    b.HasIndex("StudentId");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "InvoiceId");
+
+                    b.HasIndex("TenantId", "StudentId");
+
+                    b.HasIndex("TenantId", "Status", "CreatedAt");
+
+                    b.ToTable("BankPaymentSubmissions");
+                });
+
             modelBuilder.Entity("EduFlow.Domain.Entities.BatchGroup", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1139,6 +1251,10 @@ namespace EduFlow.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<decimal>("CreditAppliedAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<string>("Currency")
                         .IsRequired()
                         .HasMaxLength(10)
@@ -1284,6 +1400,9 @@ namespace EduFlow.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
+                    b.Property<DateTimeOffset?>("LastPrintedAt")
+                        .HasColumnType("datetimeoffset");
+
                     b.Property<int>("Method")
                         .HasColumnType("int");
 
@@ -1301,6 +1420,9 @@ namespace EduFlow.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(40)
                         .HasColumnType("nvarchar(40)");
+
+                    b.Property<int>("ReceiptPrintCount")
+                        .HasColumnType("int");
 
                     b.Property<int>("ReceiptSequence")
                         .HasColumnType("int");
@@ -1370,6 +1492,9 @@ namespace EduFlow.Infrastructure.Persistence.Migrations
                     b.Property<decimal>("Amount")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<bool>("AutoIssueOnAdmission")
+                        .HasColumnType("bit");
 
                     b.Property<Guid?>("BatchId")
                         .HasColumnType("uniqueidentifier");
@@ -2388,6 +2513,61 @@ namespace EduFlow.Infrastructure.Persistence.Migrations
                     b.ToTable("RolePermissions");
                 });
 
+            modelBuilder.Entity("EduFlow.Domain.Entities.SiblingDiscountRule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("ApplyToAdmission")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("ApplyToMonthly")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("ApplyToOneTime")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("DiscountType")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal>("SecondChildValue")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<bool>("StackWithConcession")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("ThirdPlusChildValue")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId")
+                        .IsUnique();
+
+                    b.ToTable("SiblingDiscountRules");
+                });
+
             modelBuilder.Entity("EduFlow.Domain.Entities.StaffAttendanceRecord", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2760,6 +2940,90 @@ namespace EduFlow.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId", "StudentId", "IsActive");
 
                     b.ToTable("StudentConcessions");
+                });
+
+            modelBuilder.Entity("EduFlow.Domain.Entities.StudentCreditTransaction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("BalanceAfter")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid?>("BranchId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("EntryType")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("FeePaymentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("InvoiceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("Method")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("RecordedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ReferenceNumber")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<decimal>("SignedAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BranchId");
+
+                    b.HasIndex("FeePaymentId");
+
+                    b.HasIndex("InvoiceId");
+
+                    b.HasIndex("StudentId");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "OccurredAt", "EntryType");
+
+                    b.HasIndex("TenantId", "StudentId", "OccurredAt");
+
+                    b.ToTable("StudentCreditTransactions");
                 });
 
             modelBuilder.Entity("EduFlow.Domain.Entities.StudentEnrollment", b =>
@@ -3140,6 +3404,61 @@ namespace EduFlow.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId", "CreatedAt");
 
                     b.ToTable("TenantBackupRecords");
+                });
+
+            modelBuilder.Entity("EduFlow.Domain.Entities.TenantBankAccountSetting", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AccountName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("AccountNumber")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("BankName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("BranchName")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Instructions")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId")
+                        .IsUnique();
+
+                    b.ToTable("TenantBankAccountSettings");
                 });
 
             modelBuilder.Entity("EduFlow.Domain.Entities.TenantCleanupPolicy", b =>
@@ -3641,6 +3960,26 @@ namespace EduFlow.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("EduFlow.Domain.Entities.BankPaymentSubmission", b =>
+                {
+                    b.HasOne("EduFlow.Domain.Entities.FeePayment", null)
+                        .WithMany()
+                        .HasForeignKey("FeePaymentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("EduFlow.Domain.Entities.FeeInvoice", null)
+                        .WithMany()
+                        .HasForeignKey("InvoiceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("EduFlow.Domain.Entities.Student", null)
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("EduFlow.Domain.Entities.BroadcastRecipient", b =>
                 {
                     b.HasOne("EduFlow.Domain.Entities.BroadcastCampaign", null)
@@ -3940,6 +4279,25 @@ namespace EduFlow.Infrastructure.Persistence.Migrations
                     b.HasOne("EduFlow.Domain.Entities.FeeStructure", null)
                         .WithMany()
                         .HasForeignKey("FeeStructureId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("EduFlow.Domain.Entities.Student", null)
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("EduFlow.Domain.Entities.StudentCreditTransaction", b =>
+                {
+                    b.HasOne("EduFlow.Domain.Entities.FeePayment", null)
+                        .WithMany()
+                        .HasForeignKey("FeePaymentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("EduFlow.Domain.Entities.FeeInvoice", null)
+                        .WithMany()
+                        .HasForeignKey("InvoiceId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("EduFlow.Domain.Entities.Student", null)

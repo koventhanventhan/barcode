@@ -48,9 +48,13 @@ public sealed class FeePdfService : IFeeDocumentService
                         }
                     });
 
-                    row.ConstantItem(150).AlignRight().Column(col =>
+                    row.ConstantItem(155).AlignRight().Column(col =>
                     {
-                        col.Item().Text("OFFICIAL RECEIPT").FontSize(11).Bold().FontColor(primary);
+                        col.Item().Text(content.IsReprint ? "REPRINT RECEIPT" : "OFFICIAL RECEIPT").FontSize(11).Bold().FontColor(primary);
+                        if (content.IsReprint)
+                        {
+                            col.Item().Text($"DUPLICATE COPY #{Math.Max(1, content.ReprintNumber)}").FontSize(7).Bold().FontColor(Colors.Red.Darken2);
+                        }
                         col.Item().Text(content.ReceiptNumber).FontSize(10).SemiBold();
                         col.Item().Text($"Date: {AttendanceRules.FormatColombo(content.PaidAt)}").FontSize(8).FontColor(Colors.Grey.Darken2);
                     });
@@ -137,6 +141,14 @@ public sealed class FeePdfService : IFeeDocumentService
                             .Text(FeeRules.FormatCurrency(content.InvoiceBalanceAfter, content.Currency));
                     });
 
+                    if (content.CreditAppliedAmount > 0m)
+                    {
+                        col.Item().Text($"Advance credit applied to invoice: {FeeRules.FormatCurrency(content.CreditAppliedAmount, content.Currency)}")
+                            .FontSize(8)
+                            .SemiBold()
+                            .FontColor(Colors.Grey.Darken2);
+                    }
+
                     if (!string.IsNullOrWhiteSpace(content.Notes))
                     {
                         col.Item().Text($"Notes: {content.Notes}").FontSize(8).FontColor(Colors.Grey.Darken2);
@@ -146,7 +158,7 @@ public sealed class FeePdfService : IFeeDocumentService
                 page.Footer().Row(row =>
                 {
                     row.RelativeItem().Text($"Status: {content.Status}").FontSize(8).FontColor(Colors.Grey.Darken1);
-                    row.RelativeItem().AlignRight().Text("Computer-generated receipt").FontSize(8).FontColor(Colors.Grey.Darken1);
+                    row.RelativeItem().AlignRight().Text(content.IsReprint ? "Reprinted duplicate receipt" : "Computer-generated receipt").FontSize(8).FontColor(Colors.Grey.Darken1);
                 });
             });
         }).GeneratePdf();
@@ -303,6 +315,153 @@ public sealed class FeePdfService : IFeeDocumentService
                         WriteCell(table, row.BalanceAmount.ToString("N2", CultureInfo.InvariantCulture));
                         WriteCell(table, row.DueDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
                         WriteCell(table, row.Status);
+                    }
+                });
+
+                page.Footer().AlignRight().Text(text =>
+                {
+                    text.DefaultTextStyle(style => style.FontSize(8).FontColor(Colors.Grey.Darken1));
+                    text.Span("Page ");
+                    text.CurrentPageNumber();
+                    text.Span(" of ");
+                    text.TotalPages();
+                });
+            });
+        }).GeneratePdf();
+    }
+
+    public byte[] BuildCashierClosingPdf(CashierClosingPdfContent content)
+    {
+        var primary = SafeColor(content.PrimaryHex);
+        var report = content.Report;
+
+        return Document.Create(container =>
+        {
+            container.Page(page =>
+            {
+                page.Size(PageSizes.A4);
+                page.Margin(24);
+                page.DefaultTextStyle(x => x.FontSize(9));
+
+                page.Header().Row(row =>
+                {
+                    if (content.Logo is { Length: > 8 })
+                    {
+                        row.ConstantItem(40).Height(40).PaddingRight(8).Image(content.Logo).FitArea();
+                    }
+
+                    row.RelativeItem().Column(col =>
+                    {
+                        col.Item().Text(content.InstituteName).FontSize(14).SemiBold().FontColor(primary);
+                        col.Item().Text("Daily Cashier Closing Report").FontSize(10).SemiBold();
+                    });
+
+                    row.ConstantItem(160).AlignRight().Column(col =>
+                    {
+                        col.Item().Text($"Date: {report.Date:yyyy-MM-dd}").FontSize(10).SemiBold();
+                        col.Item().Text($"Transactions: {report.TotalTransactions}").FontSize(8).FontColor(Colors.Grey.Darken2);
+                        col.Item().Text($"Net Total: {FeeRules.FormatCurrency(report.GrandTotalCollected, report.Currency)}").FontSize(9).Bold().FontColor(primary);
+                    });
+                });
+
+                page.Content().PaddingTop(12).Column(col =>
+                {
+                    col.Spacing(10);
+                    col.Item().BorderBottom(1).BorderColor(primary);
+
+                    col.Item().Text("Summary by Payment Method").FontSize(10).SemiBold();
+                    col.Item().Table(table =>
+                    {
+                        table.ColumnsDefinition(columns =>
+                        {
+                            columns.RelativeColumn(2);
+                            columns.ConstantColumn(55);
+                            columns.ConstantColumn(95);
+                            columns.ConstantColumn(95);
+                            columns.ConstantColumn(80);
+                            columns.ConstantColumn(95);
+                        });
+                        table.Header(header =>
+                        {
+                            foreach (var h in new[] { "Method", "Count", "Invoices", "Advance", "Refunded", "Net Collected" })
+                            {
+                                header.Cell().Background(Colors.Grey.Lighten3).Padding(4).Text(h).FontSize(8).SemiBold();
+                            }
+                        });
+                        foreach (var m in report.ByMethod)
+                        {
+                            WriteCell(table, m.Method);
+                            WriteCell(table, m.TransactionCount.ToString(CultureInfo.InvariantCulture));
+                            WriteCell(table, FeeRules.FormatCurrency(m.InvoicePaymentsTotal, report.Currency));
+                            WriteCell(table, FeeRules.FormatCurrency(m.AdvanceDepositsTotal, report.Currency));
+                            WriteCell(table, FeeRules.FormatCurrency(m.RefundedTotal, report.Currency));
+                            WriteCell(table, FeeRules.FormatCurrency(m.NetCollectedTotal, report.Currency));
+                        }
+                    });
+
+                    col.Item().Text("Summary by Cashier / User").FontSize(10).SemiBold();
+                    col.Item().Table(table =>
+                    {
+                        table.ColumnsDefinition(columns =>
+                        {
+                            columns.RelativeColumn(2);
+                            columns.ConstantColumn(45);
+                            columns.ConstantColumn(80);
+                            columns.ConstantColumn(80);
+                            columns.ConstantColumn(80);
+                            columns.ConstantColumn(80);
+                            columns.ConstantColumn(90);
+                        });
+                        table.Header(header =>
+                        {
+                            foreach (var h in new[] { "Cashier", "Count", "Cash", "Bank", "PayHere", "Advance", "Net Collected" })
+                            {
+                                header.Cell().Background(Colors.Grey.Lighten3).Padding(4).Text(h).FontSize(8).SemiBold();
+                            }
+                        });
+                        foreach (var u in report.ByUser)
+                        {
+                            WriteCell(table, u.CashierName);
+                            WriteCell(table, u.TransactionCount.ToString(CultureInfo.InvariantCulture));
+                            WriteCell(table, u.CashTotal.ToString("N2", CultureInfo.InvariantCulture));
+                            WriteCell(table, u.BankTransferTotal.ToString("N2", CultureInfo.InvariantCulture));
+                            WriteCell(table, u.PayHereTotal.ToString("N2", CultureInfo.InvariantCulture));
+                            WriteCell(table, u.AdvanceDepositsTotal.ToString("N2", CultureInfo.InvariantCulture));
+                            WriteCell(table, FeeRules.FormatCurrency(u.NetCollectedTotal, report.Currency));
+                        }
+                    });
+
+                    if (report.Items.Count > 0)
+                    {
+                        col.Item().Text("Transactions").FontSize(10).SemiBold();
+                        col.Item().Table(table =>
+                        {
+                            table.ColumnsDefinition(columns =>
+                            {
+                                columns.ConstantColumn(75);
+                                columns.RelativeColumn(1.5f);
+                                columns.ConstantColumn(70);
+                                columns.ConstantColumn(70);
+                                columns.RelativeColumn(1.2f);
+                                columns.ConstantColumn(80);
+                            });
+                            table.Header(header =>
+                            {
+                                foreach (var h in new[] { "Ref / Receipt", "Student", "Type", "Method", "Cashier", "Net Amount" })
+                                {
+                                    header.Cell().Background(Colors.Grey.Lighten3).Padding(4).Text(h).FontSize(8).SemiBold();
+                                }
+                            });
+                            foreach (var item in report.Items)
+                            {
+                                WriteCell(table, item.ReferenceCode);
+                                WriteCell(table, $"{item.StudentName} ({item.StudentCode})");
+                                WriteCell(table, item.Kind);
+                                WriteCell(table, item.Method);
+                                WriteCell(table, item.CashierName);
+                                WriteCell(table, FeeRules.FormatCurrency(item.NetAmount, report.Currency));
+                            }
+                        });
                     }
                 });
 

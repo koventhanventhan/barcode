@@ -4,6 +4,7 @@ using EduFlow.Application.Academics;
 using EduFlow.Application.Common.Interfaces;
 using EduFlow.Application.Common.Security;
 using EduFlow.Application.Notifications;
+using EduFlow.Application.Parents;
 using EduFlow.Application.Storage;
 using EduFlow.Domain.Entities;
 using EduFlow.Domain.Enums;
@@ -61,6 +62,7 @@ public sealed class FeeService(
             EducationLevelId = levelId,
             BatchId = batchId,
             DueDayOfMonth = dueDay,
+            AutoIssueOnAdmission = request.Frequency == FeeFrequency.Admission && request.AutoIssueOnAdmission,
             Description = description,
             IsActive = request.IsActive
         };
@@ -95,6 +97,7 @@ public sealed class FeeService(
         structure.EducationLevelId = levelId;
         structure.BatchId = batchId;
         structure.DueDayOfMonth = dueDay;
+        structure.AutoIssueOnAdmission = request.Frequency == FeeFrequency.Admission && request.AutoIssueOnAdmission;
         structure.Description = description;
         structure.IsActive = request.IsActive;
 
@@ -233,6 +236,73 @@ public sealed class FeeService(
         await db.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task<SiblingDiscountRuleDto> GetSiblingDiscountRuleAsync(CancellationToken cancellationToken = default)
+    {
+        var tenantId = TenantGuard.Require(tenantContext);
+        var rule = await db.SiblingDiscountRules
+            .AsNoTracking()
+            .FirstOrDefaultAsync(r => r.TenantId == tenantId, cancellationToken);
+
+        return MapSiblingDiscountRule(rule);
+    }
+
+    public async Task<SiblingDiscountRuleDto> UpdateSiblingDiscountRuleAsync(
+        UpdateSiblingDiscountRuleRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var tenantId = TenantGuard.Require(tenantContext);
+        var secondVal = FeeRules.RoundMoney(request.SecondChildValue);
+        var thirdVal = FeeRules.RoundMoney(request.ThirdPlusChildValue);
+
+        if (secondVal < 0m || thirdVal < 0m)
+        {
+            throw new DomainValidationException("INVALID_SIBLING_DISCOUNT", "Sibling discount values cannot be negative.");
+        }
+
+        if (request.DiscountType == DiscountType.Percentage && (secondVal > 100m || thirdVal > 100m))
+        {
+            throw new DomainValidationException("INVALID_SIBLING_DISCOUNT", "Percentage sibling discount cannot exceed 100%.");
+        }
+
+        var rule = await db.SiblingDiscountRules
+            .FirstOrDefaultAsync(r => r.TenantId == tenantId, cancellationToken);
+
+        if (rule is null)
+        {
+            rule = new SiblingDiscountRule { TenantId = tenantId };
+            db.SiblingDiscountRules.Add(rule);
+        }
+
+        rule.IsEnabled = request.IsEnabled;
+        rule.DiscountType = request.DiscountType;
+        rule.SecondChildValue = secondVal;
+        rule.ThirdPlusChildValue = thirdVal;
+        rule.ApplyToMonthly = request.ApplyToMonthly;
+        rule.ApplyToOneTime = request.ApplyToOneTime;
+        rule.ApplyToAdmission = request.ApplyToAdmission;
+        rule.StackWithConcession = request.StackWithConcession;
+
+        await auditService.LogAsync(
+            "SiblingDiscountRule.Updated",
+            nameof(SiblingDiscountRule),
+            rule.Id.ToString(),
+            new
+            {
+                rule.IsEnabled,
+                DiscountType = rule.DiscountType.ToString(),
+                rule.SecondChildValue,
+                rule.ThirdPlusChildValue,
+                rule.ApplyToMonthly,
+                rule.ApplyToOneTime,
+                rule.ApplyToAdmission,
+                rule.StackWithConcession
+            },
+            cancellationToken: cancellationToken);
+
+        await db.SaveChangesAsync(cancellationToken);
+        return MapSiblingDiscountRule(rule);
+    }
+
     public async Task<GenerateInvoicesResultDto> GenerateMonthlyInvoicesAsync(
         GenerateMonthlyInvoicesRequest request,
         Guid? tenantIdOverride = null,
@@ -241,6 +311,54 @@ public sealed class FeeService(
         var tenantId = tenantIdOverride ?? TenantGuard.Require(tenantContext);
         var today = ColomboClock.Today();
         var defaultPeriod = FeeRules.NormalizeMonthlyPeriod(request.BillingPeriod, today);
+        return await GenerateInvoicesCoreAsync(
+            tenantId,
+            defaultPeriod,
+            request.BillingPeriod,
+            request.BatchId,
+            request.EducationLevelId,
+            request.FeeStructureId,
+            studentIdFilter: null,
+            request.DueDateOverride,
+            defaultFrequency: FeeFrequency.Monthly,
+            autoIssueOnly: false,
+            cancellationToken);
+    }
+
+    public async Task<GenerateInvoicesResultDto> GenerateAdmissionInvoicesAsync(
+        GenerateAdmissionInvoicesRequest request,
+        Guid? tenantIdOverride = null,
+        CancellationToken cancellationToken = default)
+    {
+        var tenantId = tenantIdOverride ?? TenantGuard.Require(tenantContext);
+        return await GenerateInvoicesCoreAsync(
+            tenantId,
+            defaultPeriod: "ADMISSION",
+            requestedPeriod: "ADMISSION",
+            request.BatchId,
+            request.EducationLevelId,
+            request.FeeStructureId,
+            request.StudentId,
+            request.DueDateOverride,
+            defaultFrequency: FeeFrequency.Admission,
+            autoIssueOnly: request.AutoIssueOnly,
+            cancellationToken);
+    }
+
+    private async Task<GenerateInvoicesResultDto> GenerateInvoicesCoreAsync(
+        Guid tenantId,
+        string defaultPeriod,
+        string? requestedPeriod,
+        Guid? batchIdFilter,
+        Guid? levelIdFilter,
+        Guid? structureIdFilter,
+        Guid? studentIdFilter,
+        DateOnly? dueDateOverride,
+        FeeFrequency defaultFrequency,
+        bool autoIssueOnly,
+        CancellationToken cancellationToken)
+    {
+        var today = ColomboClock.Today();
         var sem = GetTenantLock(tenantId);
 
         await sem.WaitAsync(cancellationToken);
@@ -253,25 +371,30 @@ public sealed class FeeService(
                     .AsNoTracking()
                     .Where(s => !s.IsDeleted && s.TenantId == tenantId && s.IsActive);
 
-                if (request.FeeStructureId.HasValue)
+                if (structureIdFilter.HasValue)
                 {
-                    structuresQuery = structuresQuery.Where(s => s.Id == request.FeeStructureId.Value);
+                    structuresQuery = structuresQuery.Where(s => s.Id == structureIdFilter.Value);
                 }
                 else
                 {
-                    structuresQuery = structuresQuery.Where(s => s.Frequency == FeeFrequency.Monthly);
+                    structuresQuery = structuresQuery.Where(s => s.Frequency == defaultFrequency);
                 }
 
-                if (request.BatchId.HasValue)
+                if (autoIssueOnly)
                 {
-                    var bid = request.BatchId.Value;
+                    structuresQuery = structuresQuery.Where(s => s.AutoIssueOnAdmission);
+                }
+
+                if (batchIdFilter.HasValue)
+                {
+                    var bid = batchIdFilter.Value;
                     structuresQuery = structuresQuery.Where(s => s.BatchId == bid || s.BatchId == null);
                 }
 
-                if (request.EducationLevelId.HasValue)
+                if (levelIdFilter.HasValue)
                 {
-                    var lid = request.EducationLevelId.Value;
-                    structuresQuery = structuresQuery.Where(s => s.EducationLevelId == lid);
+                    var lid = levelIdFilter.Value;
+                    structuresQuery = structuresQuery.Where(s => s.EducationLevelId == lid || s.EducationLevelId == null);
                 }
 
                 var structures = await structuresQuery.OrderBy(s => s.Name).ToListAsync(cancellationToken);
@@ -280,11 +403,22 @@ public sealed class FeeService(
                     return new GenerateInvoicesResultDto(defaultPeriod, 0, 0, 0m, []);
                 }
 
-                var activeStudents = await db.Students
+                var studentsQuery = db.Students
                     .IgnoreQueryFilters()
                     .AsNoTracking()
-                    .Where(s => !s.IsDeleted && s.TenantId == tenantId && s.Status == StudentStatus.Active)
-                    .ToListAsync(cancellationToken);
+                    .Where(s => !s.IsDeleted && s.TenantId == tenantId && s.Status == StudentStatus.Active);
+
+                if (studentIdFilter.HasValue)
+                {
+                    var sid = studentIdFilter.Value;
+                    studentsQuery = studentsQuery.Where(s => s.Id == sid);
+                }
+
+                var activeStudents = await studentsQuery.ToListAsync(cancellationToken);
+                if (activeStudents.Count == 0)
+                {
+                    return new GenerateInvoicesResultDto(defaultPeriod, 0, 0, 0m, []);
+                }
 
                 var enrollments = await db.StudentEnrollments
                     .IgnoreQueryFilters()
@@ -309,14 +443,16 @@ public sealed class FeeService(
                     .Select(i => $"{i.StudentId:N}:{i.FeeStructureId:N}:{i.BillingPeriod}")
                     .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
+                var siblingContext = await LoadSiblingDiscountContextUnlockedAsync(tenantId, cancellationToken);
+                var creditBalances = await LoadCreditBalancesUnlockedAsync(tenantId, cancellationToken);
                 var nextInvoiceSeq = await NextInvoiceSequenceUnlockedAsync(tenantId, cancellationToken);
                 var createdInvoices = new List<FeeInvoice>();
                 var skippedCount = 0;
 
                 foreach (var structure in structures)
                 {
-                    var period = FeeRules.ResolvePeriodForStructure(structure.Frequency, request.BillingPeriod, today);
-                    var dueDate = request.DueDateOverride ?? FeeRules.ComputeDueDate(period, structure.DueDayOfMonth, today);
+                    var period = FeeRules.ResolvePeriodForStructure(structure.Frequency, requestedPeriod, today);
+                    var dueDate = dueDateOverride ?? FeeRules.ComputeDueDate(period, structure.DueDayOfMonth, today);
 
                     IEnumerable<Student> eligibleStudents;
                     if (structure.BatchId.HasValue)
@@ -328,9 +464,9 @@ public sealed class FeeService(
                             .ToHashSet();
                         eligibleStudents = activeStudents.Where(s => enrolledStudentIds.Contains(s.Id));
                     }
-                    else if (request.BatchId.HasValue)
+                    else if (batchIdFilter.HasValue)
                     {
-                        var targetBatchId = request.BatchId.Value;
+                        var targetBatchId = batchIdFilter.Value;
                         var enrolledStudentIds = enrollments
                             .Where(e => e.BatchId == targetBatchId)
                             .Select(e => e.StudentId)
@@ -357,42 +493,23 @@ public sealed class FeeService(
                             continue;
                         }
 
-                        var concession = ResolveBestConcession(concessions, student.Id, structure.Id, structure.Amount, today);
-                        var (discount, net) = FeeRules.CalculateInvoiceAmounts(
-                            structure.Amount,
-                            concession?.DiscountType,
-                            concession?.Value);
-
                         var primaryBatchId = structure.BatchId
-                            ?? request.BatchId
+                            ?? batchIdFilter
                             ?? enrollments.FirstOrDefault(e => e.StudentId == student.Id)?.BatchId;
 
-                        var invoice = new FeeInvoice
-                        {
-                            TenantId = tenantId,
-                            InvoiceNumber = FeeRules.FormatInvoiceNumber(nextInvoiceSeq++),
-                            StudentId = student.Id,
-                            BranchId = student.BranchId,
-                            FeeStructureId = structure.Id,
-                            BatchId = primaryBatchId,
-                            EducationLevelId = structure.EducationLevelId ?? student.EducationLevelId,
-                            BillingPeriod = period,
-                            Title = structure.Frequency == FeeFrequency.Monthly ? $"{structure.Name} ({period})" : structure.Name,
-                            GrossAmount = FeeRules.RoundMoney(structure.Amount),
-                            DiscountAmount = discount,
-                            ConcessionId = concession?.Id,
-                            ConcessionDescription = concession is null
-                                ? null
-                                : $"{concession.Name} ({(concession.DiscountType == DiscountType.Percentage ? $"{concession.Value:0.##}%" : FeeRules.FormatCurrency(concession.Value, structure.Currency))})",
-                            NetAmount = net,
-                            PaidAmount = 0m,
-                            BalanceAmount = net,
-                            Currency = structure.Currency,
-                            IssueDate = today,
-                            DueDate = dueDate,
-                            Status = net == 0m ? FeeInvoiceStatus.Paid : FeeInvoiceStatus.Pending,
-                            PaidAt = net == 0m ? DateTimeOffset.UtcNow : null
-                        };
+                        var invoice = BuildAndTrackInvoiceWithDiscountsAndCredit(
+                            tenantId,
+                            student,
+                            structure,
+                            primaryBatchId,
+                            period,
+                            dueDate,
+                            today,
+                            FeeRules.FormatInvoiceNumber(nextInvoiceSeq++),
+                            concessions,
+                            siblingContext,
+                            creditBalances,
+                            notes: null);
 
                         db.FeeInvoices.Add(invoice);
                         createdInvoices.Add(invoice);
@@ -468,12 +585,6 @@ public sealed class FeeService(
                 .Where(c => c.StudentId == student.Id && c.IsActive)
                 .ToListAsync(cancellationToken);
 
-            var concession = ResolveBestConcession(concessions, student.Id, structure.Id, structure.Amount, today);
-            var (discount, net) = FeeRules.CalculateInvoiceAmounts(
-                structure.Amount,
-                concession?.DiscountType,
-                concession?.Value);
-
             var batchId = structure.BatchId
                 ?? await db.StudentEnrollments
                     .AsNoTracking()
@@ -481,43 +592,106 @@ public sealed class FeeService(
                     .Select(e => (Guid?)e.BatchId)
                     .FirstOrDefaultAsync(cancellationToken);
 
+            var siblingContext = await LoadSiblingDiscountContextUnlockedAsync(tenantId, cancellationToken);
+            var creditBalances = await LoadCreditBalancesUnlockedAsync(tenantId, cancellationToken, student.Id);
             var nextSeq = await NextInvoiceSequenceUnlockedAsync(tenantId, cancellationToken);
             var dueDate = request.DueDate ?? FeeRules.ComputeDueDate(period, structure.DueDayOfMonth, today);
 
-            var invoice = new FeeInvoice
-            {
-                TenantId = tenantId,
-                InvoiceNumber = FeeRules.FormatInvoiceNumber(nextSeq),
-                StudentId = student.Id,
-                BranchId = student.BranchId,
-                FeeStructureId = structure.Id,
-                BatchId = batchId,
-                EducationLevelId = structure.EducationLevelId ?? student.EducationLevelId,
-                BillingPeriod = period,
-                Title = structure.Frequency == FeeFrequency.Monthly ? $"{structure.Name} ({period})" : structure.Name,
-                GrossAmount = FeeRules.RoundMoney(structure.Amount),
-                DiscountAmount = discount,
-                ConcessionId = concession?.Id,
-                ConcessionDescription = concession is null
-                    ? null
-                    : $"{concession.Name} ({(concession.DiscountType == DiscountType.Percentage ? $"{concession.Value:0.##}%" : FeeRules.FormatCurrency(concession.Value, structure.Currency))})",
-                NetAmount = net,
-                PaidAmount = 0m,
-                BalanceAmount = net,
-                Currency = structure.Currency,
-                IssueDate = today,
-                DueDate = dueDate,
-                Status = net == 0m ? FeeInvoiceStatus.Paid : FeeInvoiceStatus.Pending,
-                PaidAt = net == 0m ? DateTimeOffset.UtcNow : null,
-                Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim()
-            };
+            var invoice = BuildAndTrackInvoiceWithDiscountsAndCredit(
+                tenantId,
+                student,
+                structure,
+                batchId,
+                period,
+                dueDate,
+                today,
+                FeeRules.FormatInvoiceNumber(nextSeq),
+                concessions,
+                siblingContext,
+                creditBalances,
+                request.Notes);
 
             db.FeeInvoices.Add(invoice);
             await auditService.LogAsync(
                 "FeeInvoice.Created",
                 nameof(FeeInvoice),
                 invoice.Id.ToString(),
-                new { invoice.InvoiceNumber, invoice.StudentId, invoice.BillingPeriod, invoice.NetAmount },
+                new { invoice.InvoiceNumber, invoice.StudentId, invoice.BillingPeriod, invoice.NetAmount, invoice.CreditAppliedAmount },
+                cancellationToken: cancellationToken);
+
+            await db.SaveChangesAsync(cancellationToken);
+            return (await MapInvoicesAsync([invoice], tenantId, cancellationToken)).Single();
+        }
+        finally
+        {
+            sem.Release();
+        }
+    }
+
+    public async Task<FeeInvoiceDto> ApplyCreditToInvoiceAsync(
+        Guid invoiceId,
+        ApplyCreditToInvoiceRequest? request = null,
+        CancellationToken cancellationToken = default)
+    {
+        var tenantId = TenantGuard.Require(tenantContext);
+        var sem = GetTenantLock(tenantId);
+
+        await sem.WaitAsync(cancellationToken);
+        try
+        {
+            var invoice = await db.FeeInvoices.FirstOrDefaultAsync(i => i.Id == invoiceId, cancellationToken)
+                ?? throw new EntityNotFoundException(nameof(FeeInvoice), invoiceId.ToString());
+
+            if (invoice.Status == FeeInvoiceStatus.Voided)
+            {
+                throw new DomainValidationException("INVOICE_VOIDED", "Cannot apply credit to a voided invoice.");
+            }
+
+            if (invoice.BalanceAmount <= 0m)
+            {
+                throw new DomainValidationException("INVOICE_ALREADY_PAID", "This invoice has no remaining balance.");
+            }
+
+            var balances = await LoadCreditBalancesUnlockedAsync(tenantId, cancellationToken, invoice.StudentId);
+            var available = balances.GetValueOrDefault(invoice.StudentId, 0m);
+            if (available <= 0m)
+            {
+                throw new DomainValidationException("NO_CREDIT_AVAILABLE", "This student has no available advance credit balance.");
+            }
+
+            var cap = request?.MaxAmount is > 0m
+                ? Math.Min(available, FeeRules.RoundMoney(request.MaxAmount.Value))
+                : available;
+
+            var (applied, remaining) = FeeRules.CalculateCreditApplication(cap, invoice.BalanceAmount);
+            if (applied <= 0m)
+            {
+                return (await MapInvoicesAsync([invoice], tenantId, cancellationToken)).Single();
+            }
+
+            invoice.CreditAppliedAmount = FeeRules.RoundMoney(invoice.CreditAppliedAmount + applied);
+            await RecalculateInvoiceSettlementAsync(invoice, cancellationToken);
+
+            db.StudentCreditTransactions.Add(new StudentCreditTransaction
+            {
+                TenantId = tenantId,
+                BranchId = invoice.BranchId,
+                StudentId = invoice.StudentId,
+                EntryType = StudentCreditEntryType.AppliedToInvoice,
+                Amount = applied,
+                SignedAmount = -applied,
+                BalanceAfter = remaining,
+                InvoiceId = invoice.Id,
+                RecordedByUserId = tenantContext.UserId,
+                OccurredAt = DateTimeOffset.UtcNow,
+                Notes = $"Applied advance credit to {invoice.InvoiceNumber}"
+            });
+
+            await auditService.LogAsync(
+                "FeeInvoice.CreditApplied",
+                nameof(FeeInvoice),
+                invoice.Id.ToString(),
+                new { invoice.InvoiceNumber, AppliedAmount = applied, RemainingCredit = remaining, invoice.BalanceAmount },
                 cancellationToken: cancellationToken);
 
             await db.SaveChangesAsync(cancellationToken);
@@ -583,6 +757,28 @@ public sealed class FeeService(
                 409);
         }
 
+        if (invoice.CreditAppliedAmount > 0m)
+        {
+            var balances = await LoadCreditBalancesUnlockedAsync(tenantId, cancellationToken, invoice.StudentId);
+            var currentCredit = balances.GetValueOrDefault(invoice.StudentId, 0m);
+            var restored = invoice.CreditAppliedAmount;
+            db.StudentCreditTransactions.Add(new StudentCreditTransaction
+            {
+                TenantId = tenantId,
+                BranchId = invoice.BranchId,
+                StudentId = invoice.StudentId,
+                EntryType = StudentCreditEntryType.Reversal,
+                Amount = restored,
+                SignedAmount = restored,
+                BalanceAfter = FeeRules.RoundMoney(currentCredit + restored),
+                InvoiceId = invoice.Id,
+                RecordedByUserId = tenantContext.UserId,
+                OccurredAt = DateTimeOffset.UtcNow,
+                Notes = $"Credit restored on void of {invoice.InvoiceNumber}"
+            });
+            invoice.CreditAppliedAmount = 0m;
+        }
+
         invoice.Status = FeeInvoiceStatus.Voided;
         invoice.BalanceAmount = 0m;
         invoice.VoidedAt = DateTimeOffset.UtcNow;
@@ -636,22 +832,49 @@ public sealed class FeeService(
                 throw new DomainValidationException("INVOICE_ALREADY_PAID", "This invoice has already been paid in full.");
             }
 
-            if (amount > invoice.BalanceAmount)
+            if (amount > invoice.BalanceAmount && !request.ApplyExcessToCredit)
             {
                 throw new DomainValidationException(
                     "OVERPAYMENT_NOT_ALLOWED",
                     $"Payment amount ({FeeRules.FormatCurrency(amount, invoice.Currency)}) exceeds the remaining invoice balance ({FeeRules.FormatCurrency(invoice.BalanceAmount, invoice.Currency)}).");
             }
 
+            var appliedToInvoice = Math.Min(amount, invoice.BalanceAmount);
+            var excessCredit = FeeRules.RoundMoney(Math.Max(0m, amount - appliedToInvoice));
+
             payment = await InsertPaymentWithReceiptRetryAsync(
                 tenantId,
                 invoice,
-                amount,
+                appliedToInvoice,
                 request.Method,
                 request.ReferenceNumber,
                 request.PaidAt ?? DateTimeOffset.UtcNow,
                 request.Notes,
                 cancellationToken);
+
+            if (excessCredit > 0m)
+            {
+                var balances = await LoadCreditBalancesUnlockedAsync(tenantId, cancellationToken, invoice.StudentId);
+                var currentCredit = balances.GetValueOrDefault(invoice.StudentId, 0m);
+                db.StudentCreditTransactions.Add(new StudentCreditTransaction
+                {
+                    TenantId = tenantId,
+                    BranchId = invoice.BranchId,
+                    StudentId = invoice.StudentId,
+                    EntryType = StudentCreditEntryType.Deposit,
+                    Amount = excessCredit,
+                    SignedAmount = excessCredit,
+                    BalanceAfter = FeeRules.RoundMoney(currentCredit + excessCredit),
+                    Method = request.Method,
+                    ReferenceNumber = NullIfBlank(request.ReferenceNumber),
+                    InvoiceId = invoice.Id,
+                    FeePaymentId = payment.Id,
+                    RecordedByUserId = tenantContext.UserId,
+                    OccurredAt = request.PaidAt ?? DateTimeOffset.UtcNow,
+                    Notes = $"Advance credit excess from {invoice.InvoiceNumber}"
+                });
+                await db.SaveChangesAsync(cancellationToken);
+            }
 
             await NotifyPaymentReceivedAsync(tenantId, invoice, payment, cancellationToken);
         }
@@ -829,13 +1052,772 @@ public sealed class FeeService(
         return await MapPaymentsAsync(payments, tenantId, cancellationToken);
     }
 
-    public async Task<StoredDownload> GetReceiptPdfAsync(Guid paymentId, CancellationToken cancellationToken = default)
+    public async Task<StoredDownload> GetReceiptPdfAsync(
+        Guid paymentId,
+        bool reprint = false,
+        CancellationToken cancellationToken = default)
     {
         var tenantId = TenantGuard.Require(tenantContext);
-        var payment = await db.FeePayments.AsNoTracking().FirstOrDefaultAsync(p => p.Id == paymentId, cancellationToken)
-            ?? throw new EntityNotFoundException(nameof(FeePayment), paymentId.ToString());
+        var payment = reprint
+            ? await db.FeePayments.FirstOrDefaultAsync(p => p.Id == paymentId, cancellationToken)
+            : await db.FeePayments.AsNoTracking().FirstOrDefaultAsync(p => p.Id == paymentId, cancellationToken);
 
-        return await BuildReceiptDownloadAsync(payment, tenantId, cancellationToken);
+        if (payment is null)
+        {
+            throw new EntityNotFoundException(nameof(FeePayment), paymentId.ToString());
+        }
+
+        if (reprint)
+        {
+            payment.ReceiptPrintCount += 1;
+            payment.LastPrintedAt = DateTimeOffset.UtcNow;
+            await auditService.LogAsync(
+                "FeePayment.ReceiptReprinted",
+                nameof(FeePayment),
+                payment.Id.ToString(),
+                new { payment.ReceiptNumber, payment.ReceiptPrintCount },
+                cancellationToken: cancellationToken);
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
+        return await BuildReceiptDownloadAsync(payment, tenantId, isReprint: reprint, cancellationToken);
+    }
+
+    public async Task<TenantBankAccountDto> GetBankAccountSettingsAsync(
+        Guid? tenantIdOverride = null,
+        CancellationToken cancellationToken = default)
+    {
+        var tenantId = tenantIdOverride ?? TenantGuard.Require(tenantContext);
+        var setting = await db.TenantBankAccountSettings
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(s => !s.IsDeleted && s.TenantId == tenantId, cancellationToken);
+
+        return MapBankAccount(setting);
+    }
+
+    public async Task<TenantBankAccountDto> UpdateBankAccountSettingsAsync(
+        UpdateTenantBankAccountRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var tenantId = TenantGuard.Require(tenantContext);
+        var bankName = request.BankName?.Trim() ?? string.Empty;
+        var accountName = request.AccountName?.Trim() ?? string.Empty;
+        var accountNumber = request.AccountNumber?.Trim() ?? string.Empty;
+
+        if (request.IsEnabled && (string.IsNullOrWhiteSpace(bankName) || string.IsNullOrWhiteSpace(accountName) || string.IsNullOrWhiteSpace(accountNumber)))
+        {
+            throw new DomainValidationException(
+                "BANK_ACCOUNT_REQUIRED",
+                "Bank name, account holder name, and account number are required when bank transfer details are enabled.");
+        }
+
+        var setting = await db.TenantBankAccountSettings
+            .FirstOrDefaultAsync(s => s.TenantId == tenantId, cancellationToken);
+
+        if (setting is null)
+        {
+            setting = new TenantBankAccountSetting { TenantId = tenantId };
+            db.TenantBankAccountSettings.Add(setting);
+        }
+
+        setting.BankName = bankName;
+        setting.BranchName = NullIfBlank(request.BranchName);
+        setting.AccountName = accountName;
+        setting.AccountNumber = accountNumber;
+        setting.Instructions = NullIfBlank(request.Instructions);
+        setting.IsEnabled = request.IsEnabled;
+
+        await auditService.LogAsync(
+            "TenantBankAccount.Updated",
+            nameof(TenantBankAccountSetting),
+            setting.Id.ToString(),
+            new { setting.BankName, setting.BranchName, setting.AccountName, setting.IsEnabled },
+            cancellationToken: cancellationToken);
+
+        await db.SaveChangesAsync(cancellationToken);
+        return MapBankAccount(setting);
+    }
+
+    public async Task<BankPaymentSubmissionDto> SubmitBankPaymentAsync(
+        SubmitBankPaymentMetadata metadata,
+        Stream content,
+        string fileName,
+        string? contentType,
+        long length,
+        string submittedByRole = "Admin",
+        Guid? tenantIdOverride = null,
+        CancellationToken cancellationToken = default)
+    {
+        var tenantId = tenantIdOverride ?? TenantGuard.Require(tenantContext);
+        var amount = FeeRules.RoundMoney(metadata.Amount);
+        if (amount <= 0m)
+        {
+            throw new DomainValidationException("INVALID_PAYMENT_AMOUNT", "Bank slip payment amount must be greater than zero.");
+        }
+
+        if (length <= 0 || length > MaxAttachmentBytes)
+        {
+            throw new DomainValidationException("ATTACHMENT_TOO_LARGE", "Bank slip attachments must be 5 MB or smaller.");
+        }
+
+        var extension = ResolveAttachmentExtension(fileName, contentType);
+        var invoice = await db.FeeInvoices
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(i => !i.IsDeleted && i.TenantId == tenantId && i.Id == metadata.InvoiceId, cancellationToken)
+            ?? throw new EntityNotFoundException(nameof(FeeInvoice), metadata.InvoiceId.ToString());
+
+        if (invoice.Status == FeeInvoiceStatus.Voided)
+        {
+            throw new DomainValidationException("INVOICE_VOIDED", "Cannot submit a bank slip for a voided invoice.");
+        }
+
+        if (invoice.Status == FeeInvoiceStatus.Paid || invoice.BalanceAmount <= 0m)
+        {
+            throw new DomainValidationException("INVOICE_ALREADY_PAID", "This invoice is already paid in full.");
+        }
+
+        await limitService.EnsureStorageAllowsAsync(tenantId, length, 0L, cancellationToken);
+
+        await using var buffer = new MemoryStream();
+        await content.CopyToAsync(buffer, cancellationToken);
+        await FileUploadValidator.EnsureCleanAndValidSignatureAsync(
+            buffer,
+            fileName,
+            contentType,
+            extension,
+            "INVALID_ATTACHMENT_TYPE",
+            "Upload a PDF, PNG, JPEG, or WebP bank slip.",
+            antivirusScanner,
+            cancellationToken);
+        buffer.Position = 0;
+
+        var submissionId = Guid.NewGuid();
+        var stored = await fileStorage.SaveAsync($"payments/{tenantId:N}", $"{Guid.NewGuid():N}{extension}", buffer, cancellationToken);
+        await storedFiles.ReplaceAsync(
+            tenantId,
+            StoredFileCategory.PaymentAttachment,
+            submissionId,
+            "bank-slip",
+            stored.Url,
+            fileName,
+            contentType,
+            stored.SizeBytes,
+            cancellationToken);
+
+        var submission = new BankPaymentSubmission
+        {
+            Id = submissionId,
+            TenantId = tenantId,
+            BranchId = invoice.BranchId,
+            InvoiceId = invoice.Id,
+            StudentId = invoice.StudentId,
+            SubmittedByUserId = tenantContext.UserId ?? Guid.Empty,
+            SubmittedByRole = string.IsNullOrWhiteSpace(submittedByRole) ? "Admin" : submittedByRole.Trim(),
+            Amount = amount,
+            Currency = invoice.Currency,
+            ReferenceNumber = NullIfBlank(metadata.ReferenceNumber),
+            TransferDate = metadata.TransferDate,
+            SlipUrl = stored.Url,
+            SlipFileName = string.IsNullOrWhiteSpace(fileName) ? $"bank-slip{extension}" : Path.GetFileName(fileName),
+            SlipContentType = NullIfBlank(contentType),
+            SlipBytes = stored.SizeBytes,
+            Notes = NullIfBlank(metadata.Notes),
+            Status = BankPaymentStatus.Pending
+        };
+
+        db.BankPaymentSubmissions.Add(submission);
+        await auditService.LogAsync(
+            "BankPayment.Submitted",
+            nameof(BankPaymentSubmission),
+            submission.Id.ToString(),
+            new { submission.InvoiceId, invoice.InvoiceNumber, submission.Amount, submission.ReferenceNumber, submission.SubmittedByRole },
+            tenantIdOverride: tenantId,
+            cancellationToken: cancellationToken);
+
+        await db.SaveChangesAsync(cancellationToken);
+        return (await MapBankSubmissionsAsync([submission], tenantId, cancellationToken)).Single();
+    }
+
+    public async Task<IReadOnlyList<BankPaymentSubmissionDto>> GetBankPaymentSubmissionsAsync(
+        string? status = null,
+        Guid? invoiceId = null,
+        Guid? studentId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var tenantId = TenantGuard.Require(tenantContext);
+        var query = db.BankPaymentSubmissions.AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            if (!Enum.TryParse<BankPaymentStatus>(status.Trim(), ignoreCase: true, out var parsedStatus))
+            {
+                throw new DomainValidationException("INVALID_BANK_STATUS", "Status must be Pending, Approved, or Rejected.");
+            }
+
+            query = query.Where(b => b.Status == parsedStatus);
+        }
+
+        if (invoiceId.HasValue)
+        {
+            query = query.Where(b => b.InvoiceId == invoiceId.Value);
+        }
+
+        if (studentId.HasValue)
+        {
+            query = query.Where(b => b.StudentId == studentId.Value);
+        }
+
+        var items = await query
+            .OrderByDescending(b => b.CreatedAt)
+            .Take(200)
+            .ToListAsync(cancellationToken);
+
+        return await MapBankSubmissionsAsync(items, tenantId, cancellationToken);
+    }
+
+    public async Task<StoredDownload> GetBankPaymentSlipAsync(
+        Guid submissionId,
+        Guid? studentIdScope = null,
+        CancellationToken cancellationToken = default)
+    {
+        TenantGuard.Require(tenantContext);
+        var query = db.BankPaymentSubmissions.AsNoTracking().Where(b => b.Id == submissionId);
+        if (studentIdScope.HasValue)
+        {
+            query = query.Where(b => b.StudentId == studentIdScope.Value);
+        }
+
+        var submission = await query.FirstOrDefaultAsync(cancellationToken)
+            ?? throw new EntityNotFoundException(nameof(BankPaymentSubmission), submissionId.ToString());
+
+        var stream = fileStorage.OpenRead(submission.SlipUrl)
+            ?? throw new EntityNotFoundException("BankSlipFile", submission.SlipFileName);
+
+        await using (stream)
+        {
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms, cancellationToken);
+            var resolvedContentType = !string.IsNullOrWhiteSpace(submission.SlipContentType)
+                ? submission.SlipContentType
+                : Path.GetExtension(submission.SlipFileName).ToLowerInvariant() switch
+                {
+                    ".pdf" => "application/pdf",
+                    ".png" => "image/png",
+                    ".webp" => "image/webp",
+                    _ => "image/jpeg"
+                };
+            return new StoredDownload(ms.ToArray(), resolvedContentType, submission.SlipFileName);
+        }
+    }
+
+    public async Task<BankPaymentSubmissionDto> ApproveBankPaymentAsync(
+        Guid submissionId,
+        ApproveBankPaymentRequest? request = null,
+        CancellationToken cancellationToken = default)
+    {
+        var tenantId = TenantGuard.Require(tenantContext);
+        var sem = GetTenantLock(tenantId);
+
+        BankPaymentSubmission submission;
+        FeeInvoice invoice;
+        FeePayment payment;
+
+        await sem.WaitAsync(cancellationToken);
+        try
+        {
+            submission = await db.BankPaymentSubmissions.FirstOrDefaultAsync(b => b.Id == submissionId, cancellationToken)
+                ?? throw new EntityNotFoundException(nameof(BankPaymentSubmission), submissionId.ToString());
+
+            if (submission.Status != BankPaymentStatus.Pending)
+            {
+                throw new DomainValidationException(
+                    "BANK_PAYMENT_ALREADY_REVIEWED",
+                    $"This bank payment slip is already {submission.Status}.",
+                    409);
+            }
+
+            invoice = await db.FeeInvoices.FirstOrDefaultAsync(i => i.Id == submission.InvoiceId, cancellationToken)
+                ?? throw new EntityNotFoundException(nameof(FeeInvoice), submission.InvoiceId.ToString());
+
+            if (invoice.Status == FeeInvoiceStatus.Voided)
+            {
+                throw new DomainValidationException("INVOICE_VOIDED", "Cannot approve a bank slip for a voided invoice.");
+            }
+
+            if (invoice.BalanceAmount <= 0m)
+            {
+                throw new DomainValidationException("INVOICE_ALREADY_PAID", "This invoice has already been paid in full.");
+            }
+
+            var appliedToInvoice = Math.Min(submission.Amount, invoice.BalanceAmount);
+            var excessCredit = FeeRules.RoundMoney(Math.Max(0m, submission.Amount - appliedToInvoice));
+            var notes = NullIfBlank(request?.Notes) ?? submission.Notes ?? $"Approved bank transfer ({submission.ReferenceNumber ?? submission.SlipFileName})";
+
+            payment = await InsertPaymentWithReceiptRetryAsync(
+                tenantId,
+                invoice,
+                appliedToInvoice,
+                PaymentMethod.BankTransfer,
+                submission.ReferenceNumber,
+                DateTimeOffset.UtcNow,
+                notes,
+                cancellationToken,
+                attachmentUrl: submission.SlipUrl,
+                attachmentBytes: submission.SlipBytes);
+
+            if (excessCredit > 0m)
+            {
+                var balances = await LoadCreditBalancesUnlockedAsync(tenantId, cancellationToken, invoice.StudentId);
+                var currentCredit = balances.GetValueOrDefault(invoice.StudentId, 0m);
+                db.StudentCreditTransactions.Add(new StudentCreditTransaction
+                {
+                    TenantId = tenantId,
+                    BranchId = invoice.BranchId,
+                    StudentId = invoice.StudentId,
+                    EntryType = StudentCreditEntryType.Deposit,
+                    Amount = excessCredit,
+                    SignedAmount = excessCredit,
+                    BalanceAfter = FeeRules.RoundMoney(currentCredit + excessCredit),
+                    Method = PaymentMethod.BankTransfer,
+                    ReferenceNumber = submission.ReferenceNumber,
+                    InvoiceId = invoice.Id,
+                    FeePaymentId = payment.Id,
+                    RecordedByUserId = tenantContext.UserId,
+                    OccurredAt = DateTimeOffset.UtcNow,
+                    Notes = $"Excess bank slip credit from {invoice.InvoiceNumber}"
+                });
+            }
+
+            submission.Status = BankPaymentStatus.Approved;
+            submission.ReviewedByUserId = tenantContext.UserId;
+            submission.ReviewedAt = DateTimeOffset.UtcNow;
+            submission.FeePaymentId = payment.Id;
+
+            await auditService.LogAsync(
+                "BankPayment.Approved",
+                nameof(BankPaymentSubmission),
+                submission.Id.ToString(),
+                new { submission.InvoiceId, invoice.InvoiceNumber, payment.ReceiptNumber, appliedToInvoice, excessCredit },
+                cancellationToken: cancellationToken);
+
+            await db.SaveChangesAsync(cancellationToken);
+            await NotifyPaymentReceivedAsync(tenantId, invoice, payment, cancellationToken);
+        }
+        finally
+        {
+            sem.Release();
+        }
+
+        return (await MapBankSubmissionsAsync([submission], tenantId, cancellationToken)).Single();
+    }
+
+    public async Task<BankPaymentSubmissionDto> RejectBankPaymentAsync(
+        Guid submissionId,
+        RejectBankPaymentRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var tenantId = TenantGuard.Require(tenantContext);
+        var reason = NormalizeRequiredReason(request.Reason, "Enter a reason for rejecting this bank payment slip.");
+
+        var submission = await db.BankPaymentSubmissions.FirstOrDefaultAsync(b => b.Id == submissionId, cancellationToken)
+            ?? throw new EntityNotFoundException(nameof(BankPaymentSubmission), submissionId.ToString());
+
+        if (submission.Status != BankPaymentStatus.Pending)
+        {
+            throw new DomainValidationException(
+                "BANK_PAYMENT_ALREADY_REVIEWED",
+                $"This bank payment slip is already {submission.Status}.",
+                409);
+        }
+
+        submission.Status = BankPaymentStatus.Rejected;
+        submission.RejectionReason = reason;
+        submission.ReviewedByUserId = tenantContext.UserId;
+        submission.ReviewedAt = DateTimeOffset.UtcNow;
+
+        await auditService.LogAsync(
+            "BankPayment.Rejected",
+            nameof(BankPaymentSubmission),
+            submission.Id.ToString(),
+            new { submission.InvoiceId, submission.Amount, Reason = reason },
+            cancellationToken: cancellationToken);
+
+        await db.SaveChangesAsync(cancellationToken);
+        return (await MapBankSubmissionsAsync([submission], tenantId, cancellationToken)).Single();
+    }
+
+    public async Task<IReadOnlyList<StudentCreditBalanceDto>> GetStudentCreditsAsync(
+        Guid? studentId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var tenantId = TenantGuard.Require(tenantContext);
+        var txQuery = db.StudentCreditTransactions.AsNoTracking();
+        if (studentId.HasValue)
+        {
+            txQuery = txQuery.Where(t => t.StudentId == studentId.Value);
+        }
+
+        var transactions = await txQuery
+            .OrderByDescending(t => t.OccurredAt)
+            .ThenByDescending(t => t.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        if (transactions.Count == 0 && !studentId.HasValue)
+        {
+            return [];
+        }
+
+        var targetStudentIds = studentId.HasValue
+            ? new List<Guid> { studentId.Value }
+            : transactions.Select(t => t.StudentId).Distinct().ToList();
+
+        var students = await db.Students
+            .AsNoTracking()
+            .Where(s => targetStudentIds.Contains(s.Id))
+            .ToDictionaryAsync(s => s.Id, cancellationToken);
+
+        var mappedTransactions = await MapCreditTransactionsAsync(transactions, tenantId, cancellationToken);
+        var txByStudent = mappedTransactions.GroupBy(t => t.StudentId).ToDictionary(g => g.Key, g => (IReadOnlyList<StudentCreditTransactionDto>)g.ToList());
+
+        return targetStudentIds
+            .Where(id => students.ContainsKey(id))
+            .Select(id =>
+            {
+                var student = students[id];
+                var studentTxs = txByStudent.GetValueOrDefault(id, []);
+                var balance = FeeRules.RoundMoney(studentTxs.Sum(t => t.SignedAmount));
+                return new StudentCreditBalanceDto(
+                    student.Id,
+                    student.StudentCode,
+                    student.FullName,
+                    student.GuardianName,
+                    student.GuardianPhone,
+                    balance,
+                    "LKR",
+                    studentTxs.FirstOrDefault()?.OccurredAt,
+                    studentTxs);
+            })
+            .OrderByDescending(s => s.Balance)
+            .ThenBy(s => s.StudentName)
+            .ToList();
+    }
+
+    public async Task<StudentCreditBalanceDto> GetStudentCreditSummaryAsync(
+        Guid studentId,
+        CancellationToken cancellationToken = default)
+    {
+        TenantGuard.Require(tenantContext);
+        var studentExists = await db.Students.AsNoTracking().AnyAsync(s => s.Id == studentId, cancellationToken);
+        if (!studentExists)
+        {
+            throw new EntityNotFoundException(nameof(Student), studentId.ToString());
+        }
+
+        var list = await GetStudentCreditsAsync(studentId, cancellationToken);
+        return list.Single();
+    }
+
+    public async Task<StudentCreditTransactionDto> RecordStudentCreditAsync(
+        RecordStudentCreditRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var tenantId = TenantGuard.Require(tenantContext);
+        var amount = FeeRules.RoundMoney(request.Amount);
+        if (amount <= 0m)
+        {
+            throw new DomainValidationException("INVALID_CREDIT_AMOUNT", "Advance credit deposit amount must be greater than zero.");
+        }
+
+        if (request.Method == PaymentMethod.PayHere)
+        {
+            throw new DomainValidationException("INVALID_PAYMENT_METHOD", "Use Cash or BankTransfer for manual advance deposits.");
+        }
+
+        var sem = GetTenantLock(tenantId);
+        StudentCreditTransaction tx;
+
+        await sem.WaitAsync(cancellationToken);
+        try
+        {
+            var student = await db.Students.AsNoTracking().FirstOrDefaultAsync(s => s.Id == request.StudentId, cancellationToken)
+                ?? throw new EntityNotFoundException(nameof(Student), request.StudentId.ToString());
+
+            var balances = await LoadCreditBalancesUnlockedAsync(tenantId, cancellationToken, student.Id);
+            var currentBalance = balances.GetValueOrDefault(student.Id, 0m);
+            var newBalance = FeeRules.RoundMoney(currentBalance + amount);
+
+            tx = new StudentCreditTransaction
+            {
+                TenantId = tenantId,
+                BranchId = student.BranchId,
+                StudentId = student.Id,
+                EntryType = StudentCreditEntryType.Deposit,
+                Amount = amount,
+                SignedAmount = amount,
+                BalanceAfter = newBalance,
+                Method = request.Method,
+                ReferenceNumber = NullIfBlank(request.ReferenceNumber),
+                RecordedByUserId = tenantContext.UserId,
+                OccurredAt = DateTimeOffset.UtcNow,
+                Notes = NullIfBlank(request.Notes) ?? "Advance fee deposit"
+            };
+
+            db.StudentCreditTransactions.Add(tx);
+            await auditService.LogAsync(
+                "StudentCredit.Deposited",
+                nameof(StudentCreditTransaction),
+                tx.Id.ToString(),
+                new { student.Id, student.StudentCode, amount, Method = request.Method.ToString(), newBalance },
+                cancellationToken: cancellationToken);
+
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        finally
+        {
+            sem.Release();
+        }
+
+        return (await MapCreditTransactionsAsync([tx], tenantId, cancellationToken)).Single();
+    }
+
+    public async Task<CashierClosingReportDto> GetCashierClosingReportAsync(
+        DateOnly? date = null,
+        CancellationToken cancellationToken = default)
+    {
+        var tenantId = TenantGuard.Require(tenantContext);
+        var targetDate = date ?? ColomboClock.Today();
+        var (startUtc, endUtc) = FeeRules.GetColomboDayWindowUtc(targetDate);
+
+        var payments = await db.FeePayments
+            .AsNoTracking()
+            .Where(p => p.PaidAt >= startUtc && p.PaidAt < endUtc)
+            .OrderBy(p => p.PaidAt)
+            .ThenBy(p => p.ReceiptSequence)
+            .ToListAsync(cancellationToken);
+
+        var deposits = await db.StudentCreditTransactions
+            .AsNoTracking()
+            .Where(t => t.EntryType == StudentCreditEntryType.Deposit
+                        && t.OccurredAt >= startUtc
+                        && t.OccurredAt < endUtc)
+            .OrderBy(t => t.OccurredAt)
+            .ToListAsync(cancellationToken);
+
+        var studentIds = payments.Select(p => p.StudentId).Concat(deposits.Select(d => d.StudentId)).Distinct().ToList();
+        var students = await db.Students
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(s => s.TenantId == tenantId && studentIds.Contains(s.Id))
+            .ToDictionaryAsync(s => s.Id, cancellationToken);
+
+        var invoiceIds = payments.Select(p => p.InvoiceId)
+            .Concat(deposits.Where(d => d.InvoiceId.HasValue).Select(d => d.InvoiceId!.Value))
+            .Distinct()
+            .ToList();
+        var invoices = await db.FeeInvoices
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(i => i.TenantId == tenantId && invoiceIds.Contains(i.Id))
+            .ToDictionaryAsync(i => i.Id, i => i.InvoiceNumber, cancellationToken);
+
+        var userIds = payments.Where(p => p.RecordedByUserId.HasValue).Select(p => p.RecordedByUserId!.Value)
+            .Concat(deposits.Where(d => d.RecordedByUserId.HasValue).Select(d => d.RecordedByUserId!.Value))
+            .Distinct()
+            .ToList();
+        var users = await db.Users
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(u => userIds.Contains(u.Id))
+            .ToDictionaryAsync(u => u.Id, cancellationToken);
+
+        var items = new List<CashierClosingItemDto>();
+        foreach (var p in payments)
+        {
+            students.TryGetValue(p.StudentId, out var student);
+            invoices.TryGetValue(p.InvoiceId, out var invNo);
+            var cashierName = p.RecordedByUserId.HasValue && users.TryGetValue(p.RecordedByUserId.Value, out var u)
+                ? u.FullName
+                : "Online / System";
+            var net = FeeRules.EffectivePaymentAmount(p.Amount, p.RefundedAmount, p.Status);
+            var refunded = p.Status == PaymentRecordStatus.Voided ? p.Amount : p.RefundedAmount;
+            items.Add(new CashierClosingItemDto(
+                Kind: "InvoicePayment",
+                ReferenceCode: p.ReceiptNumber,
+                OccurredAt: p.PaidAt,
+                StudentId: p.StudentId,
+                StudentCode: student?.StudentCode ?? string.Empty,
+                StudentName: student?.FullName ?? "Student",
+                InvoiceNumber: invNo,
+                Method: p.Method.ToString(),
+                CashierName: cashierName,
+                GrossAmount: p.Amount,
+                RefundedAmount: refunded,
+                NetAmount: net,
+                Status: p.Status.ToString()));
+        }
+
+        foreach (var d in deposits)
+        {
+            students.TryGetValue(d.StudentId, out var student);
+            string? invNo = d.InvoiceId.HasValue && invoices.TryGetValue(d.InvoiceId.Value, out var foundInv) ? foundInv : null;
+            var cashierName = d.RecordedByUserId.HasValue && users.TryGetValue(d.RecordedByUserId.Value, out var u)
+                ? u.FullName
+                : "System";
+            items.Add(new CashierClosingItemDto(
+                Kind: "AdvanceDeposit",
+                ReferenceCode: d.ReferenceNumber ?? $"CR-{d.Id.ToString("N")[..6].ToUpperInvariant()}",
+                OccurredAt: d.OccurredAt,
+                StudentId: d.StudentId,
+                StudentCode: student?.StudentCode ?? string.Empty,
+                StudentName: student?.FullName ?? "Student",
+                InvoiceNumber: invNo,
+                Method: (d.Method ?? PaymentMethod.Cash).ToString(),
+                CashierName: cashierName,
+                GrossAmount: d.Amount,
+                RefundedAmount: 0m,
+                NetAmount: d.Amount,
+                Status: "Completed"));
+        }
+
+        items = items.OrderByDescending(i => i.OccurredAt).ToList();
+
+        var methods = Enum.GetValues<PaymentMethod>();
+        var byMethod = methods.Select(m =>
+        {
+            var mPayments = payments.Where(p => p.Method == m).ToList();
+            var mDeposits = deposits.Where(d => (d.Method ?? PaymentMethod.Cash) == m).ToList();
+            var invTotal = FeeRules.RoundMoney(mPayments.Sum(p => FeeRules.EffectivePaymentAmount(p.Amount, p.RefundedAmount, p.Status)));
+            var depTotal = FeeRules.RoundMoney(mDeposits.Sum(d => d.Amount));
+            var refTotal = FeeRules.RoundMoney(mPayments.Sum(p => p.Status == PaymentRecordStatus.Voided ? p.Amount : p.RefundedAmount));
+            return new CashierClosingByMethodDto(
+                Method: m.ToString(),
+                TransactionCount: mPayments.Count + mDeposits.Count,
+                InvoicePaymentsTotal: invTotal,
+                AdvanceDepositsTotal: depTotal,
+                RefundedTotal: refTotal,
+                NetCollectedTotal: FeeRules.RoundMoney(invTotal + depTotal));
+        }).ToList();
+
+        var allUserKeys = payments.Select(p => p.RecordedByUserId)
+            .Concat(deposits.Select(d => d.RecordedByUserId))
+            .Distinct()
+            .ToList();
+
+        var byUser = allUserKeys.Select(uid =>
+        {
+            var uPayments = payments.Where(p => p.RecordedByUserId == uid).ToList();
+            var uDeposits = deposits.Where(d => d.RecordedByUserId == uid).ToList();
+            var user = uid.HasValue && users.TryGetValue(uid.Value, out var found) ? found : null;
+            var cashTotal = FeeRules.RoundMoney(uPayments.Where(p => p.Method == PaymentMethod.Cash).Sum(p => FeeRules.EffectivePaymentAmount(p.Amount, p.RefundedAmount, p.Status)));
+            var bankTotal = FeeRules.RoundMoney(uPayments.Where(p => p.Method == PaymentMethod.BankTransfer).Sum(p => FeeRules.EffectivePaymentAmount(p.Amount, p.RefundedAmount, p.Status)));
+            var payHereTotal = FeeRules.RoundMoney(uPayments.Where(p => p.Method == PaymentMethod.PayHere).Sum(p => FeeRules.EffectivePaymentAmount(p.Amount, p.RefundedAmount, p.Status)));
+            var depTotal = FeeRules.RoundMoney(uDeposits.Sum(d => d.Amount));
+            var refTotal = FeeRules.RoundMoney(uPayments.Sum(p => p.Status == PaymentRecordStatus.Voided ? p.Amount : p.RefundedAmount));
+            var netTotal = FeeRules.RoundMoney(cashTotal + bankTotal + payHereTotal + depTotal);
+            return new CashierClosingByUserDto(
+                UserId: uid,
+                CashierName: user?.FullName ?? "Online / System",
+                CashierEmail: user?.Email,
+                TransactionCount: uPayments.Count + uDeposits.Count,
+                CashTotal: cashTotal,
+                BankTransferTotal: bankTotal,
+                PayHereTotal: payHereTotal,
+                AdvanceDepositsTotal: depTotal,
+                RefundedTotal: refTotal,
+                NetCollectedTotal: netTotal);
+        })
+        .OrderByDescending(u => u.NetCollectedTotal)
+        .ThenBy(u => u.CashierName)
+        .ToList();
+
+        var totalInvoicePayments = FeeRules.RoundMoney(byMethod.Sum(m => m.InvoicePaymentsTotal));
+        var totalAdvanceDeposits = FeeRules.RoundMoney(byMethod.Sum(m => m.AdvanceDepositsTotal));
+        var totalRefunded = FeeRules.RoundMoney(byMethod.Sum(m => m.RefundedTotal));
+        var grandTotal = FeeRules.RoundMoney(totalInvoicePayments + totalAdvanceDeposits);
+
+        return new CashierClosingReportDto(
+            Date: targetDate,
+            Currency: "LKR",
+            TotalTransactions: payments.Count + deposits.Count,
+            InvoicePaymentsTotal: totalInvoicePayments,
+            AdvanceDepositsTotal: totalAdvanceDeposits,
+            RefundedTotal: totalRefunded,
+            GrandTotalCollected: grandTotal,
+            ByMethod: byMethod,
+            ByUser: byUser,
+            Items: items);
+    }
+
+    public async Task<StoredDownload> ExportCashierClosingReportAsync(
+        string? format,
+        DateOnly? date = null,
+        CancellationToken cancellationToken = default)
+    {
+        var tenantId = TenantGuard.Require(tenantContext);
+        var eval = await featureService.EvaluateAsync(tenantId, FeatureKey.DataExport, cancellationToken);
+        if (!eval.IsInPlan)
+        {
+            throw new FeatureNotInPlanException(FeatureKey.DataExport);
+        }
+
+        if (!eval.IsEnabled)
+        {
+            throw new FeatureDisabledException(FeatureKey.DataExport);
+        }
+
+        var report = await GetCashierClosingReportAsync(date, cancellationToken);
+        var dateTag = report.Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+        if (string.Equals(format, "pdf", StringComparison.OrdinalIgnoreCase))
+        {
+            var branding = await LoadBrandingAsync(tenantId, cancellationToken);
+            var pdfBytes = feeDocuments.BuildCashierClosingPdf(new CashierClosingPdfContent(
+                branding.Name,
+                branding.Address,
+                branding.Phone,
+                branding.PrimaryHex,
+                branding.Logo,
+                report));
+            return new StoredDownload(pdfBytes, "application/pdf", $"cashier-closing-{dateTag}.pdf");
+        }
+
+        var headers = new[]
+        {
+            "kind",
+            "referenceCode",
+            "occurredAt",
+            "studentCode",
+            "studentName",
+            "invoiceNumber",
+            "method",
+            "cashierName",
+            "grossAmount",
+            "refundedAmount",
+            "netAmount",
+            "status"
+        };
+
+        var rows = report.Items.Select(i => (IReadOnlyList<string>)
+        [
+            i.Kind,
+            i.ReferenceCode,
+            i.OccurredAt.ToString("O", CultureInfo.InvariantCulture),
+            i.StudentCode,
+            i.StudentName,
+            i.InvoiceNumber ?? "-",
+            i.Method,
+            i.CashierName,
+            i.GrossAmount.ToString("0.00", CultureInfo.InvariantCulture),
+            i.RefundedAmount.ToString("0.00", CultureInfo.InvariantCulture),
+            i.NetAmount.ToString("0.00", CultureInfo.InvariantCulture),
+            i.Status
+        ]).ToList();
+
+        return new StoredDownload(
+            CsvTable.Write(headers, rows),
+            "text/csv",
+            $"cashier-closing-{dateTag}.csv");
     }
 
     public async Task<RunFeeRemindersResultDto> ProcessFeeRemindersAsync(
@@ -1257,7 +2239,7 @@ public sealed class FeeService(
             .FirstOrDefaultAsync(p => !p.IsDeleted && p.TenantId == session.TenantId && p.Id == session.FeePaymentId.Value, cancellationToken)
             ?? throw new EntityNotFoundException(nameof(FeePayment), session.FeePaymentId.Value.ToString());
 
-        return await BuildReceiptDownloadAsync(payment, session.TenantId, cancellationToken);
+        return await BuildReceiptDownloadAsync(payment, session.TenantId, isReprint: false, cancellationToken);
     }
 
     public async Task<PayHereWebhookResultDto> ProcessPayHereWebhookAsync(
@@ -1721,6 +2703,7 @@ public sealed class FeeService(
             "batch",
             "billingPeriod",
             "netAmount",
+            "creditAppliedAmount",
             "paidAmount",
             "balanceAmount",
             "dueDate",
@@ -1735,6 +2718,7 @@ public sealed class FeeService(
             i.BatchName ?? "-",
             i.BillingPeriod,
             i.NetAmount.ToString("0.00", CultureInfo.InvariantCulture),
+            i.CreditAppliedAmount.ToString("0.00", CultureInfo.InvariantCulture),
             i.PaidAmount.ToString("0.00", CultureInfo.InvariantCulture),
             i.BalanceAmount.ToString("0.00", CultureInfo.InvariantCulture),
             i.DueDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
@@ -1759,6 +2743,7 @@ public sealed class FeeService(
                 i.BatchName ?? "-",
                 i.BillingPeriod,
                 i.NetAmount,
+                i.CreditAppliedAmount,
                 i.PaidAmount,
                 i.BalanceAmount,
                 i.DueDate,
@@ -1784,7 +2769,9 @@ public sealed class FeeService(
         string? referenceNumber,
         DateTimeOffset paidAt,
         string? notes,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? attachmentUrl = null,
+        long attachmentBytes = 0L)
     {
         for (var attempt = 0; attempt < 5; attempt++)
         {
@@ -1803,6 +2790,8 @@ public sealed class FeeService(
                 Method = method,
                 Status = PaymentRecordStatus.Completed,
                 ReferenceNumber = NullIfBlank(referenceNumber),
+                AttachmentUrl = NullIfBlank(attachmentUrl),
+                AttachmentBytes = attachmentBytes,
                 PaidAt = paidAt,
                 RecordedByUserId = tenantContext.UserId,
                 Notes = NullIfBlank(notes)
@@ -1862,7 +2851,8 @@ public sealed class FeeService(
         var (paid, balance, status) = FeeRules.ComputeInvoiceSettlement(
             invoice.NetAmount,
             existingPayments.Select(p => (p.Amount, p.RefundedAmount, p.Status)),
-            invoice.Status == FeeInvoiceStatus.Voided);
+            invoice.Status == FeeInvoiceStatus.Voided,
+            invoice.CreditAppliedAmount);
 
         invoice.PaidAmount = paid;
         invoice.BalanceAmount = balance;
@@ -1964,6 +2954,7 @@ public sealed class FeeService(
     private async Task<StoredDownload> BuildReceiptDownloadAsync(
         FeePayment payment,
         Guid tenantId,
+        bool isReprint,
         CancellationToken cancellationToken)
     {
         var invoice = await db.FeeInvoices
@@ -2010,10 +3001,14 @@ public sealed class FeeService(
             ReferenceNumber: payment.ReferenceNumber,
             PaidAt: payment.PaidAt,
             Status: payment.Status.ToString(),
-            Notes: payment.Notes);
+            Notes: payment.Notes,
+            CreditAppliedAmount: invoice.CreditAppliedAmount,
+            IsReprint: isReprint,
+            ReprintNumber: payment.ReceiptPrintCount);
 
         var pdfBytes = feeDocuments.BuildReceiptPdf(content);
-        return new StoredDownload(pdfBytes, "application/pdf", $"{payment.ReceiptNumber.ToLowerInvariant()}.pdf");
+        var suffix = isReprint ? "-reprint" : string.Empty;
+        return new StoredDownload(pdfBytes, "application/pdf", $"{payment.ReceiptNumber.ToLowerInvariant()}{suffix}.pdf");
     }
 
     private PayHereCheckoutSessionDto BuildCheckoutSessionDto(
@@ -2179,6 +3174,7 @@ public sealed class FeeService(
             s.BatchId,
             s.BatchId.HasValue && batches.TryGetValue(s.BatchId.Value, out var bName) ? bName : null,
             s.DueDayOfMonth,
+            s.AutoIssueOnAdmission,
             s.Description,
             s.IsActive,
             s.CreatedAt)).ToList();
@@ -2309,6 +3305,7 @@ public sealed class FeeService(
                 i.ConcessionId,
                 i.ConcessionDescription,
                 i.NetAmount,
+                i.CreditAppliedAmount,
                 i.PaidAmount,
                 i.BalanceAmount,
                 i.Currency,
@@ -2376,6 +3373,8 @@ public sealed class FeeService(
                 p.Notes,
                 p.VoidedOrRefundedAt,
                 p.VoidOrRefundReason,
+                p.ReceiptPrintCount,
+                p.LastPrintedAt,
                 p.CreatedAt);
         }).ToList();
     }
@@ -2452,7 +3451,7 @@ public sealed class FeeService(
             throw new DomainValidationException("INVALID_DUE_DAY", "Due day of month must be between 1 and 28.");
         }
 
-        if (!request.BatchId.HasValue && !request.EducationLevelId.HasValue)
+        if (request.Frequency == FeeFrequency.Monthly && !request.BatchId.HasValue && !request.EducationLevelId.HasValue)
         {
             throw new DomainValidationException(
                 "TARGET_REQUIRED",
@@ -2638,4 +3637,408 @@ public sealed class FeeService(
 
     private static string? NullIfBlank(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private sealed record SiblingDiscountContext(
+        SiblingDiscountRule? Rule,
+        IReadOnlyDictionary<Guid, int> SiblingRanks);
+
+    private async Task<SiblingDiscountContext> LoadSiblingDiscountContextUnlockedAsync(
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        var rule = await db.SiblingDiscountRules
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(r => !r.IsDeleted && r.TenantId == tenantId, cancellationToken);
+
+        if (rule is null || !rule.IsEnabled)
+        {
+            return new SiblingDiscountContext(rule, new Dictionary<Guid, int>());
+        }
+
+        var students = await db.Students
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(s => !s.IsDeleted && s.TenantId == tenantId && s.Status == StudentStatus.Active)
+            .Select(s => new { s.Id, s.GuardianPhone, s.AdmissionDate, s.CreatedAt, s.StudentCode })
+            .ToListAsync(cancellationToken);
+
+        var parentLinks = await db.ParentStudentLinks
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(l => !l.IsDeleted && l.TenantId == tenantId)
+            .Select(l => new { l.ParentUserId, l.StudentId })
+            .ToListAsync(cancellationToken);
+
+        var studentMap = students.ToDictionary(s => s.Id);
+        var adjacency = students.ToDictionary(s => s.Id, _ => new HashSet<Guid>());
+
+        // Group by normalized guardian phone
+        foreach (var phoneGroup in students
+            .Select(s => new { s.Id, Phone = PhoneNumber.Normalize(s.GuardianPhone) })
+            .Where(x => !string.IsNullOrWhiteSpace(x.Phone))
+            .GroupBy(x => x.Phone, StringComparer.Ordinal))
+        {
+            var ids = phoneGroup.Select(x => x.Id).ToList();
+            for (var i = 1; i < ids.Count; i++)
+            {
+                adjacency[ids[0]].Add(ids[i]);
+                adjacency[ids[i]].Add(ids[0]);
+            }
+        }
+
+        // Also group by linked parent user
+        foreach (var parentGroup in parentLinks
+            .Where(l => studentMap.ContainsKey(l.StudentId))
+            .GroupBy(l => l.ParentUserId))
+        {
+            var ids = parentGroup.Select(x => x.StudentId).Distinct().ToList();
+            for (var i = 1; i < ids.Count; i++)
+            {
+                adjacency[ids[0]].Add(ids[i]);
+                adjacency[ids[i]].Add(ids[0]);
+            }
+        }
+
+        var ranks = new Dictionary<Guid, int>(students.Count);
+        var visited = new HashSet<Guid>();
+        foreach (var s in students)
+        {
+            if (!visited.Add(s.Id))
+            {
+                continue;
+            }
+
+            var component = new List<Guid>();
+            var queue = new Queue<Guid>();
+            queue.Enqueue(s.Id);
+            while (queue.Count > 0)
+            {
+                var current = queue.Dequeue();
+                component.Add(current);
+                foreach (var next in adjacency[current])
+                {
+                    if (visited.Add(next))
+                    {
+                        queue.Enqueue(next);
+                    }
+                }
+            }
+
+            var groupInfo = component
+                .Select(id => studentMap[id])
+                .Select(x => (x.Id, x.AdmissionDate, x.CreatedAt, x.StudentCode))
+                .ToList();
+
+            foreach (var id in component)
+            {
+                ranks[id] = FeeRules.GetSiblingRank(id, groupInfo);
+            }
+        }
+
+        return new SiblingDiscountContext(rule, ranks);
+    }
+
+    private async Task<Dictionary<Guid, decimal>> LoadCreditBalancesUnlockedAsync(
+        Guid tenantId,
+        CancellationToken cancellationToken,
+        Guid? studentId = null)
+    {
+        var query = db.StudentCreditTransactions
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(t => !t.IsDeleted && t.TenantId == tenantId);
+
+        if (studentId.HasValue)
+        {
+            var sid = studentId.Value;
+            query = query.Where(t => t.StudentId == sid);
+        }
+
+        var entries = await query
+            .Select(t => new { t.StudentId, t.SignedAmount })
+            .ToListAsync(cancellationToken);
+
+        return entries
+            .GroupBy(e => e.StudentId)
+            .ToDictionary(g => g.Key, g => FeeRules.RoundMoney(Math.Max(0m, g.Sum(x => x.SignedAmount))));
+    }
+
+    private FeeInvoice BuildAndTrackInvoiceWithDiscountsAndCredit(
+        Guid tenantId,
+        Student student,
+        FeeStructure structure,
+        Guid? batchId,
+        string period,
+        DateOnly dueDate,
+        DateOnly issueDate,
+        string invoiceNumber,
+        IReadOnlyList<StudentConcession> concessions,
+        SiblingDiscountContext siblingContext,
+        Dictionary<Guid, decimal> creditBalances,
+        string? notes)
+    {
+        var concession = ResolveBestConcession(concessions, student.Id, structure.Id, structure.Amount, issueDate);
+
+        var siblingRank = siblingContext.SiblingRanks.GetValueOrDefault(student.Id, 1);
+        var rule = siblingContext.Rule;
+        var appliesSibling = rule is not null
+            && rule.IsEnabled
+            && siblingRank >= 2
+            && structure.Frequency switch
+            {
+                FeeFrequency.Monthly => rule.ApplyToMonthly,
+                FeeFrequency.OneTime => rule.ApplyToOneTime,
+                FeeFrequency.Admission => rule.ApplyToAdmission,
+                _ => false
+            };
+
+        decimal? siblingValue = appliesSibling
+            ? siblingRank == 2 ? rule!.SecondChildValue : rule!.ThirdPlusChildValue
+            : null;
+
+        var (discount, net, usedConcession, discountDescription) = FeeRules.CalculateCombinedInvoiceDiscount(
+            structure.Amount,
+            concession?.DiscountType,
+            concession?.Value,
+            concession?.Name,
+            appliesSibling ? rule!.DiscountType : null,
+            siblingValue,
+            siblingRank,
+            rule?.StackWithConcession ?? false,
+            structure.Currency);
+
+        var availableCredit = creditBalances.GetValueOrDefault(student.Id, 0m);
+        var (creditApplied, remainingCredit) = FeeRules.CalculateCreditApplication(availableCredit, net);
+        var balance = FeeRules.RoundMoney(Math.Max(0m, net - creditApplied));
+        var status = net == 0m || balance == 0m
+            ? FeeInvoiceStatus.Paid
+            : creditApplied > 0m
+                ? FeeInvoiceStatus.PartiallyPaid
+                : FeeInvoiceStatus.Pending;
+
+        var invoice = new FeeInvoice
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            InvoiceNumber = invoiceNumber,
+            StudentId = student.Id,
+            BranchId = student.BranchId,
+            FeeStructureId = structure.Id,
+            BatchId = batchId,
+            EducationLevelId = structure.EducationLevelId ?? student.EducationLevelId,
+            BillingPeriod = period,
+            Title = structure.Frequency == FeeFrequency.Monthly ? $"{structure.Name} ({period})" : structure.Name,
+            GrossAmount = FeeRules.RoundMoney(structure.Amount),
+            DiscountAmount = discount,
+            ConcessionId = usedConcession ? concession?.Id : null,
+            ConcessionDescription = discountDescription,
+            NetAmount = net,
+            CreditAppliedAmount = creditApplied,
+            PaidAmount = 0m,
+            BalanceAmount = balance,
+            Currency = structure.Currency,
+            IssueDate = issueDate,
+            DueDate = dueDate,
+            Status = status,
+            PaidAt = status == FeeInvoiceStatus.Paid ? DateTimeOffset.UtcNow : null,
+            Notes = NullIfBlank(notes)
+        };
+
+        if (creditApplied > 0m)
+        {
+            creditBalances[student.Id] = remainingCredit;
+            db.StudentCreditTransactions.Add(new StudentCreditTransaction
+            {
+                TenantId = tenantId,
+                BranchId = invoice.BranchId,
+                StudentId = student.Id,
+                EntryType = StudentCreditEntryType.AppliedToInvoice,
+                Amount = creditApplied,
+                SignedAmount = -creditApplied,
+                BalanceAfter = remainingCredit,
+                InvoiceId = invoice.Id,
+                RecordedByUserId = tenantContext.UserId,
+                OccurredAt = DateTimeOffset.UtcNow,
+                Notes = $"Auto-applied advance credit to {invoice.InvoiceNumber}"
+            });
+        }
+
+        return invoice;
+    }
+
+    private static SiblingDiscountRuleDto MapSiblingDiscountRule(SiblingDiscountRule? rule) =>
+        rule is null
+            ? new SiblingDiscountRuleDto(false, nameof(DiscountType.Percentage), 10m, 20m, true, false, false, false)
+            : new SiblingDiscountRuleDto(
+                rule.IsEnabled,
+                rule.DiscountType.ToString(),
+                rule.SecondChildValue,
+                rule.ThirdPlusChildValue,
+                rule.ApplyToMonthly,
+                rule.ApplyToOneTime,
+                rule.ApplyToAdmission,
+                rule.StackWithConcession);
+
+    private static TenantBankAccountDto MapBankAccount(TenantBankAccountSetting? setting) =>
+        setting is null
+            ? new TenantBankAccountDto(string.Empty, null, string.Empty, string.Empty, null, false, false)
+            : new TenantBankAccountDto(
+                setting.BankName,
+                setting.BranchName,
+                setting.AccountName,
+                setting.AccountNumber,
+                setting.Instructions,
+                setting.IsEnabled,
+                !string.IsNullOrWhiteSpace(setting.BankName)
+                && !string.IsNullOrWhiteSpace(setting.AccountName)
+                && !string.IsNullOrWhiteSpace(setting.AccountNumber));
+
+    private async Task<IReadOnlyList<BankPaymentSubmissionDto>> MapBankSubmissionsAsync(
+        IReadOnlyList<BankPaymentSubmission> submissions,
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        if (submissions.Count == 0)
+        {
+            return [];
+        }
+
+        var invoiceIds = submissions.Select(b => b.InvoiceId).Distinct().ToList();
+        var studentIds = submissions.Select(b => b.StudentId).Distinct().ToList();
+        var userIds = submissions.Select(b => b.SubmittedByUserId)
+            .Concat(submissions.Where(b => b.ReviewedByUserId.HasValue).Select(b => b.ReviewedByUserId!.Value))
+            .Where(id => id != Guid.Empty)
+            .Distinct()
+            .ToList();
+        var paymentIds = submissions.Where(b => b.FeePaymentId.HasValue).Select(b => b.FeePaymentId!.Value).Distinct().ToList();
+
+        var invoices = await db.FeeInvoices
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(i => i.TenantId == tenantId && invoiceIds.Contains(i.Id))
+            .ToDictionaryAsync(i => i.Id, cancellationToken);
+
+        var students = await db.Students
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(s => s.TenantId == tenantId && studentIds.Contains(s.Id))
+            .ToDictionaryAsync(s => s.Id, cancellationToken);
+
+        var users = await db.Users
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(u => userIds.Contains(u.Id))
+            .ToDictionaryAsync(u => u.Id, u => u.FullName, cancellationToken);
+
+        var receipts = paymentIds.Count == 0
+            ? new Dictionary<Guid, string>()
+            : await db.FeePayments
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(p => p.TenantId == tenantId && paymentIds.Contains(p.Id))
+                .ToDictionaryAsync(p => p.Id, p => p.ReceiptNumber, cancellationToken);
+
+        return submissions.Select(b =>
+        {
+            invoices.TryGetValue(b.InvoiceId, out var inv);
+            students.TryGetValue(b.StudentId, out var student);
+            users.TryGetValue(b.SubmittedByUserId, out var submitterName);
+            string? reviewerName = b.ReviewedByUserId.HasValue && users.TryGetValue(b.ReviewedByUserId.Value, out var rName)
+                ? rName
+                : null;
+            string? receiptNo = b.FeePaymentId.HasValue && receipts.TryGetValue(b.FeePaymentId.Value, out var rNo)
+                ? rNo
+                : null;
+
+            return new BankPaymentSubmissionDto(
+                b.Id,
+                b.InvoiceId,
+                inv?.InvoiceNumber ?? string.Empty,
+                inv?.Title ?? string.Empty,
+                b.StudentId,
+                student?.StudentCode ?? string.Empty,
+                student?.FullName ?? "Student",
+                b.SubmittedByUserId,
+                submitterName ?? b.SubmittedByRole,
+                b.SubmittedByRole,
+                b.Amount,
+                inv?.BalanceAmount ?? 0m,
+                b.Currency,
+                b.ReferenceNumber,
+                b.TransferDate,
+                b.SlipFileName,
+                b.Status.ToString(),
+                b.Notes,
+                b.ReviewedByUserId,
+                reviewerName,
+                b.ReviewedAt,
+                b.RejectionReason,
+                b.FeePaymentId,
+                receiptNo,
+                b.CreatedAt);
+        }).ToList();
+    }
+
+    private async Task<IReadOnlyList<StudentCreditTransactionDto>> MapCreditTransactionsAsync(
+        IReadOnlyList<StudentCreditTransaction> transactions,
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        if (transactions.Count == 0)
+        {
+            return [];
+        }
+
+        var studentIds = transactions.Select(t => t.StudentId).Distinct().ToList();
+        var invoiceIds = transactions.Where(t => t.InvoiceId.HasValue).Select(t => t.InvoiceId!.Value).Distinct().ToList();
+        var userIds = transactions.Where(t => t.RecordedByUserId.HasValue).Select(t => t.RecordedByUserId!.Value).Distinct().ToList();
+
+        var students = await db.Students
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(s => s.TenantId == tenantId && studentIds.Contains(s.Id))
+            .ToDictionaryAsync(s => s.Id, cancellationToken);
+
+        var invoices = invoiceIds.Count == 0
+            ? new Dictionary<Guid, string>()
+            : await db.FeeInvoices
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(i => i.TenantId == tenantId && invoiceIds.Contains(i.Id))
+                .ToDictionaryAsync(i => i.Id, i => i.InvoiceNumber, cancellationToken);
+
+        var users = userIds.Count == 0
+            ? new Dictionary<Guid, string>()
+            : await db.Users
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(u => userIds.Contains(u.Id))
+                .ToDictionaryAsync(u => u.Id, u => u.FullName, cancellationToken);
+
+        return transactions.Select(t =>
+        {
+            students.TryGetValue(t.StudentId, out var student);
+            string? invNo = t.InvoiceId.HasValue && invoices.TryGetValue(t.InvoiceId.Value, out var foundInv) ? foundInv : null;
+            string? recBy = t.RecordedByUserId.HasValue && users.TryGetValue(t.RecordedByUserId.Value, out var foundUser) ? foundUser : null;
+
+            return new StudentCreditTransactionDto(
+                t.Id,
+                t.StudentId,
+                student?.StudentCode ?? string.Empty,
+                student?.FullName ?? "Student",
+                t.EntryType.ToString(),
+                t.Amount,
+                t.SignedAmount,
+                t.BalanceAfter,
+                t.Method?.ToString(),
+                t.ReferenceNumber,
+                t.InvoiceId,
+                invNo,
+                t.FeePaymentId,
+                recBy,
+                t.OccurredAt,
+                t.Notes);
+        }).ToList();
+    }
 }

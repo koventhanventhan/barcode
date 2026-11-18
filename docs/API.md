@@ -45,6 +45,7 @@ Requires `SuperAdmin` role:
 ## Institute Tenant Endpoints
 - `GET /api/subscription` — Subscription status, features, and plan limit usage
 - `GET /api/settings/features`, `PUT /api/settings/features/{featureKey}` (`settings.manage` to change)
+- `GET/PUT /api/settings/bank-account` (`settings.manage` to change) — Institute bank transfer details shown to parents on `/api/parent/bank-account`
 - `GET/PUT /api/settings/branding`, `POST /api/settings/branding/reset`, `POST /api/settings/branding/assets` (`settings.manage` to change)
 - `GET/PUT /api/super-admin/branding`, `POST /api/super-admin/branding/reset`, `POST /api/super-admin/branding/assets`
 - `GET/POST/PUT/DELETE /api/branches` (`branches.view`, `branches.manage`). A second branch requires `MultiBranch` (`FEATURE_NOT_IN_PLAN` otherwise).
@@ -56,6 +57,7 @@ Requires `SuperAdmin` role:
 - `GET /api/parent/portal`, `GET /api/parent/children`, `GET /api/parent/children/{studentId}/dashboard|attendance|classes|exams|invoices|payments`, `GET /api/parent/messages` (`Parent` role, `[RequireFeature(FeatureKey.ParentPortal)]`)
 - `GET /api/parent/children/{studentId}/exams/{examId}/report-card` (`[RequireFeature(FeatureKey.ParentCanSeeMarks)]`, PDF also requires `PerformanceReports`)
 - `POST /api/parent/children/{studentId}/invoices/{invoiceId}/pay` (`[RequireFeature(FeatureKey.ParentCanPayOnline)]`, PayHere also requires `OnlinePayments`)
+- `GET /api/parent/bank-account`, `GET /api/parent/children/{studentId}/bank-slips`, `POST /api/parent/children/{studentId}/invoices/{invoiceId}/bank-slips`, `GET /api/parent/children/{studentId}/bank-slips/{submissionId}/file`, `GET /api/parent/children/{studentId}/payments/{paymentId}/receipt` (`Parent` role, `ParentPortal`)
 - `POST /api/auth/login`, `/forgot-password`, `/reset-password`, `/accept-invite` accept `phone` for parent mobile sign-in
 - `GET /api/payments/online/status` (`[RequireFeature(FeatureKey.OnlinePayments)]`)
 
@@ -92,10 +94,13 @@ Requires `SuperAdmin` role:
 - `POST /api/attendance/join` (`[RequireFeature(FeatureKey.OnlineAttendance)]`, tenant header, no staff login)
 
 ## Fees & PayHere (`/api/fees`)
-- `GET/POST/PUT/DELETE /api/fees/structures` (`fees.view` / `fees.collect`) — Monthly, OneTime, and Admission fee structures per batch/level
-- `GET/POST/PUT/DELETE /api/fees/concessions` (`fees.view` / `fees.collect`) — Percentage and fixed-amount student concessions
-- `GET /api/fees/invoices`, `GET /api/fees/invoices/{id}`, `POST /api/fees/invoices`, `POST /api/fees/invoices/generate`, `POST /api/fees/invoices/{id}/void` (`fees.view` / `fees.collect`) — Idempotent monthly invoice generation, single invoice creation, and voiding with reason
-- `GET/POST /api/fees/payments`, `POST /api/fees/payments/{id}/attachment`, `POST /api/fees/payments/{id}/refund-or-void`, `GET /api/fees/payments/{id}/receipt` (`fees.view` / `fees.collect`) — Partial & full manual payments, bank slip upload, refund/void with audit, and branded sequential receipt PDFs (`RCP-000001`)
+- `GET/POST/PUT/DELETE /api/fees/structures` (`fees.view` / `fees.collect`) — Monthly, OneTime, and Admission (optional `AutoIssueOnAdmission`) fee structures
+- `GET/POST/PUT/DELETE /api/fees/concessions`, `GET/PUT /api/fees/sibling-discount` (`fees.view` / `fees.collect`) — Student concessions and sibling discount rules
+- `GET /api/fees/invoices`, `GET /api/fees/invoices/{id}`, `POST /api/fees/invoices`, `POST /api/fees/invoices/generate`, `POST /api/fees/invoices/generate-admission`, `POST /api/fees/invoices/{id}/apply-credit`, `POST /api/fees/invoices/{id}/void` (`fees.view` / `fees.collect`) — Invoice generation, credit application, and voiding with credit reversal
+- `GET/POST /api/fees/payments`, `POST /api/fees/payments/{id}/attachment`, `POST /api/fees/payments/{id}/refund-or-void`, `GET /api/fees/payments/{id}/receipt?reprint=true|false`, `POST /api/fees/payments/{id}/reprint` (`fees.view` / `fees.collect`) — Payments, sequential receipts, and audited receipt reprints
+- `GET /api/fees/bank-slips`, `POST /api/fees/invoices/{invoiceId}/bank-slips`, `GET /api/fees/bank-slips/{id}/file`, `POST /api/fees/bank-slips/{id}/approve|reject` (`fees.view` / `fees.collect`) — Bank slip submission and approval workflow
+- `GET /api/fees/credits`, `GET /api/fees/students/{studentId}/credits`, `POST /api/fees/credits` (`fees.view` / `fees.collect`) — Student advance credit balances and deposits
+- `GET /api/fees/reports/cashier-closing`, `GET /api/fees/reports/cashier-closing/export?format=csv|pdf` (`fees.view`, export gated by `DataExport`) — Daily cashier closing report by payment method and user
 - `POST /api/fees/reminders/run` (`fees.collect`) — Evaluate and enqueue `FeeDueReminder` messages (`BeforeDue`, `OnDueDate`, `Overdue`)
 - `GET /api/fees/dashboard`, `GET /api/fees/export?format=csv|xlsx|pdf` (`fees.view`, export gated by `[RequireFeature(FeatureKey.DataExport)]`)
 - `GET/PUT /api/fees/payhere/settings` (`settings.manage`, update gated by `[RequireFeature(FeatureKey.OnlinePayments)]`) — Per-tenant encrypted PayHere credentials

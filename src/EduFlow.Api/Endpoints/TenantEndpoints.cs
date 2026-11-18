@@ -1,6 +1,7 @@
 using EduFlow.Api.Authorization;
 using EduFlow.Api.Filters;
 using EduFlow.Application.Common.Interfaces;
+using EduFlow.Application.Fees;
 using EduFlow.Application.SuperAdmin;
 using EduFlow.Application.Tenancy;
 using EduFlow.Domain.Constants;
@@ -55,6 +56,20 @@ public static class TenantEndpoints
         })
         .RequirePermission(Permissions.SettingsManage)
         .WithName("SetTenantFeatureSwitch");
+
+        settingsGroup.MapGet("/bank-account", async (
+            IFeeService feeService,
+            CancellationToken ct) =>
+            Results.Ok(await feeService.GetBankAccountSettingsAsync(tenantIdOverride: null, ct)))
+            .WithName("GetTenantBankAccountSettings");
+
+        settingsGroup.MapPut("/bank-account", async (
+            [FromBody] UpdateTenantBankAccountRequest request,
+            IFeeService feeService,
+            CancellationToken ct) =>
+            Results.Ok(await feeService.UpdateBankAccountSettingsAsync(request, ct)))
+            .RequirePermission(Permissions.SettingsManage)
+            .WithName("UpdateTenantBankAccountSettings");
 
         app.MapGet("/api/subscription", async (
             ITenantManagementService service,

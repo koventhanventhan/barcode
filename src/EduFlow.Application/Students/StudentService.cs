@@ -1,6 +1,7 @@
 using EduFlow.Application.Academics;
 using EduFlow.Application.Common.Interfaces;
 using EduFlow.Application.Common.Security;
+using EduFlow.Application.Fees;
 using EduFlow.Application.Storage;
 using EduFlow.Domain.Entities;
 using EduFlow.Domain.Enums;
@@ -36,7 +37,8 @@ public sealed class StudentService(
     IWorkbookFile workbook,
     IFileStorage files,
     IStoredFileRegistry storedFiles,
-    IAntivirusScanner? antivirusScanner = null) : IStudentService
+    IAntivirusScanner? antivirusScanner = null,
+    IFeeService? feeService = null) : IStudentService
 {
     private const int MaxImportRows = 2000;
     private const int MaxPrint = 500;
@@ -84,6 +86,14 @@ public sealed class StudentService(
         await SyncEnrollmentsAsync(student, request.BatchIds ?? [], cancellationToken);
         await auditService.LogAsync("Student.Created", nameof(Student), student.Id.ToString(), new { student.StudentCode }, cancellationToken: cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
+        if (feeService is not null)
+        {
+            await feeService.GenerateAdmissionInvoicesAsync(
+                new GenerateAdmissionInvoicesRequest(StudentId: student.Id, AutoIssueOnly: true),
+                tenantIdOverride: tenantId,
+                cancellationToken: cancellationToken);
+        }
+
         return await MapStudentAsync(student, cancellationToken);
     }
 
@@ -260,6 +270,7 @@ public sealed class StudentService(
                 .Where(student => student.TenantId == tenantId)
                 .Select(student => student.StudentCode)
                 .ToListAsync(cancellationToken));
+            var importedStudents = new List<Student>();
             foreach (var row in valid)
             {
                 var student = new Student
@@ -278,11 +289,22 @@ public sealed class StudentService(
                     Status = Enum.Parse<StudentStatus>(row.Status, true)
                 };
                 db.Students.Add(student);
+                importedStudents.Add(student);
                 await SyncEnrollmentsAsync(student, row.BatchIds, cancellationToken);
             }
 
             await auditService.LogAsync("Students.Imported", nameof(Student), null, new { Imported = valid.Count, Failed = errors.Count }, cancellationToken: cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
+            if (feeService is not null)
+            {
+                foreach (var imported in importedStudents)
+                {
+                    await feeService.GenerateAdmissionInvoicesAsync(
+                        new GenerateAdmissionInvoicesRequest(StudentId: imported.Id, AutoIssueOnly: true),
+                        tenantIdOverride: tenantId,
+                        cancellationToken: cancellationToken);
+                }
+            }
         }
 
         return new StudentImportReport(valid.Count, errors.Count, errors);

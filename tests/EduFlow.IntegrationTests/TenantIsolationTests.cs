@@ -436,7 +436,48 @@ public sealed class TenantIsolationTests(ApiFactory factory) : IClassFixture<Api
                 DueDate = new DateOnly(2026, 11, 15),
                 Status = PlatformInvoiceStatus.Pending
             };
-            db.AddRange(feePayment, gatewayConfig, checkoutSession, platformInvoice);
+            var bankSetting = new TenantBankAccountSetting
+            {
+                TenantId = tenantId,
+                BankName = $"Bank {suffix}",
+                AccountName = $"Account {suffix}",
+                AccountNumber = $"ACC-{suffix}",
+                IsEnabled = true
+            };
+            var bankSubmission = new BankPaymentSubmission
+            {
+                TenantId = tenantId,
+                InvoiceId = feeInvoice.Id,
+                StudentId = student.Id,
+                SubmittedByUserId = user.Id,
+                SubmittedByRole = "Parent",
+                Amount = 1000m,
+                Currency = "LKR",
+                SlipUrl = $"/files/slips/{suffix}.png",
+                SlipFileName = $"slip-{suffix}.png",
+                SlipBytes = 128,
+                Status = BankPaymentStatus.Pending
+            };
+            var siblingRule = new SiblingDiscountRule
+            {
+                TenantId = tenantId,
+                IsEnabled = true,
+                DiscountType = DiscountType.Percentage,
+                SecondChildValue = 10m,
+                ThirdPlusChildValue = 20m
+            };
+            var creditTx = new StudentCreditTransaction
+            {
+                TenantId = tenantId,
+                StudentId = student.Id,
+                EntryType = StudentCreditEntryType.Deposit,
+                Amount = 500m,
+                SignedAmount = 500m,
+                BalanceAfter = 500m,
+                Method = PaymentMethod.Cash,
+                OccurredAt = DateTimeOffset.UtcNow
+            };
+            db.AddRange(feePayment, gatewayConfig, checkoutSession, platformInvoice, bankSetting, bankSubmission, siblingRule, creditTx);
             await db.SaveChangesAsync();
 
             var gradingScheme = new GradingScheme
