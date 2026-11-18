@@ -75,21 +75,19 @@ The API applies EF Core migrations (`MigrateAsync`) and runs `DbSeeder.SeedAsync
 | `SUPERADMIN_PASSWORD` | Yes | `SuperAdmin@123!` | Seeded Super Admin password |
 | `Cors__Origins__0` | Yes | `https://${DOMAIN}` | Allowed frontend CORS origin |
 | `App__PublicWebUrl` | Yes | `https://${DOMAIN}` | Base URL used in password reset, invite, and billing links |
+| `AllowedHosts` | Yes (prod) | `eduflow.lk;*.eduflow.lk` | Semicolon-delimited allowed HTTP `Host` headers (must not be `*` in Production) |
+| `Demo__Enabled` | No | `false` | Enables seeding the `demo` tenant outside Development (`false` in Production by default) |
 | `Hangfire__Storage` | No | `SqlServer` | `SqlServer` in production; `InMemory` for local dev |
 | `Hangfire__EnableRecurringJobs` | No | `true` | Enables outbox, monthly fee, reminder, backup, and demo reset jobs |
 | `FileStorage__Root` | No | `/app/storage` | Directory or mounted volume for uploads and local backups |
-| `Sms__Provider` | No | `Fake` / `NotifyLk` | `Fake` or `NotifyLk` |
+| `Sms__Provider` | No | `Fake` / `NotifyLk` | `Fake` or `NotifyLk` (`Sms:*` is the single source of truth; legacy `Notifications__Sms__*` keys emit a startup warning) |
 | `Sms__UserId` | Conditional | — | Notify.lk User ID |
 | `Sms__ApiKey` | Conditional | — | Notify.lk API Key |
 | `Sms__SenderId` | No | `EduFlow` | Approved Transactional SMS Sender ID |
 | `Sms__PromotionalSenderId` | No | — | Optional Promotional Sender ID for Broadcast SMS |
 | `Sms__BaseUrl` | No | `https://app.notify.lk/api/v1` | Notify.lk API v1 base URL |
-| `Sms__TestMode` | No | `true` (Dev) / `false` (Prod) | Restricts real SMS sends to `Sms__TestAllowList` |
-| `Sms__TestAllowList` | No | — | Comma-separated Sri Lankan mobile numbers allowed in TestMode |
-| `Notifications__Sms__Provider` | No | `Fake` / `NotifyLk` | Legacy fallback for `Sms__Provider` |
-| `Notifications__Sms__NotifyLk__UserId` | Conditional | — | Notify.lk User ID |
-| `Notifications__Sms__NotifyLk__ApiKey` | Conditional | — | Notify.lk API Key |
-| `Notifications__Sms__NotifyLk__SenderId` | No | `EduFlow` | Registered SMS Sender ID |
+| `Sms__TestMode` | No | `true` | Defaults to `true` on first deploy in `docker-compose.prod.yml` and in Development; set `false` after verifying live SMS |
+| `Sms__TestAllowList` | No | — | Comma-separated Sri Lankan mobile numbers allowed when `Sms__TestMode=true` |
 | `Notifications__Email__Provider` | No | `Fake` / `Smtp` | `Fake`, `Smtp`, or `Brevo` |
 | `Notifications__Email__FromEmail` | No | `noreply@eduflow.lk` | Outgoing From address |
 | `Notifications__Email__Smtp__Host` | Conditional | — | SMTP host (when `Provider=Smtp`) |

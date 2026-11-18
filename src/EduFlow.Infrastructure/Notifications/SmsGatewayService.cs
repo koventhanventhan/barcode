@@ -36,10 +36,10 @@ public sealed class SmsGatewayConfigProvider(
             .FirstOrDefaultAsync(s => !s.IsDeleted && s.Key == "default", cancellationToken);
 
         var provider = Coalesce(row?.Provider, smsOpt.Provider, "Fake");
-        var userId = Coalesce(row?.UserId, smsOpt.UserId, smsOpt.NotifyLk.UserId);
-        var senderId = Coalesce(row?.SenderId, smsOpt.SenderId, smsOpt.NotifyLk.SenderId, "EduFlow");
+        var userId = Coalesce(row?.UserId, smsOpt.UserId);
+        var senderId = Coalesce(row?.SenderId, smsOpt.SenderId, "EduFlow");
         var promoSenderId = FirstNonEmpty(row?.PromotionalSenderId, smsOpt.PromotionalSenderId);
-        var baseUrl = Coalesce(row?.BaseUrl, smsOpt.BaseUrl, smsOpt.NotifyLk.Endpoint, "https://app.notify.lk/api/v1");
+        var baseUrl = Coalesce(row?.BaseUrl, smsOpt.BaseUrl, "https://app.notify.lk/api/v1");
         var testMode = row?.TestMode ?? smsOpt.TestMode ?? hostEnvironment.IsDevelopment();
         var allowListRaw = FirstNonEmpty(row?.TestAllowList, smsOpt.TestAllowList);
         var allowList = SriLankanPhoneNormalizer.ParseAllowList(allowListRaw);
@@ -60,7 +60,7 @@ public sealed class SmsGatewayConfigProvider(
 
         if (string.IsNullOrWhiteSpace(apiKey))
         {
-            apiKey = FirstNonEmpty(smsOpt.ApiKey, smsOpt.NotifyLk.ApiKey) ?? string.Empty;
+            apiKey = FirstNonEmpty(smsOpt.ApiKey) ?? string.Empty;
         }
 
         return new EffectiveSmsGatewayConfig(
@@ -214,8 +214,7 @@ public sealed class SmsGatewayAdminService(
             .FirstOrDefaultAsync(s => !s.IsDeleted && s.Key == "default", cancellationToken);
 
         var hasDbKey = !string.IsNullOrWhiteSpace(row?.EncryptedApiKey);
-        var hasConfigKey = !string.IsNullOrWhiteSpace(options.Value.Sms.ApiKey)
-                           || !string.IsNullOrWhiteSpace(options.Value.Sms.NotifyLk.ApiKey);
+        var hasConfigKey = !string.IsNullOrWhiteSpace(options.Value.Sms.ApiKey);
         var apiKeySource = hasDbKey ? "Database" : hasConfigKey ? "Config" : "None";
 
         var errors = await db.SmsGatewayErrorLogs

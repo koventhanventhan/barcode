@@ -48,13 +48,16 @@ builder.Services.AddHealthChecks();
 builder.Services.AddResponseCaching();
 builder.Services.AddInfrastructure(builder.Configuration);
 
-var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
-var signingKeyBytes = Encoding.UTF8.GetBytes(jwtOptions.SigningKey);
-
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+    .AddJwtBearer();
+
+builder.Services
+    .AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+    .Configure<IOptions<JwtOptions>>((options, jwtAccessor) =>
     {
+        var jwtOptions = jwtAccessor.Value;
+        var signingKeyBytes = Encoding.UTF8.GetBytes(jwtOptions.SigningKey);
         options.MapInboundClaims = false;
         options.TokenValidationParameters = new TokenValidationParameters
         {
@@ -195,7 +198,9 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+StartupSecurityValidator.ValidateStartupConfiguration(app.Configuration, app.Environment);
 await InitializeDatabaseAsync(app.Services);
+await LogSmsStartupSummaryAsync(app.Services, app.Logger);
 
 app.UseExceptionHandler();
 app.UseMiddleware<SecurityHeadersMiddleware>();
@@ -369,6 +374,30 @@ static async Task InitializeDatabaseAsync(IServiceProvider services)
 
     var seeder = scope.ServiceProvider.GetRequiredService<DbSeeder>();
     await seeder.SeedAsync();
+}
+
+static async Task LogSmsStartupSummaryAsync(IServiceProvider services, Microsoft.Extensions.Logging.ILogger logger)
+{
+    var metadata = services.GetService<SmsConfigurationMetadata>();
+    if (metadata is not null && metadata.DeprecatedKeysDetected.Count > 0)
+    {
+        logger.LogWarning(
+            "Deprecated SMS configuration keys detected ({Keys}). Migrate to Sms:* as the single source of truth.",
+            string.Join(", ", metadata.DeprecatedKeysDetected));
+    }
+
+    using var scope = services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var hasProvider = !string.IsNullOrWhiteSpace(db.Database.ProviderName);
+    if (hasProvider)
+    {
+        var configProvider = scope.ServiceProvider.GetRequiredService<EduFlow.Application.Notifications.ISmsGatewayConfigProvider>();
+        var effective = await configProvider.GetEffectiveConfigAsync();
+        logger.LogInformation(
+            "SMS gateway startup configuration: Provider={Provider}, TestMode={TestMode}",
+            effective.Provider,
+            effective.TestMode);
+    }
 }
 
 static void LoadEnvFile()

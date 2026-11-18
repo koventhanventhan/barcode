@@ -6,8 +6,10 @@ using EduFlow.Domain;
 using EduFlow.Domain.Constants;
 using EduFlow.Domain.Entities;
 using EduFlow.Domain.Enums;
+using EduFlow.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 
 namespace EduFlow.Infrastructure.Persistence;
 
@@ -15,7 +17,8 @@ public sealed class DbSeeder(
     AppDbContext db,
     ITenantContext tenantContext,
     IPaymentGateway paymentGateway,
-    IConfiguration configuration)
+    IConfiguration configuration,
+    IHostEnvironment hostEnvironment)
 {
     public async Task SeedAsync(CancellationToken cancellationToken = default)
     {
@@ -25,16 +28,31 @@ public sealed class DbSeeder(
             await SeedPlansAsync(cancellationToken);
             await SeedEducationLevelsAsync(cancellationToken);
             await SeedSuperAdminAsync(cancellationToken);
-            await SeedDemoTenantAsync(cancellationToken);
+
+            var seedDemo = StartupSecurityValidator.ShouldSeedDemoData(configuration, hostEnvironment);
+            if (seedDemo)
+            {
+                await SeedDemoTenantAsync(cancellationToken);
+            }
+
             await EnsureEducationLevelSelectionsAsync(cancellationToken);
-            await EnsureDemoAcademicsAsync(cancellationToken);
+            if (seedDemo)
+            {
+                await EnsureDemoAcademicsAsync(cancellationToken);
+            }
+
             await EnsureDefaultRolePermissionsAsync(cancellationToken);
             await EnsureEnterpriseRemoveBrandingAsync(cancellationToken);
             await EnsureParentPortalSubFeaturesAsync(cancellationToken);
             await EnsurePlatformBrandingAsync(cancellationToken);
-            await EnsureDemoNotificationsAsync(cancellationToken);
-            await EnsureDemoFeesAsync(cancellationToken);
-            await EnsureDemoHistoryAsync(cancellationToken);
+
+            if (seedDemo)
+            {
+                await EnsureDemoNotificationsAsync(cancellationToken);
+                await EnsureDemoFeesAsync(cancellationToken);
+                await EnsureDemoHistoryAsync(cancellationToken);
+            }
+
             await EnsureStoredFileBackfillAsync(cancellationToken);
         }
     }
@@ -203,18 +221,10 @@ public sealed class DbSeeder(
 
     private async Task SeedSuperAdminAsync(CancellationToken cancellationToken)
     {
-        var email = configuration["Seed:SuperAdmin:Email"]
-            ?? Environment.GetEnvironmentVariable("SUPERADMIN_EMAIL")
-            ?? "superadmin@eduflow.lk";
+        var (normalizedEmail, password, fullName) = StartupSecurityValidator.ResolveAndValidateSuperAdminCredentials(
+            configuration,
+            hostEnvironment);
 
-        var password = configuration["Seed:SuperAdmin:Password"]
-            ?? Environment.GetEnvironmentVariable("SUPERADMIN_PASSWORD")
-            ?? "SuperAdmin@123!";
-
-        var fullName = configuration["Seed:SuperAdmin:FullName"]
-            ?? "EduFlow Super Admin";
-
-        var normalizedEmail = email.Trim().ToLowerInvariant();
         var exists = await db.Users
             .IgnoreQueryFilters()
             .AnyAsync(u => !u.IsDeleted && u.RoleType == RoleType.SuperAdmin && u.Email.ToLower() == normalizedEmail, cancellationToken);

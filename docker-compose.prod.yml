@@ -35,9 +35,11 @@ services:
       ConnectionStrings__Default: ${ConnectionStrings__Default:-Server=sqlserver,1433;Database=EduFlow;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;Encrypt=True}
       Cors__Origins__0: https://${DOMAIN:-eduflow.lk}
       App__PublicWebUrl: https://${DOMAIN:-eduflow.lk}
+      AllowedHosts: ${AllowedHosts:-${DOMAIN:-eduflow.lk};*.${DOMAIN:-eduflow.lk}}
       Jwt__SigningKey: ${Jwt__SigningKey:?Jwt__SigningKey is required}
       SUPERADMIN_EMAIL: ${SUPERADMIN_EMAIL:?SUPERADMIN_EMAIL is required}
       SUPERADMIN_PASSWORD: ${SUPERADMIN_PASSWORD:?SUPERADMIN_PASSWORD is required}
+      Demo__Enabled: ${Demo__Enabled:-false}
       Hangfire__Storage: SqlServer
       Hangfire__EnableRecurringJobs: "true"
       FileStorage__Root: /app/storage
@@ -47,12 +49,8 @@ services:
       Sms__SenderId: ${Sms__SenderId:-EduFlow}
       Sms__PromotionalSenderId: ${Sms__PromotionalSenderId:-}
       Sms__BaseUrl: ${Sms__BaseUrl:-https://app.notify.lk/api/v1}
-      Sms__TestMode: ${Sms__TestMode:-false}
+      Sms__TestMode: ${Sms__TestMode:-true}
       Sms__TestAllowList: ${Sms__TestAllowList:-}
-      Notifications__Sms__Provider: ${Notifications__Sms__Provider:-NotifyLk}
-      Notifications__Sms__NotifyLk__UserId: ${Notifications__Sms__NotifyLk__UserId:-}
-      Notifications__Sms__NotifyLk__ApiKey: ${Notifications__Sms__NotifyLk__ApiKey:-}
-      Notifications__Sms__NotifyLk__SenderId: ${Notifications__Sms__NotifyLk__SenderId:-EduFlow}
       Notifications__Email__Provider: ${Notifications__Email__Provider:-Smtp}
       Notifications__Email__FromEmail: ${Notifications__Email__FromEmail:-noreply@eduflow.lk}
       Notifications__Email__Smtp__Host: ${Notifications__Email__Smtp__Host:-}

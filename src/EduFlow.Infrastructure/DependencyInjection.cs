@@ -45,9 +45,9 @@ public static class DependencyInjection
         services.AddMemoryCache();
         services.AddDataProtection();
 
-        var jwtSection = configuration.GetSection(JwtOptions.SectionName);
-        services.Configure<JwtOptions>(opts =>
+        services.AddOptions<JwtOptions>().Configure<IConfiguration>((opts, cfg) =>
         {
+            var jwtSection = cfg.GetSection(JwtOptions.SectionName);
             opts.Issuer = jwtSection["Issuer"] ?? opts.Issuer;
             opts.Audience = jwtSection["Audience"] ?? opts.Audience;
             opts.SigningKey = jwtSection["SigningKey"] ?? opts.SigningKey;
@@ -57,34 +57,12 @@ public static class DependencyInjection
             }
         });
 
-        var smsSection = configuration.GetSection("Sms");
-        var notificationSection = configuration.GetSection(NotificationOptions.SectionName);
-        services.Configure<NotificationOptions>(opts =>
+        services.AddSingleton(sp =>
+            new SmsConfigurationMetadata(SmsConfigurationLoader.DetectDeprecatedKeys(sp.GetRequiredService<IConfiguration>())));
+        services.AddOptions<NotificationOptions>().Configure<IConfiguration>((opts, cfg) =>
         {
-            opts.Sms.Provider = smsSection["Provider"] ?? notificationSection["Sms:Provider"] ?? opts.Sms.Provider;
-            opts.Sms.UserId = smsSection["UserId"] ?? notificationSection["Sms:UserId"] ?? notificationSection["Sms:NotifyLk:UserId"] ?? opts.Sms.UserId;
-            opts.Sms.ApiKey = smsSection["ApiKey"] ?? notificationSection["Sms:ApiKey"] ?? notificationSection["Sms:NotifyLk:ApiKey"] ?? opts.Sms.ApiKey;
-            opts.Sms.SenderId = smsSection["SenderId"] ?? notificationSection["Sms:SenderId"] ?? notificationSection["Sms:NotifyLk:SenderId"] ?? opts.Sms.SenderId;
-            opts.Sms.PromotionalSenderId = smsSection["PromotionalSenderId"] ?? notificationSection["Sms:PromotionalSenderId"] ?? opts.Sms.PromotionalSenderId;
-            opts.Sms.BaseUrl = smsSection["BaseUrl"] ?? notificationSection["Sms:BaseUrl"] ?? opts.Sms.BaseUrl;
-            opts.Sms.TestAllowList = smsSection["TestAllowList"] ?? notificationSection["Sms:TestAllowList"] ?? opts.Sms.TestAllowList;
-
-            var testModeRaw = smsSection["TestMode"] ?? notificationSection["Sms:TestMode"];
-            if (bool.TryParse(testModeRaw, out var parsedTestMode))
-            {
-                opts.Sms.TestMode = parsedTestMode;
-            }
-
-            var lowBalRaw = smsSection["LowBalanceThreshold"] ?? notificationSection["Sms:LowBalanceThreshold"];
-            if (decimal.TryParse(lowBalRaw, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var parsedLowBal))
-            {
-                opts.Sms.LowBalanceThreshold = parsedLowBal;
-            }
-
-            opts.Sms.NotifyLk.Endpoint = notificationSection["Sms:NotifyLk:Endpoint"] ?? opts.Sms.NotifyLk.Endpoint;
-            opts.Sms.NotifyLk.UserId = notificationSection["Sms:NotifyLk:UserId"] ?? opts.Sms.NotifyLk.UserId;
-            opts.Sms.NotifyLk.ApiKey = notificationSection["Sms:NotifyLk:ApiKey"] ?? opts.Sms.NotifyLk.ApiKey;
-            opts.Sms.NotifyLk.SenderId = notificationSection["Sms:NotifyLk:SenderId"] ?? opts.Sms.NotifyLk.SenderId;
+            var notificationSection = cfg.GetSection(NotificationOptions.SectionName);
+            SmsConfigurationLoader.ApplyTo(opts.Sms, cfg);
 
             opts.Email.Provider = notificationSection["Email:Provider"] ?? opts.Email.Provider;
             opts.Email.FromEmail = notificationSection["Email:FromEmail"] ?? opts.Email.FromEmail;
@@ -166,13 +144,15 @@ public static class DependencyInjection
         services.AddScoped<ISmsGatewayAdminService, SmsGatewayAdminService>();
         services.AddScoped<LowBalanceAlertHangfireJob>();
 
-        var whatsAppProviderName = notificationSection["WhatsApp:Provider"] ?? "Fake";
         services.AddScoped<FakeWhatsAppProvider>();
         services.AddScoped<MetaCloudWhatsAppProvider>();
         services.AddScoped<IWhatsAppProvider>(sp =>
-            string.Equals(whatsAppProviderName, "CloudApi", StringComparison.OrdinalIgnoreCase)
+        {
+            var whatsAppProviderName = sp.GetRequiredService<IConfiguration>()["Notifications:WhatsApp:Provider"] ?? "Fake";
+            return string.Equals(whatsAppProviderName, "CloudApi", StringComparison.OrdinalIgnoreCase)
                 ? sp.GetRequiredService<MetaCloudWhatsAppProvider>()
-                : sp.GetRequiredService<FakeWhatsAppProvider>());
+                : sp.GetRequiredService<FakeWhatsAppProvider>();
+        });
 
         services.AddScoped<InMemoryEmailSender>();
         services.AddScoped<ConfigurableEmailSender>();
