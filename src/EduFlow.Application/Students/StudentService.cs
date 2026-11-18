@@ -1,6 +1,7 @@
 using EduFlow.Application.Academics;
 using EduFlow.Application.Common.Interfaces;
 using EduFlow.Application.Common.Security;
+using EduFlow.Application.Storage;
 using EduFlow.Domain.Entities;
 using EduFlow.Domain.Enums;
 using EduFlow.Domain.Exceptions;
@@ -34,6 +35,7 @@ public sealed class StudentService(
     IBarcodeEncoder barcodes,
     IWorkbookFile workbook,
     IFileStorage files,
+    IStoredFileRegistry storedFiles,
     IAntivirusScanner? antivirusScanner = null) : IStudentService
 {
     private const int MaxImportRows = 2000;
@@ -116,6 +118,14 @@ public sealed class StudentService(
             db.StudentEnrollments.Remove(enrollment);
         }
 
+        var photos = await db.StoredFileRecords
+            .Where(file => file.OwnerId == id && file.Category == StoredFileCategory.StudentPhoto)
+            .ToListAsync(cancellationToken);
+        foreach (var photo in photos)
+        {
+            db.StoredFileRecords.Remove(photo);
+        }
+
         db.Students.Remove(student);
         await auditService.LogAsync("Student.Deleted", nameof(Student), student.Id.ToString(), new { student.StudentCode }, cancellationToken: cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
@@ -139,18 +149,7 @@ public sealed class StudentService(
         var student = await db.Students.FirstOrDefaultAsync(item => item.Id == id, cancellationToken)
             ?? throw new EntityNotFoundException(nameof(Student), id.ToString());
 
-        var check = await limitService.CheckAsync(tenantId, LimitKey.CloudStorageGb, increment: 0, cancellationToken: cancellationToken);
-        if (check.MaxAllowed is int gigabytes)
-        {
-            var used = await db.Students.IgnoreQueryFilters()
-                .Where(item => !item.IsDeleted && item.TenantId == tenantId)
-                .SumAsync(item => (long?)item.PhotoBytes, cancellationToken) ?? 0;
-            var maxBytes = gigabytes * 1024L * 1024L * 1024L;
-            if (used - student.PhotoBytes + length > maxBytes)
-            {
-                throw new PlanLimitReachedException(LimitKey.CloudStorageGb, gigabytes);
-            }
-        }
+        await limitService.EnsureStorageAllowsAsync(tenantId, length, student.PhotoBytes, cancellationToken);
 
         await using var buffer = new MemoryStream();
         await content.CopyToAsync(buffer, cancellationToken);
@@ -168,6 +167,16 @@ public sealed class StudentService(
         var stored = await files.SaveAsync($"students/{tenantId:N}", $"{Guid.NewGuid():N}{extension}", buffer, cancellationToken);
         student.PhotoUrl = stored.Url;
         student.PhotoBytes = stored.SizeBytes;
+        await storedFiles.ReplaceAsync(
+            tenantId,
+            StoredFileCategory.StudentPhoto,
+            student.Id,
+            "photo",
+            stored.Url,
+            fileName,
+            contentType,
+            stored.SizeBytes,
+            cancellationToken);
         await auditService.LogAsync("Student.PhotoUploaded", nameof(Student), student.Id.ToString(), new { student.StudentCode, stored.SizeBytes }, cancellationToken: cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         return await MapStudentAsync(student, cancellationToken);

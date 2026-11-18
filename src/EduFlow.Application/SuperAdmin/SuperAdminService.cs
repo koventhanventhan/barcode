@@ -51,6 +51,10 @@ public interface ISuperAdminService
     Task DeleteAnnouncementAsync(Guid id, CancellationToken cancellationToken = default);
     Task<MaintenanceModeDto> GetMaintenanceModeAsync(CancellationToken cancellationToken = default);
     Task<MaintenanceModeDto> UpdateMaintenanceModeAsync(UpdateMaintenanceModeRequest request, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<TenantAddOnDto>> GetAddOnsAsync(Guid tenantId, CancellationToken cancellationToken = default);
+    Task<TenantAddOnDto> GrantAddOnAsync(Guid tenantId, GrantTenantAddOnRequest request, CancellationToken cancellationToken = default);
+    Task RevokeAddOnAsync(Guid tenantId, Guid addOnId, CancellationToken cancellationToken = default);
 }
 
 public sealed partial class SuperAdminService(

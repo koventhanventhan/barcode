@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using EduFlow.Application.Common.Interfaces;
 using EduFlow.Application.Common.Security;
+using EduFlow.Application.Storage;
 using EduFlow.Domain;
 using EduFlow.Domain.Entities;
 using EduFlow.Domain.Enums;
@@ -16,6 +17,8 @@ public sealed partial class BrandingService(
     IFeatureService featureService,
     IAuditService auditService,
     IFileStorage fileStorage,
+    ILimitService limitService,
+    IStoredFileRegistry storedFiles,
     IAntivirusScanner? antivirusScanner = null,
     IMemoryCache? cache = null) : IBrandingService
 {
@@ -176,9 +179,19 @@ public sealed partial class BrandingService(
         buffer.Position = 0;
         var tenantId = RequireTenant(platform);
         var folder = tenantId == Guid.Empty ? "branding/platform" : $"branding/{tenantId:N}";
-        var stored = await fileStorage.SaveAsync(folder, $"{normalizedKind}-{Guid.NewGuid():N}{extension}", buffer, cancellationToken);
-
         var profile = await LoadOrCreateTrackedAsync(tenantId, cancellationToken);
+        if (tenantId != Guid.Empty)
+        {
+            var replacing = await storedFiles.CurrentSizeAsync(
+                tenantId,
+                StoredFileCategory.Branding,
+                profile.Id,
+                normalizedKind,
+                cancellationToken);
+            await limitService.EnsureStorageAllowsAsync(tenantId, total, replacing, cancellationToken);
+        }
+
+        var stored = await fileStorage.SaveAsync(folder, $"{normalizedKind}-{Guid.NewGuid():N}{extension}", buffer, cancellationToken);
         switch (normalizedKind)
         {
             case "logo":
@@ -196,6 +209,20 @@ public sealed partial class BrandingService(
         {
             var tenant = await LoadTenantAsync(tenantId, cancellationToken);
             tenant.LogoUrl = stored.Url;
+        }
+
+        if (tenantId != Guid.Empty)
+        {
+            await storedFiles.ReplaceAsync(
+                tenantId,
+                StoredFileCategory.Branding,
+                profile.Id,
+                normalizedKind,
+                stored.Url,
+                fileName,
+                contentType,
+                stored.SizeBytes,
+                cancellationToken);
         }
 
         await auditService.LogAsync(

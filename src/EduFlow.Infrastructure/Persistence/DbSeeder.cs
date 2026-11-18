@@ -35,6 +35,7 @@ public sealed class DbSeeder(
             await EnsureDemoNotificationsAsync(cancellationToken);
             await EnsureDemoFeesAsync(cancellationToken);
             await EnsureDemoHistoryAsync(cancellationToken);
+            await EnsureStoredFileBackfillAsync(cancellationToken);
         }
     }
 
@@ -1261,5 +1262,72 @@ public sealed class DbSeeder(
                 .Select(kv => new PlanLimit { LimitKey = kv.Key, MaxValue = kv.Value })
                 .ToList()
         };
+    }
+
+    private async Task EnsureStoredFileBackfillAsync(CancellationToken cancellationToken)
+    {
+        var existing = await db.StoredFileRecords
+            .IgnoreQueryFilters()
+            .Where(file => !file.IsDeleted)
+            .Select(file => new { file.Category, file.OwnerId })
+            .ToListAsync(cancellationToken);
+        var photos = existing
+            .Where(file => file.Category == StoredFileCategory.StudentPhoto && file.OwnerId.HasValue)
+            .Select(file => file.OwnerId!.Value)
+            .ToHashSet();
+        var slips = existing
+            .Where(file => file.Category == StoredFileCategory.PaymentAttachment && file.OwnerId.HasValue)
+            .Select(file => file.OwnerId!.Value)
+            .ToHashSet();
+
+        var students = await db.Students
+            .IgnoreQueryFilters()
+            .Where(student => !student.IsDeleted && student.PhotoBytes > 0)
+            .Select(student => new { student.Id, student.TenantId, student.PhotoUrl, student.PhotoBytes })
+            .ToListAsync(cancellationToken);
+        foreach (var student in students)
+        {
+            if (photos.Contains(student.Id))
+            {
+                continue;
+            }
+
+            db.StoredFileRecords.Add(new StoredFileRecord
+            {
+                TenantId = student.TenantId,
+                Category = StoredFileCategory.StudentPhoto,
+                OwnerId = student.Id,
+                Slot = "photo",
+                StorageKey = string.IsNullOrWhiteSpace(student.PhotoUrl) ? $"legacy/students/{student.Id:N}" : student.PhotoUrl!,
+                FileName = "photo",
+                SizeBytes = student.PhotoBytes
+            });
+        }
+
+        var payments = await db.FeePayments
+            .IgnoreQueryFilters()
+            .Where(payment => !payment.IsDeleted && payment.AttachmentBytes > 0)
+            .Select(payment => new { payment.Id, payment.TenantId, payment.AttachmentUrl, payment.AttachmentBytes })
+            .ToListAsync(cancellationToken);
+        foreach (var payment in payments)
+        {
+            if (slips.Contains(payment.Id))
+            {
+                continue;
+            }
+
+            db.StoredFileRecords.Add(new StoredFileRecord
+            {
+                TenantId = payment.TenantId,
+                Category = StoredFileCategory.PaymentAttachment,
+                OwnerId = payment.Id,
+                Slot = "attachment",
+                StorageKey = string.IsNullOrWhiteSpace(payment.AttachmentUrl) ? $"legacy/payments/{payment.Id:N}" : payment.AttachmentUrl!,
+                FileName = "attachment",
+                SizeBytes = payment.AttachmentBytes
+            });
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
     }
 }

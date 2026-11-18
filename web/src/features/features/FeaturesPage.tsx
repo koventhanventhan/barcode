@@ -32,6 +32,7 @@ import type {
   TestSendNotificationResult,
 } from "@/lib/types";
 import { SmsQuotaCard } from "./SmsQuotaCard";
+import { StorageUsageCard } from "./StorageUsageCard";
 
 export function FeaturesPage() {
   const { t } = useTranslation();
@@ -328,6 +329,7 @@ export function FeaturesPage() {
       {workspace?.quota ? (
         <SmsQuotaCard quota={workspace.quota} showLogLink />
       ) : null}
+      <StorageUsageCard />
 
       <FeatureGroup
         title={t("features.modules")}

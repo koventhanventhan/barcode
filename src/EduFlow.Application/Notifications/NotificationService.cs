@@ -14,6 +14,7 @@ public sealed class NotificationService(
     IFeatureService featureService,
     IAuditService auditService,
     ISmsSegmentCalculator segmentCalculator,
+    ILimitService limitService,
     ISmsProvider smsProvider,
     IEmailSender emailSender,
     IWhatsAppProvider whatsAppProvider) : INotificationService, INotificationDispatcher
@@ -451,8 +452,12 @@ public sealed class NotificationService(
                 cancellationToken);
 
         var defaultTemplate = NotificationCatalog.GetDefaultTemplate(request.MessageType, language);
-        var rawSubject = customTemplate?.Subject ?? defaultTemplate.Subject;
-        var rawBody = customTemplate?.Body ?? defaultTemplate.Body;
+        var rawSubject = !string.IsNullOrWhiteSpace(request.SubjectOverride)
+            ? request.SubjectOverride.Trim()
+            : customTemplate?.Subject ?? defaultTemplate.Subject;
+        var rawBody = !string.IsNullOrWhiteSpace(request.BodyOverride)
+            ? request.BodyOverride.Trim()
+            : customTemplate?.Body ?? defaultTemplate.Body;
 
         var mergedVariables = new Dictionary<string, string>(NotificationCatalog.SampleVariables, StringComparer.OrdinalIgnoreCase)
         {
@@ -1131,26 +1136,12 @@ public sealed class NotificationService(
 
     private async Task<int?> GetMonthlySmsQuotaLimitAsync(Guid tenantId, CancellationToken cancellationToken)
     {
-        var subscription = await db.Subscriptions
-            .IgnoreQueryFilters()
-            .AsNoTracking()
-            .Where(s => !s.IsDeleted && s.TenantId == tenantId)
-            .OrderByDescending(s => s.CreatedAt)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (subscription is null)
-        {
-            return null;
-        }
-
-        var planLimit = await db.PlanLimits
-            .IgnoreQueryFilters()
-            .AsNoTracking()
-            .FirstOrDefaultAsync(
-                pl => !pl.IsDeleted && pl.PlanId == subscription.PlanId && pl.LimitKey == LimitKey.SmsSegmentsPerMonth,
-                cancellationToken);
-
-        return planLimit?.MaxValue;
+        var check = await limitService.CheckAsync(
+            tenantId,
+            LimitKey.SmsSegmentsPerMonth,
+            increment: 0,
+            cancellationToken: cancellationToken);
+        return check.MaxAllowed;
     }
 
     private async Task<(int UsedSegments, int ExtraSegments)> GetMonthlySmsUsageCountersAsync(

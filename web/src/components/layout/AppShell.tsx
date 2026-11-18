@@ -16,6 +16,7 @@ import {
   LogOut,
   Menu,
   MessageSquare,
+  Megaphone,
   Moon,
   Palette,
   PanelLeft,
@@ -74,6 +75,7 @@ export function AppShell() {
   const canAttendance = auth.hasPermission("attendance.mark");
   const canFees = auth.hasPermission("fees.view") || auth.hasPermission("fees.collect");
   const canExams = auth.hasPermission("exams.manage");
+  const canBroadcast = auth.hasPermission("broadcasts.send");
   const platform = user?.role === "SuperAdmin" && !auth.isImpersonating;
   const inInstitute = institute || auth.isImpersonating;
 
@@ -92,6 +94,7 @@ export function AppShell() {
       { to: "/app/attendance", label: t("nav.attendance"), icon: ScanLine, show: inInstitute && canAttendance, group: "academic" },
       { to: "/app/fees", label: t("nav.fees"), icon: CreditCard, show: inInstitute && canFees, group: "academic" },
       { to: "/app/exams", label: t("nav.exams"), icon: ClipboardCheck, show: inInstitute && canExams, group: "academic" },
+      { to: "/app/broadcasts", label: t("nav.broadcast"), icon: Megaphone, show: inInstitute && canBroadcast, group: "academic" },
       { to: "/app/settings/features", label: t("nav.features"), icon: SlidersHorizontal, show: inInstitute && canSettings, group: "settings" },
       { to: "/app/settings/messages", label: t("nav.messageLog"), icon: MessageSquare, show: inInstitute && canSettings, group: "settings" },
       { to: "/app/settings/backups", label: t("nav.backups"), icon: Archive, show: inInstitute && canSettings, group: "settings" },
@@ -102,7 +105,7 @@ export function AppShell() {
       { to: "/admin/plans", label: t("nav.plans"), icon: CreditCard, show: platform, group: "platform" },
       { to: "/admin/branding", label: t("nav.platformBranding"), icon: Palette, show: platform, group: "platform" },
     ].filter((item) => item.show);
-  }, [canAcademics, canAttendance, canExams, canFees, canSettings, canStaff, canStudents, inInstitute, platform, t, user]);
+  }, [canAcademics, canAttendance, canBroadcast, canExams, canFees, canSettings, canStaff, canStudents, inInstitute, platform, t, user]);
 
   const matches = items.filter((item) => item.label.toLowerCase().includes(query.trim().toLowerCase()));
   const name = branding.branding?.instituteDisplayName || ProductName;

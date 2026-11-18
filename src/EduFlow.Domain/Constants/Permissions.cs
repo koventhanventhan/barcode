@@ -10,6 +10,7 @@ public static class Permissions
     public const string ExamsManage = "exams.manage";
     public const string ReportsView = "reports.view";
     public const string SettingsManage = "settings.manage";
+    public const string BroadcastsSend = "broadcasts.send";
     public const string UsersView = "users.view";
     public const string UsersManage = "users.manage";
     public const string RolesView = "roles.view";
@@ -29,6 +30,7 @@ public static class Permissions
         new(ExamsManage, "Manage Exams", "Exams", "Create exams, enter marks, and publish results"),
         new(ReportsView, "View Reports", "Reports", "Access performance and operational reports"),
         new(SettingsManage, "Manage Settings", "Settings", "Configure institute settings, branding, and feature switches"),
+        new(BroadcastsSend, "Send broadcasts", "Messages", "Send SMS, email, or WhatsApp broadcasts to parents"),
         new(UsersView, "View Users", "Users", "View staff and teacher accounts"),
         new(UsersManage, "Manage Users", "Users", "Invite, update, and deactivate staff and teacher accounts"),
         new(RolesView, "View Roles", "Roles", "View custom roles and permission assignments"),
@@ -48,7 +50,8 @@ public static class Permissions
         FeesView,
         FeesCollect,
         ReportsView,
-        BranchesView
+        BranchesView,
+        BroadcastsSend
     ];
 
     public static readonly IReadOnlyList<string> DefaultTeacherPermissions =

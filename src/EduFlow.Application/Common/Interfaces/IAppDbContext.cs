@@ -60,6 +60,10 @@ public interface IAppDbContext
     DbSet<StaffLeaveRequest> StaffLeaveRequests { get; }
     DbSet<DemoRequest> DemoRequests { get; }
     DbSet<TenantOnboarding> TenantOnboardings { get; }
+    DbSet<TenantAddOn> TenantAddOns { get; }
+    DbSet<StoredFileRecord> StoredFileRecords { get; }
+    DbSet<BroadcastCampaign> BroadcastCampaigns { get; }
+    DbSet<BroadcastRecipient> BroadcastRecipients { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     Task<int> SaveChangesHardDeleteAsync(CancellationToken cancellationToken = default);

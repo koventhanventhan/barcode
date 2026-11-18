@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FEATURE_KEYS } from "@/domain/catalog";
 import { useAuth } from "@/features/auth/AuthProvider";
+import { AddOnsPanel } from "@/features/super-admin/AddOnsPanel";
 import { formatMoney, type PlatformSubscriptionInvoiceDto } from "@/features/fees/api";
 import {
   formatBytes,
@@ -345,6 +346,7 @@ export function TenantDetailPage() {
           </div>
         ) : null}
       </section>
+      <AddOnsPanel tenantId={id} planCode={detail.subscription?.planCode ?? ""} />
       <section className="mt-4 rounded-lg border border-border bg-card">
         <h2 className="border-b border-border px-4 py-3 text-sm font-semibold">{t("tenants.overrides")}</h2>
         <ul>

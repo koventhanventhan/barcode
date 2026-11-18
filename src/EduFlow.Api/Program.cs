@@ -243,6 +243,7 @@ app.MapTenantEndpoints();
 app.MapBrandingEndpoints();
 app.MapAcademicEndpoints();
 app.MapNotificationEndpoints();
+app.MapBroadcastEndpoints();
 app.MapAttendanceEndpoints();
 app.MapFeeEndpoints();
 app.MapExamEndpoints();

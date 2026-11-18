@@ -47,6 +47,7 @@ const ImportStudentsPage = lazy(() => import("@/features/students/ImportStudents
 const StudentFormPage = lazy(() => import("@/features/students/StudentFormPage").then((m) => ({ default: m.StudentFormPage })));
 const StudentsPage = lazy(() => import("@/features/students/StudentsPage").then((m) => ({ default: m.StudentsPage })));
 const FeaturesPage = lazy(() => import("@/features/features/FeaturesPage").then((m) => ({ default: m.FeaturesPage })));
+const BroadcastPage = lazy(() => import("@/features/broadcast/BroadcastPage").then((m) => ({ default: m.BroadcastPage })));
 const MessageLogPage = lazy(() => import("@/features/features/MessageLogPage").then((m) => ({ default: m.MessageLogPage })));
 const BrandingPage = lazy(() => import("@/features/branding/BrandingPage").then((m) => ({ default: m.BrandingPage })));
 const ParentsAdminPage = lazy(() => import("@/features/parent/ParentsAdminPage").then((m) => ({ default: m.ParentsAdminPage })));
@@ -125,6 +126,7 @@ export default function App() {
                         <Route path="/app/attendance/reports" element={<RequireRole roles={INSTITUTE_ROLES}><ReportsPage /></RequireRole>} />
                         <Route path="/app/fees" element={<RequireRole roles={INSTITUTE_ROLES}><FeesPage /></RequireRole>} />
                         <Route path="/app/exams" element={<RequireRole roles={INSTITUTE_ROLES}><ExamsPage /></RequireRole>} />
+                        <Route path="/app/broadcasts" element={<RequireRole roles={INSTITUTE_ROLES}><BroadcastPage /></RequireRole>} />
                         <Route path="/app/fees/pay/:orderId" element={<RequireRole roles={INSTITUTE_ROLES}><PaymentStatusPage /></RequireRole>} />
                         <Route path="/app/settings/features" element={<RequireRole roles={INSTITUTE_ROLES}><FeaturesPage /></RequireRole>} />
                         <Route path="/app/settings/messages" element={<RequireRole roles={INSTITUTE_ROLES}><MessageLogPage /></RequireRole>} />

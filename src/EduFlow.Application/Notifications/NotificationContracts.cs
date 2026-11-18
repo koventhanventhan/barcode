@@ -109,7 +109,9 @@ public sealed record EnqueueNotificationRequest(
     string? IdempotencyKey = null,
     IReadOnlyDictionary<string, string>? Variables = null,
     IReadOnlyList<NotificationChannel>? ChannelsOverride = null,
-    DateTimeOffset? ScheduledAtUtc = null);
+    DateTimeOffset? ScheduledAtUtc = null,
+    string? SubjectOverride = null,
+    string? BodyOverride = null);
 
 public sealed record EnqueueNotificationResultDto(
     int EnqueuedCount,

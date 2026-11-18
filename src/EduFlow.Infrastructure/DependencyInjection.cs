@@ -3,6 +3,7 @@ using EduFlow.Application.Attendance;
 using EduFlow.Application.Auth;
 using EduFlow.Application.Backups;
 using EduFlow.Application.Branding;
+using EduFlow.Application.Broadcasts;
 using EduFlow.Application.Common.Interfaces;
 using EduFlow.Application.Features;
 using EduFlow.Application.Fees;
@@ -12,6 +13,7 @@ using EduFlow.Application.Notifications;
 using EduFlow.Application.Staff;
 using EduFlow.Application.Parents;
 using EduFlow.Application.Students;
+using EduFlow.Application.Storage;
 using EduFlow.Application.SuperAdmin;
 using EduFlow.Application.Tenancy;
 using EduFlow.Infrastructure.Backups;
@@ -161,6 +163,8 @@ public static class DependencyInjection
 
         services.AddScoped<IFeatureService, FeatureService>();
         services.AddScoped<ILimitService, LimitService>();
+        services.AddScoped<IStoredFileRegistry, StoredFileRegistry>();
+        services.AddScoped<IBroadcastService, BroadcastService>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<ISuperAdminService, SuperAdminService>();
         services.AddScoped<ITenantManagementService, TenantManagementService>();

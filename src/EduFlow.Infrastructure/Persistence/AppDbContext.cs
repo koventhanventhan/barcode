@@ -76,6 +76,10 @@ public sealed class AppDbContext(
     public DbSet<StaffLeaveRequest> StaffLeaveRequests => Set<StaffLeaveRequest>();
     public DbSet<DemoRequest> DemoRequests => Set<DemoRequest>();
     public DbSet<TenantOnboarding> TenantOnboardings => Set<TenantOnboarding>();
+    public DbSet<TenantAddOn> TenantAddOns => Set<TenantAddOn>();
+    public DbSet<StoredFileRecord> StoredFileRecords => Set<StoredFileRecord>();
+    public DbSet<BroadcastCampaign> BroadcastCampaigns => Set<BroadcastCampaign>();
+    public DbSet<BroadcastRecipient> BroadcastRecipients => Set<BroadcastRecipient>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -825,6 +829,42 @@ public sealed class AppDbContext(
         modelBuilder.Entity<TenantOnboarding>(b =>
         {
             b.HasIndex(x => x.TenantId).IsUnique();
+        });
+
+        modelBuilder.Entity<TenantAddOn>(b =>
+        {
+            b.Property(x => x.Note).HasMaxLength(300);
+            b.HasIndex(x => new { x.TenantId, x.Type, x.ValidFrom });
+        });
+
+        modelBuilder.Entity<StoredFileRecord>(b =>
+        {
+            b.ToTable("StoredFiles");
+            b.Property(x => x.Slot).HasMaxLength(40).IsRequired();
+            b.Property(x => x.StorageKey).HasMaxLength(500).IsRequired();
+            b.Property(x => x.FileName).HasMaxLength(200).IsRequired();
+            b.Property(x => x.ContentType).HasMaxLength(120);
+            b.HasIndex(x => new { x.TenantId, x.Category, x.OwnerId, x.Slot });
+        });
+
+        modelBuilder.Entity<BroadcastCampaign>(b =>
+        {
+            b.Property(x => x.Title).HasMaxLength(80).IsRequired();
+            b.Property(x => x.Language).HasMaxLength(10).IsRequired();
+            b.Property(x => x.Subject).HasMaxLength(250).IsRequired();
+            b.Property(x => x.BodyTemplate).HasMaxLength(2000).IsRequired();
+            b.Property(x => x.Message).HasMaxLength(1000).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.CreatedAt });
+        });
+
+        modelBuilder.Entity<BroadcastRecipient>(b =>
+        {
+            b.Property(x => x.StudentName).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Recipient).HasMaxLength(256);
+            b.Property(x => x.StatusReason).HasMaxLength(200);
+            b.HasIndex(x => new { x.TenantId, x.CampaignId });
+            b.HasOne<BroadcastCampaign>().WithMany().HasForeignKey(x => x.CampaignId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<Student>().WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

@@ -14,6 +14,12 @@ public sealed record LimitUsageDto(
     int? MaxAllowed,
     bool IsUnlimited);
 
+public sealed record StorageUsageDto(
+    long UsedBytes,
+    long? QuotaBytes,
+    int? MaxGigabytes,
+    double UsagePercentage);
+
 public interface ILimitService
 {
     Task<LimitCheckResult> CheckAsync(
@@ -32,5 +38,13 @@ public interface ILimitService
 
     Task<IReadOnlyList<LimitUsageDto>> GetAllLimitsAsync(
         Guid tenantId,
+        CancellationToken cancellationToken = default);
+
+    Task<StorageUsageDto> GetStorageUsageAsync(Guid tenantId, CancellationToken cancellationToken = default);
+
+    Task EnsureStorageAllowsAsync(
+        Guid tenantId,
+        long additionalBytes,
+        long replacingBytes = 0,
         CancellationToken cancellationToken = default);
 }

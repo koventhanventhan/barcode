@@ -4,6 +4,7 @@ using EduFlow.Application.Academics;
 using EduFlow.Application.Common.Interfaces;
 using EduFlow.Application.Common.Security;
 using EduFlow.Application.Notifications;
+using EduFlow.Application.Storage;
 using EduFlow.Domain.Entities;
 using EduFlow.Domain.Enums;
 using EduFlow.Domain.Exceptions;
@@ -22,6 +23,7 @@ public sealed class FeeService(
     IFeeDocumentService feeDocuments,
     IWorkbookFile workbook,
     IFileStorage fileStorage,
+    IStoredFileRegistry storedFiles,
     IAuditService auditService,
     IAntivirusScanner? antivirusScanner = null) : IFeeService
 {
@@ -679,21 +681,7 @@ public sealed class FeeService(
         var payment = await db.FeePayments.FirstOrDefaultAsync(p => p.Id == paymentId, cancellationToken)
             ?? throw new EntityNotFoundException(nameof(FeePayment), paymentId.ToString());
 
-        var limitCheck = await limitService.CheckAsync(tenantId, LimitKey.CloudStorageGb, increment: 0, cancellationToken: cancellationToken);
-        if (limitCheck.MaxAllowed is int maxGb)
-        {
-            var studentBytes = await db.Students.IgnoreQueryFilters()
-                .Where(s => !s.IsDeleted && s.TenantId == tenantId)
-                .SumAsync(s => (long?)s.PhotoBytes, cancellationToken) ?? 0;
-            var paymentBytes = await db.FeePayments.IgnoreQueryFilters()
-                .Where(p => !p.IsDeleted && p.TenantId == tenantId)
-                .SumAsync(p => (long?)p.AttachmentBytes, cancellationToken) ?? 0;
-            var maxBytes = maxGb * 1024L * 1024L * 1024L;
-            if (studentBytes + paymentBytes - payment.AttachmentBytes + length > maxBytes)
-            {
-                throw new PlanLimitReachedException(LimitKey.CloudStorageGb, maxGb);
-            }
-        }
+        await limitService.EnsureStorageAllowsAsync(tenantId, length, payment.AttachmentBytes, cancellationToken);
 
         await using var buffer = new MemoryStream();
         await content.CopyToAsync(buffer, cancellationToken);
@@ -711,6 +699,16 @@ public sealed class FeeService(
         var stored = await fileStorage.SaveAsync($"payments/{tenantId:N}", $"{Guid.NewGuid():N}{extension}", buffer, cancellationToken);
         payment.AttachmentUrl = stored.Url;
         payment.AttachmentBytes = stored.SizeBytes;
+        await storedFiles.ReplaceAsync(
+            tenantId,
+            StoredFileCategory.PaymentAttachment,
+            payment.Id,
+            "attachment",
+            stored.Url,
+            fileName,
+            contentType,
+            stored.SizeBytes,
+            cancellationToken);
 
         await auditService.LogAsync(
             "FeePayment.AttachmentUploaded",

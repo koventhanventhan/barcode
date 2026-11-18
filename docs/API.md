@@ -121,4 +121,10 @@ Requires `SuperAdmin` role:
 - `GET /api/timetable`, `POST /api/timetable/check-clashes`, `POST/PUT/DELETE /api/timetable/slots` (`academics.view` / `academics.manage`, `[RequireFeature(FeatureKey.Timetable)]`) — Weekly timetable grid with Teacher, Batch, and Room clash detection
 - `GET/PUT /api/staff/attendance`, `GET/POST /api/staff/leaves`, `POST /api/staff/leaves/{id}/review` (`users.view` / `users.manage`, `[RequireFeature(FeatureKey.StaffLeave)]`) — Staff attendance sheet and leave request approval workflow
 
+## Broadcasts and storage
+- `POST /api/broadcasts/preview`, `POST /api/broadcasts` (`broadcasts.send`, `[RequireFeature(FeatureKey.BroadcastMessages)]`) — Audience preview and send. SMS, email, or WhatsApp when that channel is entitled and switched on.
+- `GET /api/broadcasts`, `GET /api/broadcasts/{id}` — Sent history and per-recipient status.
+- `GET /api/storage/usage` (`settings.manage`) — Bytes used against the plan quota, including active storage add-ons.
+- `GET/POST /api/super-admin/tenants/{id}/add-ons`, `DELETE /api/super-admin/tenants/{id}/add-ons/{addOnId}` — Grant extra storage, extra SMS, or extra students (Enterprise only).
+
 

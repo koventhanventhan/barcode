@@ -311,6 +311,33 @@ public static class SuperAdminEndpoints
             Results.Ok(await backupService.RestoreTenantBackupAsync(id, backupId, request, ct)))
             .WithName("SuperAdminRestoreTenantBackup");
 
+        group.MapGet("/tenants/{id:guid}/add-ons", async (
+            Guid id,
+            ISuperAdminService service,
+            CancellationToken ct) =>
+            Results.Ok(await service.GetAddOnsAsync(id, ct)))
+            .WithName("SuperAdminGetTenantAddOns");
+
+        group.MapPost("/tenants/{id:guid}/add-ons", async (
+            Guid id,
+            [FromBody] GrantTenantAddOnRequest request,
+            ISuperAdminService service,
+            CancellationToken ct) =>
+        {
+            var created = await service.GrantAddOnAsync(id, request, ct);
+            return Results.Created($"/api/super-admin/tenants/{id}/add-ons/{created.Id}", created);
+        }).WithName("SuperAdminGrantTenantAddOn");
+
+        group.MapDelete("/tenants/{id:guid}/add-ons/{addOnId:guid}", async (
+            Guid id,
+            Guid addOnId,
+            ISuperAdminService service,
+            CancellationToken ct) =>
+        {
+            await service.RevokeAddOnAsync(id, addOnId, ct);
+            return Results.NoContent();
+        }).WithName("SuperAdminRevokeTenantAddOn");
+
         return app;
     }
 }

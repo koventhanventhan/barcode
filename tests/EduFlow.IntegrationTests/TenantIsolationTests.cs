@@ -551,6 +551,51 @@ public sealed class TenantIsolationTests(ApiFactory factory) : IClassFixture<Api
                 TenantId = tenantId,
                 CardsPrintedAt = DateTimeOffset.UtcNow
             });
+            db.TenantAddOns.Add(new TenantAddOn
+            {
+                TenantId = tenantId,
+                Type = TenantAddOnType.ExtraSmsSegments,
+                Quantity = 10,
+                ValidFrom = DateTimeOffset.UtcNow.AddDays(-1),
+                Note = $"Add-on {suffix}"
+            });
+            db.StoredFileRecords.Add(new StoredFileRecord
+            {
+                TenantId = tenantId,
+                Category = StoredFileCategory.StudentPhoto,
+                OwnerId = student.Id,
+                Slot = "photo",
+                StorageKey = $"legacy/students/{suffix}",
+                FileName = "photo.jpg",
+                ContentType = "image/jpeg",
+                SizeBytes = 128
+            });
+            var campaign = new BroadcastCampaign
+            {
+                TenantId = tenantId,
+                Title = $"Notice {suffix}",
+                AudienceKind = BroadcastAudienceKind.All,
+                Channel = NotificationChannel.Sms,
+                Language = "en",
+                Subject = "Announcement",
+                BodyTemplate = "{message}",
+                Message = $"Hello {suffix}",
+                ScheduledAt = DateTimeOffset.UtcNow,
+                Status = BroadcastCampaignStatus.Queued,
+                RecipientCount = 1
+            };
+            db.BroadcastCampaigns.Add(campaign);
+            db.BroadcastRecipients.Add(new BroadcastRecipient
+            {
+                TenantId = tenantId,
+                CampaignId = campaign.Id,
+                StudentId = student.Id,
+                StudentName = student.FullName,
+                Recipient = student.GuardianPhone,
+                Channel = NotificationChannel.Sms,
+                Status = NotificationStatus.Queued,
+                SmsSegments = 1
+            });
             await db.SaveChangesAsync();
         }
     }
