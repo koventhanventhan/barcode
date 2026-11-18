@@ -30,7 +30,13 @@ public sealed record TenantDetailDto(
     IReadOnlyList<FeatureOverrideDto> FeatureOverrides,
     int UsersCount,
     int BranchesCount,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    string? SmsSenderId = null,
+    bool AllowCustomSmsSenderId = false);
+
+public sealed record SetTenantSmsSenderIdRequest(
+    string? SmsSenderId,
+    bool AllowCustomSmsSenderId);
 
 public sealed record CreateTenantRequest(
     string Name,

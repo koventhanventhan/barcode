@@ -78,7 +78,15 @@ The API applies EF Core migrations (`MigrateAsync`) and runs `DbSeeder.SeedAsync
 | `Hangfire__Storage` | No | `SqlServer` | `SqlServer` in production; `InMemory` for local dev |
 | `Hangfire__EnableRecurringJobs` | No | `true` | Enables outbox, monthly fee, reminder, backup, and demo reset jobs |
 | `FileStorage__Root` | No | `/app/storage` | Directory or mounted volume for uploads and local backups |
-| `Notifications__Sms__Provider` | No | `Fake` / `NotifyLk` | `Fake` or `NotifyLk` |
+| `Sms__Provider` | No | `Fake` / `NotifyLk` | `Fake` or `NotifyLk` |
+| `Sms__UserId` | Conditional | — | Notify.lk User ID |
+| `Sms__ApiKey` | Conditional | — | Notify.lk API Key |
+| `Sms__SenderId` | No | `EduFlow` | Approved Transactional SMS Sender ID |
+| `Sms__PromotionalSenderId` | No | — | Optional Promotional Sender ID for Broadcast SMS |
+| `Sms__BaseUrl` | No | `https://app.notify.lk/api/v1` | Notify.lk API v1 base URL |
+| `Sms__TestMode` | No | `true` (Dev) / `false` (Prod) | Restricts real SMS sends to `Sms__TestAllowList` |
+| `Sms__TestAllowList` | No | — | Comma-separated Sri Lankan mobile numbers allowed in TestMode |
+| `Notifications__Sms__Provider` | No | `Fake` / `NotifyLk` | Legacy fallback for `Sms__Provider` |
 | `Notifications__Sms__NotifyLk__UserId` | Conditional | — | Notify.lk User ID |
 | `Notifications__Sms__NotifyLk__ApiKey` | Conditional | — | Notify.lk API Key |
 | `Notifications__Sms__NotifyLk__SenderId` | No | `EduFlow` | Registered SMS Sender ID |

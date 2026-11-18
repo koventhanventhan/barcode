@@ -84,6 +84,9 @@ Requires `SuperAdmin` role:
 - `GET /api/notifications/messages` — Filterable message log (`Queued/Sent/Delivered/Failed/Skipped`)
 - `POST /api/notifications/messages/{id}/retry` (`settings.manage`) — Reset and retry a failed or skipped notification
 - `POST /api/notifications/test-send`, `POST /api/notifications/dispatch` (`settings.manage`)
+- `PUT /api/notifications/settings/sender-id` (`settings.manage`) — Set or clear per-tenant `SmsSenderId` (Enterprise plan or Super Admin override)
+- `GET /api/broadcasts/sms-status` (`broadcasts.send`, `[RequireFeature(FeatureKey.BroadcastMessages)]`) — Check whether `Sms:PromotionalSenderId` is configured
+- `GET/PUT /api/super-admin/settings/sms`, `GET /api/super-admin/settings/sms/balance?refresh=true`, `POST /api/super-admin/settings/sms/test`, `POST /api/super-admin/settings/sms/check-low-balance`, `PUT /api/super-admin/tenants/{id}/sms-sender-id` (`SuperAdminOnly`) — Platform SMS gateway config (write-only Data Protection encrypted API key), 5-min cached balance, test SMS, last 50 gateway errors, and per-tenant Sender ID overrides
 
 ## Attendance
 - `GET/PUT /api/attendance/policy` (`attendance.mark` / `settings.manage`)

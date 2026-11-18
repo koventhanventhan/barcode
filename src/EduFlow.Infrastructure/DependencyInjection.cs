@@ -57,10 +57,30 @@ public static class DependencyInjection
             }
         });
 
+        var smsSection = configuration.GetSection("Sms");
         var notificationSection = configuration.GetSection(NotificationOptions.SectionName);
         services.Configure<NotificationOptions>(opts =>
         {
-            opts.Sms.Provider = notificationSection["Sms:Provider"] ?? opts.Sms.Provider;
+            opts.Sms.Provider = smsSection["Provider"] ?? notificationSection["Sms:Provider"] ?? opts.Sms.Provider;
+            opts.Sms.UserId = smsSection["UserId"] ?? notificationSection["Sms:UserId"] ?? notificationSection["Sms:NotifyLk:UserId"] ?? opts.Sms.UserId;
+            opts.Sms.ApiKey = smsSection["ApiKey"] ?? notificationSection["Sms:ApiKey"] ?? notificationSection["Sms:NotifyLk:ApiKey"] ?? opts.Sms.ApiKey;
+            opts.Sms.SenderId = smsSection["SenderId"] ?? notificationSection["Sms:SenderId"] ?? notificationSection["Sms:NotifyLk:SenderId"] ?? opts.Sms.SenderId;
+            opts.Sms.PromotionalSenderId = smsSection["PromotionalSenderId"] ?? notificationSection["Sms:PromotionalSenderId"] ?? opts.Sms.PromotionalSenderId;
+            opts.Sms.BaseUrl = smsSection["BaseUrl"] ?? notificationSection["Sms:BaseUrl"] ?? opts.Sms.BaseUrl;
+            opts.Sms.TestAllowList = smsSection["TestAllowList"] ?? notificationSection["Sms:TestAllowList"] ?? opts.Sms.TestAllowList;
+
+            var testModeRaw = smsSection["TestMode"] ?? notificationSection["Sms:TestMode"];
+            if (bool.TryParse(testModeRaw, out var parsedTestMode))
+            {
+                opts.Sms.TestMode = parsedTestMode;
+            }
+
+            var lowBalRaw = smsSection["LowBalanceThreshold"] ?? notificationSection["Sms:LowBalanceThreshold"];
+            if (decimal.TryParse(lowBalRaw, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var parsedLowBal))
+            {
+                opts.Sms.LowBalanceThreshold = parsedLowBal;
+            }
+
             opts.Sms.NotifyLk.Endpoint = notificationSection["Sms:NotifyLk:Endpoint"] ?? opts.Sms.NotifyLk.Endpoint;
             opts.Sms.NotifyLk.UserId = notificationSection["Sms:NotifyLk:UserId"] ?? opts.Sms.NotifyLk.UserId;
             opts.Sms.NotifyLk.ApiKey = notificationSection["Sms:NotifyLk:ApiKey"] ?? opts.Sms.NotifyLk.ApiKey;
@@ -139,13 +159,12 @@ public static class DependencyInjection
         services.AddSingleton<IAntivirusScanner, SignatureAntivirusScanner>();
         services.AddSingleton<ISmsSegmentCalculator, SmsSegmentCalculator>();
 
-        var smsProviderName = notificationSection["Sms:Provider"] ?? "Fake";
+        services.AddScoped<ISmsGatewayConfigProvider, SmsGatewayConfigProvider>();
         services.AddScoped<FakeSmsProvider>();
         services.AddScoped<NotifyLkSmsProvider>();
-        services.AddScoped<ISmsProvider>(sp =>
-            string.Equals(smsProviderName, "NotifyLk", StringComparison.OrdinalIgnoreCase)
-                ? sp.GetRequiredService<NotifyLkSmsProvider>()
-                : sp.GetRequiredService<FakeSmsProvider>());
+        services.AddScoped<ISmsProvider, RuntimeSmsProvider>();
+        services.AddScoped<ISmsGatewayAdminService, SmsGatewayAdminService>();
+        services.AddScoped<LowBalanceAlertHangfireJob>();
 
         var whatsAppProviderName = notificationSection["WhatsApp:Provider"] ?? "Fake";
         services.AddScoped<FakeWhatsAppProvider>();

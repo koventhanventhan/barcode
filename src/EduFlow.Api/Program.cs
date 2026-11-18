@@ -259,6 +259,10 @@ if (builder.Configuration.GetValue("Hangfire:EnableRecurringJobs", false))
         NotificationOutboxHangfireJob.RecurringJobId,
         job => job.ExecuteAsync(CancellationToken.None),
         Cron.Minutely());
+    recurringJobs?.AddOrUpdate<LowBalanceAlertHangfireJob>(
+        LowBalanceAlertHangfireJob.RecurringJobId,
+        job => job.ExecuteAsync(CancellationToken.None),
+        Cron.Daily(3, 0));
     recurringJobs?.AddOrUpdate<MonthlyFeeInvoiceHangfireJob>(
         MonthlyFeeInvoiceHangfireJob.RecurringJobId,
         job => job.ExecuteAsync(null, CancellationToken.None),

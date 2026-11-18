@@ -102,6 +102,7 @@ export function AppShell() {
       { to: "/admin/dashboard", label: t("nav.dashboard"), icon: LayoutDashboard, show: platform, group: "platform" },
       { to: "/admin/tenants", label: t("nav.tenants"), icon: Building2, show: platform, group: "platform" },
       { to: "/admin/plans", label: t("nav.plans"), icon: CreditCard, show: platform, group: "platform" },
+      { to: "/admin/settings/sms", label: t("nav.smsGateway"), icon: MessageSquare, show: platform, group: "platform" },
       { to: "/admin/branding", label: t("nav.platformBranding"), icon: Palette, show: platform, group: "platform" },
     ].filter((item) => item.show);
   }, [canAcademics, canAttendance, canBroadcast, canExams, canFees, canSettings, canStaff, canStudents, inInstitute, platform, user]);

@@ -31,6 +31,7 @@ vi.mock("@/features/auth/AuthProvider", () => ({
 
 vi.mock("@/lib/api", () => ({
   api: vi.fn(async (path: string) => {
+    if (path === "/api/broadcasts/sms-status") return { promotionalSenderIdConfigured: false, effectivePromotionalSenderId: null };
     if (path === "/api/broadcasts/preview") return preview;
     if (path.startsWith("/api/broadcasts")) return { items: [] };
     if (path === "/api/education-levels") return [];
@@ -69,6 +70,7 @@ describe("Broadcast page", () => {
     await user.type(await screen.findByRole("textbox", { name: "Message" }), "Classes resume Monday");
     expect(await screen.findByText("2 recipients")).toBeInTheDocument();
     expect(screen.getByText("4 SMS segments")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("Promotional Sender ID is not configured");
     await user.click(screen.getByRole("button", { name: "Review and send" }));
     expect(await screen.findByRole("dialog")).toHaveTextContent("2 people");
     expect(screen.getByRole("dialog")).toHaveTextContent("4 SMS segments");

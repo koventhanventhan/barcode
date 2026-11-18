@@ -131,6 +131,8 @@ export type TenantDetail = TenantSummary & {
   featureOverrides: FeatureOverride[];
   usersCount: number;
   branchesCount: number;
+  smsSenderId?: string | null;
+  allowCustomSmsSenderId?: boolean;
 };
 
 export type Plan = {
@@ -195,6 +197,7 @@ export type NotificationTypeConfig = {
   whatsAppEnabled: boolean;
   exemptFromQuietHours: boolean;
   availableVariables: string[];
+  smsCategory?: string;
 };
 
 export type NotificationTemplate = {
@@ -235,6 +238,62 @@ export type NotificationSettingsWorkspace = {
   messageTypes: NotificationTypeConfig[];
   templates: NotificationTemplate[];
   sampleVariables: Record<string, string>;
+  smsSenderId?: string | null;
+  canCustomizeSmsSenderId?: boolean;
+  promotionalSenderIdConfigured?: boolean;
+};
+
+export type SmsGatewayErrorItem = {
+  id: string;
+  tenantId: string | null;
+  provider: string;
+  operation: string;
+  recipient: string | null;
+  errorCode: string;
+  errorMessage: string;
+  occurredAt: string;
+};
+
+export type SuperAdminSmsSettings = {
+  provider: "Fake" | "NotifyLk";
+  userId: string;
+  hasApiKey: boolean;
+  apiKeySource: "Database" | "Config" | "None";
+  senderId: string;
+  promotionalSenderId: string | null;
+  baseUrl: string;
+  testMode: boolean;
+  testAllowList: string[];
+  lowBalanceThreshold: number;
+  lastLowBalanceAlertSentAt: string | null;
+  recentErrors: SmsGatewayErrorItem[];
+};
+
+export type SmsGatewayBalance = {
+  succeeded: boolean;
+  provider: string;
+  isActive: boolean | null;
+  balance: number | null;
+  currency: string;
+  isBelowThreshold: boolean;
+  lowBalanceThreshold: number;
+  checkedAt: string;
+  fromCache: boolean;
+  errorCode: string | null;
+  errorMessage: string | null;
+};
+
+export type SuperAdminTestSmsResult = {
+  succeeded: boolean;
+  isSkipped: boolean;
+  skipReason: string | null;
+  provider: string;
+  providerMessageId: string | null;
+  errorCode: string | null;
+  errorMessage: string | null;
+  segments: number;
+  gatewaySegments: number | null;
+  gatewayCost: number | null;
 };
 
 export type NotificationMessage = {
@@ -264,6 +323,8 @@ export type NotificationMessage = {
   provider: string | null;
   providerMessageId: string | null;
   statusReason: string | null;
+  gatewaySegments?: number | null;
+  gatewayCost?: number | null;
 };
 
 export type NotificationMessageLogResponse = {

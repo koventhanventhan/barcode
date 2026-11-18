@@ -55,6 +55,7 @@ public interface ISuperAdminService
     Task<IReadOnlyList<TenantAddOnDto>> GetAddOnsAsync(Guid tenantId, CancellationToken cancellationToken = default);
     Task<TenantAddOnDto> GrantAddOnAsync(Guid tenantId, GrantTenantAddOnRequest request, CancellationToken cancellationToken = default);
     Task RevokeAddOnAsync(Guid tenantId, Guid addOnId, CancellationToken cancellationToken = default);
+    Task<TenantDetailDto> UpdateTenantSmsSenderIdAsync(Guid tenantId, SetTenantSmsSenderIdRequest request, CancellationToken cancellationToken = default);
 }
 
 public sealed partial class SuperAdminService(
@@ -164,7 +165,39 @@ public sealed partial class SuperAdminService(
             overrides,
             usersCount,
             branchesCount,
-            tenant.CreatedAt);
+            tenant.CreatedAt,
+            tenant.SmsSenderId,
+            tenant.AllowCustomSmsSenderId);
+    }
+
+    public async Task<TenantDetailDto> UpdateTenantSmsSenderIdAsync(
+        Guid tenantId,
+        SetTenantSmsSenderIdRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var normalizedSenderId = EduFlow.Application.Notifications.NotificationService.NormalizeSenderId(request.SmsSenderId);
+        using (tenantContext.BeginSystemScope(tenantId))
+        {
+            var tenant = await db.Tenants
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(t => !t.IsDeleted && t.Id == tenantId, cancellationToken)
+                ?? throw new EntityNotFoundException(nameof(Tenant), tenantId.ToString());
+
+            tenant.SmsSenderId = normalizedSenderId;
+            tenant.AllowCustomSmsSenderId = request.AllowCustomSmsSenderId;
+
+            await auditService.LogAsync(
+                "SuperAdmin.TenantSmsSenderIdUpdated",
+                nameof(Tenant),
+                tenant.Id.ToString(),
+                new { tenant.SmsSenderId, tenant.AllowCustomSmsSenderId },
+                tenantIdOverride: tenant.Id,
+                cancellationToken: cancellationToken);
+
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
+        return await GetTenantByIdAsync(tenantId, cancellationToken);
     }
 
     public async Task<TenantDetailDto> CreateTenantAsync(

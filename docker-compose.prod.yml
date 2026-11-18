@@ -41,6 +41,14 @@ services:
       Hangfire__Storage: SqlServer
       Hangfire__EnableRecurringJobs: "true"
       FileStorage__Root: /app/storage
+      Sms__Provider: ${Sms__Provider:-NotifyLk}
+      Sms__UserId: ${Sms__UserId:-}
+      Sms__ApiKey: ${Sms__ApiKey:-}
+      Sms__SenderId: ${Sms__SenderId:-EduFlow}
+      Sms__PromotionalSenderId: ${Sms__PromotionalSenderId:-}
+      Sms__BaseUrl: ${Sms__BaseUrl:-https://app.notify.lk/api/v1}
+      Sms__TestMode: ${Sms__TestMode:-false}
+      Sms__TestAllowList: ${Sms__TestAllowList:-}
       Notifications__Sms__Provider: ${Notifications__Sms__Provider:-NotifyLk}
       Notifications__Sms__NotifyLk__UserId: ${Notifications__Sms__NotifyLk__UserId:-}
       Notifications__Sms__NotifyLk__ApiKey: ${Notifications__Sms__NotifyLk__ApiKey:-}

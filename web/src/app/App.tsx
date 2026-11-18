@@ -59,6 +59,7 @@ const ParentFeesPage = lazy(() => import("@/features/parent/ParentPages").then((
 const ParentMessagesPage = lazy(() => import("@/features/parent/ParentPages").then((m) => ({ default: m.ParentMessagesPage })));
 const PlatformDashboardPage = lazy(() => import("@/features/super-admin/PlatformDashboardPage").then((m) => ({ default: m.PlatformDashboardPage })));
 const PlansPage = lazy(() => import("@/features/super-admin/PlansPage").then((m) => ({ default: m.PlansPage })));
+const SmsSettingsPage = lazy(() => import("@/features/super-admin/SmsSettingsPage").then((m) => ({ default: m.SmsSettingsPage })));
 const TenantDetailPage = lazy(() => import("@/features/super-admin/TenantDetailPage").then((m) => ({ default: m.TenantDetailPage })));
 const TenantsPage = lazy(() => import("@/features/super-admin/TenantsPage").then((m) => ({ default: m.TenantsPage })));
 
@@ -136,6 +137,7 @@ export default function App() {
                         <Route path="/admin/tenants" element={<RequireRole roles={["SuperAdmin"]}><TenantsPage /></RequireRole>} />
                         <Route path="/admin/tenants/:id" element={<RequireRole roles={["SuperAdmin"]}><TenantDetailPage /></RequireRole>} />
                         <Route path="/admin/plans" element={<RequireRole roles={["SuperAdmin"]}><PlansPage /></RequireRole>} />
+                        <Route path="/admin/settings/sms" element={<RequireRole roles={["SuperAdmin"]}><SmsSettingsPage /></RequireRole>} />
                         <Route path="/admin/branding" element={<RequireRole roles={["SuperAdmin"]}><BrandingPage platform /></RequireRole>} />
                       </Route>
                       <Route element={<RequireAuth><ParentShell /></RequireAuth>}>

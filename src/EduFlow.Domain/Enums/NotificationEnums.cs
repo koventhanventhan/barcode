@@ -39,3 +39,9 @@ public enum SmsOverQuotaPolicy
     AllowAndRecordExtra = 1,
     Block = 2
 }
+
+public enum SmsMessageCategory
+{
+    Transactional = 1,
+    Promotional = 2
+}

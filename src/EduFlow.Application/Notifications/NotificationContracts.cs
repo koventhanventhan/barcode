@@ -39,7 +39,8 @@ public sealed record NotificationTypeConfigDto(
     bool EmailEnabled,
     bool WhatsAppEnabled,
     bool ExemptFromQuietHours,
-    IReadOnlyList<string> AvailableVariables);
+    IReadOnlyList<string> AvailableVariables,
+    string SmsCategory = "Transactional");
 
 public sealed record UpdateNotificationTypeSettingRequest(
     bool IsEnabled,
@@ -95,7 +96,17 @@ public sealed record NotificationSettingsWorkspaceDto(
     AllowedNotificationChannelsDto AllowedChannels,
     IReadOnlyList<NotificationTypeConfigDto> MessageTypes,
     IReadOnlyList<NotificationTemplateDto> Templates,
-    IReadOnlyDictionary<string, string> SampleVariables);
+    IReadOnlyDictionary<string, string> SampleVariables,
+    string? SmsSenderId = null,
+    bool CanCustomizeSmsSenderId = false,
+    bool PromotionalSenderIdConfigured = false);
+
+public sealed record TenantSmsSenderIdDto(
+    string? SmsSenderId,
+    bool CanCustomizeSmsSenderId);
+
+public sealed record UpdateTenantSmsSenderIdRequest(
+    string? SmsSenderId);
 
 public sealed record EnqueueNotificationRequest(
     NotificationMessageType MessageType,
@@ -145,7 +156,9 @@ public sealed record NotificationMessageDto(
     DateTimeOffset? LastAttemptAt,
     string? Provider,
     string? ProviderMessageId,
-    string? StatusReason);
+    string? StatusReason,
+    int? GatewaySegments = null,
+    decimal? GatewayCost = null);
 
 public sealed record NotificationMessageFilter(
     NotificationMessageType? MessageType = null,
@@ -205,6 +218,7 @@ public interface INotificationService
     Task<NotificationMessageLogResponse> GetMessageLogAsync(NotificationMessageFilter filter, CancellationToken cancellationToken = default);
     Task<NotificationMessageDto> RetryMessageAsync(Guid messageId, DateTimeOffset? nowOverride = null, CancellationToken cancellationToken = default);
     Task<TestSendNotificationResultDto> TriggerTestSendAsync(TestSendNotificationRequest request, DateTimeOffset? nowOverride = null, CancellationToken cancellationToken = default);
+    Task<TenantSmsSenderIdDto> UpdateSmsSenderIdAsync(UpdateTenantSmsSenderIdRequest request, CancellationToken cancellationToken = default);
 }
 
 public interface INotificationDispatcher

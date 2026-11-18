@@ -77,6 +77,25 @@ public static partial class PiiRedactor
         return SensitiveQueryParamRegex().Replace(queryString, "$1[REDACTED]");
     }
 
+    public static string RedactSecretValues(string? text, params string?[] secrets)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return string.Empty;
+        }
+
+        var result = RedactQueryString(text);
+        foreach (var secret in secrets)
+        {
+            if (!string.IsNullOrWhiteSpace(secret) && secret.Length >= 4)
+            {
+                result = result.Replace(secret, "[REDACTED]", StringComparison.Ordinal);
+            }
+        }
+
+        return result;
+    }
+
     public static string? SerializeAuditDetails(object? details)
     {
         if (details is null)
@@ -131,6 +150,6 @@ public static partial class PiiRedactor
         return SensitiveKeyFragments.Any(fragment => normalized.Contains(fragment, StringComparison.OrdinalIgnoreCase));
     }
 
-    [GeneratedRegex(@"([?&](?:token|access_token|refresh_token|password|secret|email|phone|code)=)[^&]+", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"([?&](?:token|access_token|refresh_token|password|secret|email|phone|code|api_key|apikey)=)[^&]+", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex SensitiveQueryParamRegex();
 }

@@ -17,6 +17,12 @@ public static class BroadcastEndpoints
             .RequirePermission(Permissions.BroadcastsSend)
             .RequireFeature(FeatureKey.BroadcastMessages);
 
+        group.MapGet("/sms-status", async (
+            IBroadcastService service,
+            CancellationToken ct) =>
+            Results.Ok(await service.GetSmsStatusAsync(ct)))
+            .WithName("GetBroadcastSmsStatus");
+
         group.MapPost("/preview", async (
             BroadcastComposeRequest request,
             IBroadcastService service,

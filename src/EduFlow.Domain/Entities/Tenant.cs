@@ -11,6 +11,8 @@ public sealed class Tenant : BaseEntity
     public string? Address { get; set; }
     public string? LogoUrl { get; set; }
     public string TimeZone { get; set; } = "Asia/Colombo";
+    public string? SmsSenderId { get; set; }
+    public bool AllowCustomSmsSenderId { get; set; }
     public bool IsActive { get; set; } = true;
     public bool IsDemo { get; set; }
 

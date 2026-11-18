@@ -76,6 +76,8 @@ public sealed class AppDbContext(
     public DbSet<PlatformBackupRecord> PlatformBackupRecords => Set<PlatformBackupRecord>();
     public DbSet<PlatformAnnouncement> PlatformAnnouncements => Set<PlatformAnnouncement>();
     public DbSet<PlatformSetting> PlatformSettings => Set<PlatformSetting>();
+    public DbSet<PlatformSmsSetting> PlatformSmsSettings => Set<PlatformSmsSetting>();
+    public DbSet<SmsGatewayErrorLog> SmsGatewayErrorLogs => Set<SmsGatewayErrorLog>();
     public DbSet<StaffAttendanceRecord> StaffAttendanceRecords => Set<StaffAttendanceRecord>();
     public DbSet<StaffLeaveRequest> StaffLeaveRequests => Set<StaffLeaveRequest>();
     public DbSet<DemoRequest> DemoRequests => Set<DemoRequest>();
@@ -312,6 +314,7 @@ public sealed class AppDbContext(
             b.Property(x => x.ContactEmail).HasMaxLength(256);
             b.Property(x => x.ContactPhone).HasMaxLength(50);
             b.Property(x => x.TimeZone).HasMaxLength(64).IsRequired();
+            b.Property(x => x.SmsSenderId).HasMaxLength(20);
             b.HasIndex(x => x.Subdomain).IsUnique();
         });
 
@@ -567,6 +570,7 @@ public sealed class AppDbContext(
             b.Property(x => x.Provider).HasMaxLength(64);
             b.Property(x => x.ProviderMessageId).HasMaxLength(128);
             b.Property(x => x.StatusReason).HasMaxLength(500);
+            b.Property(x => x.GatewayCost).HasPrecision(18, 4);
             b.HasIndex(x => new { x.TenantId, x.Channel, x.IdempotencyKey }).IsUnique();
             b.HasIndex(x => new { x.TenantId, x.Status, x.NextAttemptAt });
             b.HasIndex(x => new { x.TenantId, x.CreatedAt, x.MessageType, x.Status });
@@ -836,6 +840,31 @@ public sealed class AppDbContext(
             b.Property(x => x.Key).HasMaxLength(50).IsRequired();
             b.Property(x => x.MaintenanceMessage).HasMaxLength(500);
             b.HasIndex(x => x.Key).IsUnique();
+        });
+
+        modelBuilder.Entity<PlatformSmsSetting>(b =>
+        {
+            b.Property(x => x.Key).HasMaxLength(50).IsRequired();
+            b.Property(x => x.Provider).HasMaxLength(32);
+            b.Property(x => x.UserId).HasMaxLength(128);
+            b.Property(x => x.EncryptedApiKey).HasMaxLength(1024);
+            b.Property(x => x.SenderId).HasMaxLength(20);
+            b.Property(x => x.PromotionalSenderId).HasMaxLength(20);
+            b.Property(x => x.BaseUrl).HasMaxLength(256);
+            b.Property(x => x.TestAllowList).HasMaxLength(1000);
+            b.Property(x => x.LowBalanceThreshold).HasPrecision(18, 2);
+            b.Property(x => x.LastKnownBalance).HasPrecision(18, 2);
+            b.HasIndex(x => x.Key).IsUnique();
+        });
+
+        modelBuilder.Entity<SmsGatewayErrorLog>(b =>
+        {
+            b.Property(x => x.Provider).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Operation).HasMaxLength(32).IsRequired();
+            b.Property(x => x.Recipient).HasMaxLength(64);
+            b.Property(x => x.ErrorCode).HasMaxLength(64).IsRequired();
+            b.Property(x => x.ErrorMessage).HasMaxLength(1000).IsRequired();
+            b.HasIndex(x => x.OccurredAt);
         });
 
         modelBuilder.Entity<StaffAttendanceRecord>(b =>

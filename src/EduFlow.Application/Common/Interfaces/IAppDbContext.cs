@@ -60,6 +60,8 @@ public interface IAppDbContext
     DbSet<PlatformBackupRecord> PlatformBackupRecords { get; }
     DbSet<PlatformAnnouncement> PlatformAnnouncements { get; }
     DbSet<PlatformSetting> PlatformSettings { get; }
+    DbSet<PlatformSmsSetting> PlatformSmsSettings { get; }
+    DbSet<SmsGatewayErrorLog> SmsGatewayErrorLogs { get; }
     DbSet<StaffAttendanceRecord> StaffAttendanceRecords { get; }
     DbSet<StaffLeaveRequest> StaffLeaveRequests { get; }
     DbSet<DemoRequest> DemoRequests { get; }

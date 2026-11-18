@@ -17,7 +17,8 @@ public sealed class NotificationService(
     ILimitService limitService,
     ISmsProvider smsProvider,
     IEmailSender emailSender,
-    IWhatsAppProvider whatsAppProvider) : INotificationService, INotificationDispatcher
+    IWhatsAppProvider whatsAppProvider,
+    ISmsGatewayConfigProvider? smsGatewayConfig = null) : INotificationService, INotificationDispatcher
 {
     public async Task<NotificationSettingsWorkspaceDto> GetSettingsWorkspaceAsync(CancellationToken cancellationToken = default)
     {
@@ -27,6 +28,9 @@ public sealed class NotificationService(
         var allowedChannels = await GetAllowedChannelsAsync(tenantId, cancellationToken);
         var messageTypes = await GetMessageTypeConfigsAsync(tenantId, cancellationToken);
         var templates = await GetTemplatesInternalAsync(tenantId, null, null, cancellationToken);
+        var senderInfo = await GetTenantSmsSenderIdInfoAsync(tenantId, cancellationToken);
+        var promotionalConfigured = smsGatewayConfig is not null
+            && !string.IsNullOrWhiteSpace((await smsGatewayConfig.GetEffectiveConfigAsync(cancellationToken)).PromotionalSenderId);
 
         return new NotificationSettingsWorkspaceDto(
             configDto,
@@ -34,7 +38,10 @@ public sealed class NotificationService(
             allowedChannels,
             messageTypes,
             templates,
-            NotificationCatalog.SampleVariables);
+            NotificationCatalog.SampleVariables,
+            senderInfo.SmsSenderId,
+            senderInfo.CanCustomizeSmsSenderId,
+            promotionalConfigured);
     }
 
     public async Task<TenantNotificationConfigDto> UpdateConfigAsync(
@@ -696,6 +703,16 @@ public sealed class NotificationService(
 
                     if (item.Channel == NotificationChannel.Sms)
                     {
+                        var phoneCheck = SriLankanPhoneNormalizer.NormalizeForGateway(item.Recipient);
+                        if (!phoneCheck.IsValid)
+                        {
+                            item.Status = NotificationStatus.Skipped;
+                            item.StatusReason = $"Skipped:InvalidNumber:{phoneCheck.ErrorMessage}";
+                            item.LastAttemptAt = now;
+                            skippedCount++;
+                            continue;
+                        }
+
                         if (!definition.ExemptFromQuietHours
                             && quietHoursEnabled
                             && QuietHoursCalculator.IsWithinQuietHours(now, timeZoneId, quietStart, quietEnd))
@@ -725,16 +742,27 @@ public sealed class NotificationService(
                         item.ExtraSegments = extraSegments;
                     }
 
-                    item.AttemptCount++;
                     item.LastAttemptAt = now;
 
-                    var (succeeded, providerName, providerMsgId, errorMessage) = await SendViaProviderAsync(item, cancellationToken);
-                    if (succeeded)
+                    var sendOutcome = await SendViaProviderAsync(item, definition, cancellationToken);
+                    if (sendOutcome.IsSkipped)
+                    {
+                        item.Status = NotificationStatus.Skipped;
+                        item.Provider = sendOutcome.Provider;
+                        item.StatusReason = sendOutcome.SkipReason ?? "Skipped:TestMode";
+                        skippedCount++;
+                        continue;
+                    }
+
+                    item.AttemptCount++;
+                    if (sendOutcome.Succeeded)
                     {
                         item.Status = NotificationStatus.Sent;
                         item.SentAt = now;
-                        item.Provider = providerName;
-                        item.ProviderMessageId = providerMsgId;
+                        item.Provider = sendOutcome.Provider;
+                        item.ProviderMessageId = sendOutcome.ProviderMessageId;
+                        item.GatewaySegments = sendOutcome.GatewaySegments;
+                        item.GatewayCost = sendOutcome.GatewayCost;
                         item.StatusReason = null;
                         item.IsDeadLetter = false;
                         sentCount++;
@@ -747,7 +775,9 @@ public sealed class NotificationService(
                     else
                     {
                         failedCount++;
-                        var reason = string.IsNullOrWhiteSpace(errorMessage) ? "Provider delivery failed." : errorMessage;
+                        var reason = string.IsNullOrWhiteSpace(sendOutcome.ErrorMessage)
+                            ? "Provider delivery failed."
+                            : sendOutcome.ErrorMessage;
                         if (item.AttemptCount >= item.MaxAttempts)
                         {
                             item.Status = NotificationStatus.Failed;
@@ -937,8 +967,86 @@ public sealed class NotificationService(
             Messages: dtos);
     }
 
-    private async Task<(bool Succeeded, string Provider, string? ProviderMessageId, string? ErrorMessage)> SendViaProviderAsync(
+    public async Task<TenantSmsSenderIdDto> UpdateSmsSenderIdAsync(
+        UpdateTenantSmsSenderIdRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var tenantId = TenantGuard.Require(tenantContext);
+        var info = await GetTenantSmsSenderIdInfoAsync(tenantId, cancellationToken);
+        if (!info.CanCustomizeSmsSenderId)
+        {
+            throw new FeatureNotInPlanException(FeatureKey.RemoveProductBranding);
+        }
+
+        var normalized = NormalizeSenderId(request.SmsSenderId);
+        using (tenantContext.BeginSystemScope(tenantId))
+        {
+            var tenant = await db.Tenants
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(t => !t.IsDeleted && t.Id == tenantId, cancellationToken)
+                ?? throw new EntityNotFoundException(nameof(Tenant), tenantId.ToString());
+
+            tenant.SmsSenderId = normalized;
+            await auditService.LogAsync(
+                action: "TenantSmsSenderId.Updated",
+                entityName: nameof(Tenant),
+                entityId: tenant.Id.ToString(),
+                details: new { SmsSenderId = normalized },
+                tenantIdOverride: tenantId,
+                cancellationToken: cancellationToken);
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
+        return new TenantSmsSenderIdDto(normalized, true);
+    }
+
+    private async Task<TenantSmsSenderIdDto> GetTenantSmsSenderIdInfoAsync(
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        var tenant = await db.Tenants
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(t => !t.IsDeleted && t.Id == tenantId)
+            .Select(t => new { t.SmsSenderId, t.AllowCustomSmsSenderId })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var brandingEval = await featureService.EvaluateAsync(tenantId, FeatureKey.RemoveProductBranding, cancellationToken);
+        var canCustomize = (tenant?.AllowCustomSmsSenderId ?? false) || brandingEval.IsInPlan;
+        return new TenantSmsSenderIdDto(tenant?.SmsSenderId, canCustomize);
+    }
+
+    public static string? NormalizeSenderId(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return null;
+        }
+
+        var trimmed = raw.Trim();
+        if (trimmed.Length > 11 || trimmed.Any(c => !char.IsAsciiLetterOrDigit(c) && c != ' ' && c != '.' && c != '-' && c != '_'))
+        {
+            throw new DomainValidationException(
+                "INVALID_SENDER_ID",
+                "Sender ID must be 1 to 11 alphanumeric characters (plus optional spaces, '.', '-', '_').");
+        }
+
+        return trimmed;
+    }
+
+    private sealed record ProviderSendOutcome(
+        bool Succeeded,
+        string Provider,
+        string? ProviderMessageId,
+        string? ErrorMessage,
+        bool IsSkipped = false,
+        string? SkipReason = null,
+        int? GatewaySegments = null,
+        decimal? GatewayCost = null);
+
+    private async Task<ProviderSendOutcome> SendViaProviderAsync(
         NotificationOutbox item,
+        NotificationTypeDefinition definition,
         CancellationToken cancellationToken)
     {
         try
@@ -947,14 +1055,30 @@ public sealed class NotificationService(
             {
                 case NotificationChannel.Sms:
                 {
+                    var isPromotional = definition.SmsCategory == SmsMessageCategory.Promotional;
+                    var resolvedSenderId = smsGatewayConfig is not null
+                        ? await smsGatewayConfig.ResolveTenantSenderIdAsync(item.TenantId, isPromotional, null, cancellationToken)
+                        : null;
+
                     var res = await smsProvider.SendAsync(
                         new SmsSendRequest(
                             To: item.Recipient,
                             Message: item.Body,
+                            SenderId: resolvedSenderId,
                             TenantId: item.TenantId,
-                            IdempotencyKey: item.IdempotencyKey),
+                            IdempotencyKey: item.IdempotencyKey,
+                            IsPromotional: isPromotional),
                         cancellationToken);
-                    return (res.Succeeded, res.Provider, res.ProviderMessageId, res.ErrorMessage);
+
+                    return new ProviderSendOutcome(
+                        Succeeded: res.Succeeded,
+                        Provider: res.Provider,
+                        ProviderMessageId: res.ProviderMessageId,
+                        ErrorMessage: res.ErrorMessage,
+                        IsSkipped: res.IsSkipped,
+                        SkipReason: res.SkipReason,
+                        GatewaySegments: res.GatewaySegments,
+                        GatewayCost: res.GatewayCost);
                 }
 
                 case NotificationChannel.Email:
@@ -972,7 +1096,7 @@ public sealed class NotificationService(
                                 ["IdempotencyKey"] = item.IdempotencyKey
                             }),
                         cancellationToken);
-                    return (true, "Email", $"email-{Guid.NewGuid():N}", null);
+                    return new ProviderSendOutcome(true, "Email", $"email-{Guid.NewGuid():N}", null);
                 }
 
                 case NotificationChannel.WhatsApp:
@@ -986,16 +1110,16 @@ public sealed class NotificationService(
                             TenantId: item.TenantId,
                             IdempotencyKey: item.IdempotencyKey),
                         cancellationToken);
-                    return (res.Succeeded, res.Provider, res.ProviderMessageId, res.ErrorMessage);
+                    return new ProviderSendOutcome(res.Succeeded, res.Provider, res.ProviderMessageId, res.ErrorMessage);
                 }
 
                 default:
-                    return (false, "Unknown", null, "Unsupported notification channel.");
+                    return new ProviderSendOutcome(false, "Unknown", null, "Unsupported notification channel.");
             }
         }
         catch (Exception ex)
         {
-            return (false, item.Channel.ToString(), null, ex.Message);
+            return new ProviderSendOutcome(false, item.Channel.ToString(), null, ex.Message);
         }
     }
 
@@ -1076,7 +1200,8 @@ public sealed class NotificationService(
                 EmailEnabled: emailEnabled,
                 WhatsAppEnabled: whatsAppEnabled,
                 ExemptFromQuietHours: def.ExemptFromQuietHours,
-                AvailableVariables: def.Variables));
+                AvailableVariables: def.Variables,
+                SmsCategory: def.SmsCategory.ToString()));
         }
 
         return list;
@@ -1202,5 +1327,7 @@ public sealed class NotificationService(
             LastAttemptAt: o.LastAttemptAt,
             Provider: o.Provider,
             ProviderMessageId: o.ProviderMessageId,
-            StatusReason: o.StatusReason);
+            StatusReason: o.StatusReason,
+            GatewaySegments: o.GatewaySegments,
+            GatewayCost: o.GatewayCost);
 }

@@ -28,6 +28,14 @@ public static class NotificationEndpoints
             .RequirePermission(Permissions.SettingsManage)
             .WithName("UpdateNotificationConfig");
 
+        group.MapPut("/settings/sender-id", async (
+            [FromBody] EduFlow.Application.Notifications.UpdateTenantSmsSenderIdRequest request,
+            INotificationService service,
+            CancellationToken ct) =>
+            Results.Ok(await service.UpdateSmsSenderIdAsync(request, ct)))
+            .RequirePermission(Permissions.SettingsManage)
+            .WithName("UpdateTenantSmsSenderId");
+
         group.MapPut("/settings/types/{messageType}", async (
             string messageType,
             [FromBody] UpdateNotificationTypeSettingRequest request,

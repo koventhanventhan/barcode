@@ -32,6 +32,11 @@ type Preview = {
   overQuotaPolicy: string;
   quietHoursActive: boolean;
   quietHoursResumeAt: string | null;
+  promotionalSenderIdConfigured?: boolean;
+};
+type BroadcastSmsStatus = {
+  promotionalSenderIdConfigured: boolean;
+  effectivePromotionalSenderId: string | null;
 };
 type Campaign = {
   id: string;
@@ -116,6 +121,10 @@ function BroadcastComposer() {
     enabled: Boolean(openId),
     queryFn: () => api<Detail>(`/api/broadcasts/${openId}`),
   });
+  const smsStatus = useQuery({
+    queryKey: ["broadcast-sms-status"],
+    queryFn: () => api<BroadcastSmsStatus>("/api/broadcasts/sms-status"),
+  });
 
   const payload = useMemo(
     () => ({
@@ -160,6 +169,11 @@ function BroadcastComposer() {
     ? t("common.unlimited")
     : `${preview.data.remainingSegments} / ${preview.data.monthlyQuota}`;
 
+  const showPromotionalSenderWarning =
+    channel === "Sms"
+    && (smsStatus.data?.promotionalSenderIdConfigured === false
+      || preview.data?.promotionalSenderIdConfigured === false);
+
   return (
     <div>
       <PageHeader
@@ -168,6 +182,11 @@ function BroadcastComposer() {
         crumbs={[{ label: t("nav.broadcast") }]}
       />
       {!canSend ? <p className="mb-4 text-sm text-muted">{t("broadcast.noPermission")}</p> : null}
+      {showPromotionalSenderWarning ? (
+        <div role="alert" className="mb-4 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-foreground">
+          {t("broadcast.promotionalSenderWarning")}
+        </div>
+      ) : null}
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(16rem,0.8fr)]">
         <form
           className="space-y-3 rounded-lg border border-border bg-card p-4"

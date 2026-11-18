@@ -1,6 +1,7 @@
 using EduFlow.Api.Authorization;
 using EduFlow.Application.Backups;
 using EduFlow.Application.Fees;
+using EduFlow.Application.Notifications;
 using EduFlow.Application.SuperAdmin;
 using EduFlow.Domain.Enums;
 using EduFlow.Domain.Exceptions;
@@ -337,6 +338,45 @@ public static class SuperAdminEndpoints
             await service.RevokeAddOnAsync(id, addOnId, ct);
             return Results.NoContent();
         }).WithName("SuperAdminRevokeTenantAddOn");
+
+        group.MapPut("/tenants/{id:guid}/sms-sender-id", async (
+            Guid id,
+            [FromBody] SetTenantSmsSenderIdRequest request,
+            ISuperAdminService service,
+            CancellationToken ct) =>
+            Results.Ok(await service.UpdateTenantSmsSenderIdAsync(id, request, ct)))
+            .WithName("SuperAdminUpdateTenantSmsSenderId");
+
+        group.MapGet("/settings/sms", async (ISmsGatewayAdminService smsAdmin, CancellationToken ct) =>
+            Results.Ok(await smsAdmin.GetSettingsAsync(ct)))
+            .WithName("SuperAdminGetSmsSettings");
+
+        group.MapPut("/settings/sms", async (
+            [FromBody] UpdateSuperAdminSmsSettingsRequest request,
+            ISmsGatewayAdminService smsAdmin,
+            CancellationToken ct) =>
+            Results.Ok(await smsAdmin.UpdateSettingsAsync(request, ct)))
+            .WithName("SuperAdminUpdateSmsSettings");
+
+        group.MapGet("/settings/sms/balance", async (
+            [FromQuery] bool? refresh,
+            ISmsGatewayAdminService smsAdmin,
+            CancellationToken ct) =>
+            Results.Ok(await smsAdmin.GetBalanceAsync(refresh ?? false, ct)))
+            .WithName("SuperAdminGetSmsBalance");
+
+        group.MapPost("/settings/sms/test", async (
+            [FromBody] SendSuperAdminTestSmsRequest request,
+            ISmsGatewayAdminService smsAdmin,
+            CancellationToken ct) =>
+            Results.Ok(await smsAdmin.SendTestSmsAsync(request, ct)))
+            .WithName("SuperAdminSendTestSms");
+
+        group.MapPost("/settings/sms/check-low-balance", async (
+            ISmsGatewayAdminService smsAdmin,
+            CancellationToken ct) =>
+            Results.Ok(await smsAdmin.CheckLowBalanceAndNotifyAsync(null, ct)))
+            .WithName("SuperAdminCheckSmsLowBalance");
 
         return app;
     }

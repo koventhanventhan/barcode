@@ -51,6 +51,8 @@ public sealed class NotificationOutbox : TenantEntity
     public string IdempotencyKey { get; set; } = string.Empty;
     public int SmsSegments { get; set; }
     public int ExtraSegments { get; set; }
+    public int? GatewaySegments { get; set; }
+    public decimal? GatewayCost { get; set; }
     public int AttemptCount { get; set; }
     public int MaxAttempts { get; set; } = 5;
     public bool IsDeadLetter { get; set; }

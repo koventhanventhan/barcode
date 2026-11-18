@@ -12,6 +12,14 @@ public sealed class NotificationOptions
 public sealed class SmsProviderOptions
 {
     public string Provider { get; set; } = "Fake";
+    public string UserId { get; set; } = string.Empty;
+    public string ApiKey { get; set; } = string.Empty;
+    public string SenderId { get; set; } = "EduFlow";
+    public string PromotionalSenderId { get; set; } = string.Empty;
+    public string BaseUrl { get; set; } = "https://app.notify.lk/api/v1";
+    public bool? TestMode { get; set; }
+    public string TestAllowList { get; set; } = string.Empty;
+    public decimal LowBalanceThreshold { get; set; } = 500m;
     public NotifyLkOptions NotifyLk { get; set; } = new();
 }
 

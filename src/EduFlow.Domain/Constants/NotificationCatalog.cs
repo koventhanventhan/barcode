@@ -12,7 +12,8 @@ public sealed record NotificationTypeDefinition(
     bool DefaultWhatsAppEnabled,
     bool ExemptFromQuietHours,
     IReadOnlyList<string> Variables,
-    IReadOnlyDictionary<string, DefaultTemplateText> DefaultTemplates);
+    IReadOnlyDictionary<string, DefaultTemplateText> DefaultTemplates,
+    SmsMessageCategory SmsCategory = SmsMessageCategory.Transactional);
 
 public static class NotificationCatalog
 {
@@ -282,7 +283,8 @@ public static class NotificationCatalog
                 ["si"] = new(
                     "{instituteName} නිවේදනය",
                     "{instituteName}: {message}")
-            }),
+            },
+            SmsCategory: SmsMessageCategory.Promotional),
         new(
             NotificationMessageType.BackupResultAdmin,
             FeatureKey.AutoBackup,

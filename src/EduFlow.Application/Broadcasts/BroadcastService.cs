@@ -16,9 +16,23 @@ public sealed class BroadcastService(
     IFeatureService features,
     INotificationService notifications,
     ISmsSegmentCalculator segments,
-    IAuditService audit) : IBroadcastService
+    IAuditService audit,
+    ISmsGatewayConfigProvider? smsGatewayConfig = null) : IBroadcastService
 {
     private const int MaxAudience = 5000;
+
+    public async Task<BroadcastSmsStatusDto> GetSmsStatusAsync(CancellationToken cancellationToken = default)
+    {
+        TenantGuard.Require(tenantContext);
+        if (smsGatewayConfig is null)
+        {
+            return new BroadcastSmsStatusDto(false, null);
+        }
+
+        var cfg = await smsGatewayConfig.GetEffectiveConfigAsync(cancellationToken);
+        var configured = !string.IsNullOrWhiteSpace(cfg.PromotionalSenderId);
+        return new BroadcastSmsStatusDto(configured, configured ? cfg.PromotionalSenderId : null);
+    }
 
     public async Task<BroadcastPreviewDto> PreviewAsync(BroadcastComposeRequest request, CancellationToken cancellationToken = default)
     {
@@ -164,6 +178,8 @@ public sealed class BroadcastService(
         var sampleCalc = segments.Calculate(sampleBody);
         var quota = await notifications.GetSmsQuotaAsync(tenantId, null, cancellationToken);
         var quiet = await QuietHoursAsync(tenantId, request.Channel, scheduledAt, cancellationToken);
+        var promotionalConfigured = smsGatewayConfig is not null
+            && !string.IsNullOrWhiteSpace((await smsGatewayConfig.GetEffectiveConfigAsync(cancellationToken)).PromotionalSenderId);
 
         if (!send)
         {
@@ -186,7 +202,8 @@ public sealed class BroadcastService(
                 quiet.ResumeAt,
                 skipped.Take(8).ToList(),
                 scheduledAt,
-                string.Empty);
+                string.Empty,
+                promotionalConfigured);
         }
 
         if (reachable.Count == 0)
@@ -304,7 +321,8 @@ public sealed class BroadcastService(
             quiet.ResumeAt,
             skipped.Take(8).ToList(),
             scheduledAt,
-            status.ToString());
+            status.ToString(),
+            promotionalConfigured);
     }
 
     private async Task<List<AudienceMember>> ResolveAudienceAsync(
@@ -609,7 +627,8 @@ public sealed class BroadcastService(
         DateTimeOffset? QuietHoursResumeAt,
         IReadOnlyList<BroadcastSkipDto> Skipped,
         DateTimeOffset ScheduledAt,
-        string Status)
+        string Status,
+        bool PromotionalSenderIdConfigured)
     {
         public BroadcastPreviewDto ToPreview() => new(
             RecipientCount,
@@ -627,6 +646,7 @@ public sealed class BroadcastService(
             OverQuotaPolicy,
             QuietHoursActive,
             QuietHoursResumeAt,
-            Skipped);
+            Skipped,
+            PromotionalSenderIdConfigured);
     }
 }

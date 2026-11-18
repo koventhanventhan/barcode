@@ -48,6 +48,7 @@ export function FeaturesPage() {
   const [draftBody, setDraftBody] = useState<string>("");
 
   const [configDraft, setConfigDraft] = useState<TenantNotificationConfig | null>(null);
+  const [senderIdDraft, setSenderIdDraft] = useState<string>("");
 
   const [testModalOpen, setTestModalOpen] = useState(false);
   const [testType, setTestType] = useState<string>("AttendancePresent");
@@ -68,6 +69,9 @@ export function FeaturesPage() {
   useEffect(() => {
     if (workspaceQuery.data?.config && !configDraft) {
       setConfigDraft(workspaceQuery.data.config);
+    }
+    if (workspaceQuery.data) {
+      setSenderIdDraft(workspaceQuery.data.smsSenderId ?? "");
     }
   }, [workspaceQuery.data, configDraft]);
 
@@ -151,6 +155,25 @@ export function FeaturesPage() {
           state: updated.isEnabled ? t("features.on") : t("features.off"),
         }),
       );
+      void queryClient.invalidateQueries({ queryKey: ["notification-settings"] });
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : t("errors.generic"));
+    },
+  });
+
+  const saveSenderIdMutation = useMutation({
+    mutationFn: (smsSenderId: string) =>
+      api<{ smsSenderId: string | null; canCustomizeSmsSenderId: boolean }>(
+        "/api/notifications/settings/sender-id",
+        {
+          method: "PUT",
+          body: JSON.stringify({ smsSenderId: smsSenderId.trim() || null }),
+        },
+      ),
+    onSuccess: (res) => {
+      setSenderIdDraft(res.smsSenderId ?? "");
+      toast.success(t("notifications.senderIdSaved"));
       void queryClient.invalidateQueries({ queryKey: ["notification-settings"] });
     },
     onError: (err) => {
@@ -366,6 +389,46 @@ export function FeaturesPage() {
 
       {workspace ? (
         <>
+          <section className="mb-4 rounded-lg border border-border bg-card p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 className="text-sm font-semibold">{t("notifications.senderIdTitle")}</h2>
+                <p className="text-xs text-muted">{t("notifications.senderIdDescription")}</p>
+              </div>
+              {!workspace.canCustomizeSmsSenderId ? (
+                <span className="inline-flex items-center gap-1 text-xs text-muted">
+                  <Lock className="h-3.5 w-3.5" aria-hidden="true" />
+                  {t("notifications.senderIdLocked")}
+                </span>
+              ) : null}
+            </div>
+            <form
+              className="mt-3 flex flex-wrap items-end gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                saveSenderIdMutation.mutate(senderIdDraft);
+              }}
+            >
+              <label className="grid gap-1 text-xs">
+                <span className="font-medium text-muted">{t("notifications.senderIdLabel")}</span>
+                <Input
+                  maxLength={11}
+                  value={senderIdDraft}
+                  onChange={(e) => setSenderIdDraft(e.target.value)}
+                  disabled={!canManage || !workspace.canCustomizeSmsSenderId}
+                  placeholder="EduFlow"
+                />
+              </label>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={!canManage || !workspace.canCustomizeSmsSenderId || saveSenderIdMutation.isPending}
+              >
+                {t("common.save")}
+              </Button>
+            </form>
+          </section>
+
           <section className="mb-4 rounded-lg border border-border bg-card">
             <div className="border-b border-border px-4 py-3">
               <h2 className="text-sm font-semibold">
@@ -390,6 +453,13 @@ export function FeaturesPage() {
                     <div className="min-w-[200px]">
                       <div className="flex items-center gap-2">
                         <p className="text-sm font-medium">{label}</p>
+                        {mt.smsCategory ? (
+                          <span className="rounded bg-secondary px-1.5 py-0.5 text-[11px] text-muted">
+                            {mt.smsCategory === "Promotional"
+                              ? t("notifications.categoryPromotional")
+                              : t("notifications.categoryTransactional")}
+                          </span>
+                        ) : null}
                         {mt.exemptFromQuietHours ? (
                           <span className="rounded bg-secondary px-1.5 py-0.5 text-[11px] text-muted">
                             {t("notifications.quietHoursExempt")}

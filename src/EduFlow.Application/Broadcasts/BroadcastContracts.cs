@@ -34,7 +34,12 @@ public sealed record BroadcastPreviewDto(
     string OverQuotaPolicy,
     bool QuietHoursActive,
     DateTimeOffset? QuietHoursResumeAt,
-    IReadOnlyList<BroadcastSkipDto> Skipped);
+    IReadOnlyList<BroadcastSkipDto> Skipped,
+    bool PromotionalSenderIdConfigured = false);
+
+public sealed record BroadcastSmsStatusDto(
+    bool PromotionalSenderIdConfigured,
+    string? EffectivePromotionalSenderId);
 
 public sealed record BroadcastSendResultDto(
     Guid CampaignId,
@@ -86,4 +91,5 @@ public interface IBroadcastService
     Task<BroadcastSendResultDto> SendAsync(BroadcastComposeRequest request, CancellationToken cancellationToken = default);
     Task<BroadcastHistoryPageDto> ListAsync(int page, int pageSize, CancellationToken cancellationToken = default);
     Task<BroadcastCampaignDetailDto> GetAsync(Guid campaignId, CancellationToken cancellationToken = default);
+    Task<BroadcastSmsStatusDto> GetSmsStatusAsync(CancellationToken cancellationToken = default);
 }

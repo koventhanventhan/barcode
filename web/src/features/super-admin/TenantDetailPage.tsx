@@ -39,6 +39,8 @@ export function TenantDetailPage() {
   const [invoiceDays, setInvoiceDays] = useState(30);
   const [paymentRef, setPaymentRef] = useState("");
   const [restoreResult, setRestoreResult] = useState<BackupRestoreResult | null>(null);
+  const [smsSenderId, setSmsSenderId] = useState<string | null>(null);
+  const [allowCustomSmsSenderId, setAllowCustomSmsSenderId] = useState<boolean | null>(null);
   const tenant = useQuery({
     queryKey: ["tenant", id],
     queryFn: () => api<TenantDetail>(`/api/super-admin/tenants/${id}`),
@@ -122,6 +124,21 @@ export function TenantDetailPage() {
       }),
     onSuccess: async () => {
       toast.success(t("tenants.updated"));
+      await refresh();
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : t("errors.generic")),
+  });
+
+  const saveSmsSender = useMutation({
+    mutationFn: (input: { smsSenderId: string | null; allowCustomSmsSenderId: boolean }) =>
+      api(`/api/super-admin/tenants/${id}/sms-sender-id`, {
+        method: "PUT",
+        body: JSON.stringify(input),
+      }),
+    onSuccess: async () => {
+      toast.success(t("tenants.smsSenderIdSaved"));
+      setSmsSenderId(null);
+      setAllowCustomSmsSenderId(null);
       await refresh();
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : t("errors.generic")),
@@ -358,6 +375,42 @@ export function TenantDetailPage() {
         ) : null}
       </section>
       <AddOnsPanel tenantId={id} planCode={detail.subscription?.planCode ?? ""} />
+      <section className="mt-4 rounded-lg border border-border bg-card p-4">
+        <h2 className="text-sm font-semibold">{t("tenants.smsSenderIdTitle")}</h2>
+        <p className="mb-3 text-xs text-muted">{t("tenants.smsSenderIdDescription")}</p>
+        <form
+          className="flex flex-wrap items-end gap-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const currentSender = (smsSenderId ?? detail.smsSenderId ?? "").trim();
+            saveSmsSender.mutate({
+              smsSenderId: currentSender || null,
+              allowCustomSmsSenderId: allowCustomSmsSenderId ?? Boolean(detail.allowCustomSmsSenderId),
+            });
+          }}
+        >
+          <label className="grid gap-1 text-xs">
+            <span className="font-medium text-muted">{t("tenants.smsSenderIdLabel")}</span>
+            <Input
+              maxLength={11}
+              value={smsSenderId ?? detail.smsSenderId ?? ""}
+              onChange={(e) => setSmsSenderId(e.target.value)}
+              placeholder="EduFlow"
+            />
+          </label>
+          <label className="inline-flex h-9 items-center gap-2 text-xs">
+            <input
+              type="checkbox"
+              checked={allowCustomSmsSenderId ?? Boolean(detail.allowCustomSmsSenderId)}
+              onChange={(e) => setAllowCustomSmsSenderId(e.target.checked)}
+            />
+            <span>{t("tenants.allowCustomSmsSenderId")}</span>
+          </label>
+          <Button type="submit" size="sm" disabled={saveSmsSender.isPending}>
+            {t("common.save")}
+          </Button>
+        </form>
+      </section>
       <section className="mt-4 rounded-lg border border-border bg-card">
         <h2 className="border-b border-border px-4 py-3 text-sm font-semibold">{t("tenants.overrides")}</h2>
         <ul>
