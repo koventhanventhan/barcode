@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { NavLink } from "react-router-dom";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { cn } from "@/lib/utils";
 
 export const fieldClass =
@@ -73,7 +73,6 @@ export function timeToMinutes(value: string) {
 }
 
 export function AcademicNav() {
-  const { t } = useTranslation();
   const links = [
     ["/app/academics/levels", t("nav.levels")],
     ["/app/academics/batches", t("nav.batches")],

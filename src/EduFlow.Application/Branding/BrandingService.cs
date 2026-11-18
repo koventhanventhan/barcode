@@ -20,37 +20,91 @@ public sealed partial class BrandingService(
     ILimitService limitService,
     IStoredFileRegistry storedFiles,
     IAntivirusScanner? antivirusScanner = null,
-    IMemoryCache? cache = null) : IBrandingService
+    IMemoryCache? cache = null,
+    IBrandingAssetProcessor? assetProcessor = null) : IBrandingService
 {
     private const long MaxAssetBytes = 2 * 1024 * 1024;
     private static string CacheKey(Guid tenantId) => $"branding:public:{tenantId:N}";
 
-    public async Task<BrandingDto> GetPublicAsync(CancellationToken cancellationToken = default)
+    public async Task<PublicBrandingDto> GetPublicAsync(
+        string? code = null,
+        bool hasExplicitCode = false,
+        CancellationToken cancellationToken = default)
     {
-        var tenantId = tenantContext.TenantId is Guid id && id != Guid.Empty ? id : Guid.Empty;
+        var tenantId = await ResolvePublicTenantIdAsync(code, hasExplicitCode, cancellationToken);
         var key = CacheKey(tenantId);
-        if (cache is not null && cache.TryGetValue(key, out BrandingDto? cached) && cached is not null)
+        if (cache is not null && cache.TryGetValue(key, out PublicBrandingDto? cached) && cached is not null)
         {
             return cached;
         }
 
-        BrandingDto result;
+        PublicBrandingDto result;
         if (tenantId == Guid.Empty)
         {
-            result = await MapPlatformAsync(cancellationToken);
+            var platform = await MapPlatformAsync(cancellationToken);
+            result = ToPublic(platform);
         }
         else
         {
             var tenant = await LoadTenantAsync(tenantId, cancellationToken);
             var profile = await FindProfileAsync(tenantId, cancellationToken);
-
-            var canRemove = await CanRemoveProductBrandingAsync(tenantId, cancellationToken);
-            result = Map(profile, tenant.Name, tenant.Subdomain, canRemove, isPlatform: false);
+            result = ToPublic(Map(profile, tenant.Name, tenant.Subdomain, canRemove: false, isPlatform: false));
         }
 
-        cache?.Set(key, result, TimeSpan.FromMinutes(2));
+        cache?.Set(key, result, TimeSpan.FromMinutes(5));
         return result;
     }
+
+    public async Task<BrandingDto> GetCurrentAsync(CancellationToken cancellationToken = default)
+    {
+        if (tenantContext.TenantId is Guid id && id != Guid.Empty)
+        {
+            return await GetForEditAsync(platform: false, cancellationToken);
+        }
+
+        if (tenantContext.IsSuperAdmin)
+        {
+            return await GetForEditAsync(platform: true, cancellationToken);
+        }
+
+        throw new DomainValidationException("TENANT_REQUIRED", "Tenant context is required.", 400);
+    }
+
+    private async Task<Guid> ResolvePublicTenantIdAsync(
+        string? code,
+        bool hasExplicitCode,
+        CancellationToken cancellationToken)
+    {
+        if (hasExplicitCode)
+        {
+            if (string.IsNullOrWhiteSpace(code))
+            {
+                return Guid.Empty;
+            }
+
+            var normalized = code.Trim().ToLowerInvariant();
+            var matched = await db.Tenants
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(t => !t.IsDeleted && t.Subdomain == normalized)
+                .Select(t => t.Id)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            // Unknown codes return the platform brand without revealing whether a code exists.
+            return matched == Guid.Empty ? Guid.Empty : matched;
+        }
+
+        return tenantContext.TenantId is Guid id && id != Guid.Empty ? id : Guid.Empty;
+    }
+
+    private static PublicBrandingDto ToPublic(BrandingDto dto) =>
+        new(
+            dto.InstituteDisplayName,
+            dto.Tagline,
+            dto.LogoUrl,
+            dto.FaviconUrl,
+            dto.PrimaryColor,
+            dto.AccentColor);
 
     public async Task<BrandingDto> GetForEditAsync(bool platform, CancellationToken cancellationToken = default)
     {
@@ -143,7 +197,8 @@ public sealed partial class BrandingService(
             "image/png" => ".png",
             "image/jpeg" => ".jpg",
             "image/webp" => ".webp",
-            _ => throw new DomainValidationException("INVALID_ASSET_TYPE", "Upload a PNG, JPEG, or WebP image.")
+            "image/svg+xml" => ".svg",
+            _ => throw new DomainValidationException("INVALID_ASSET_TYPE", "Upload a PNG, JPEG, SVG, or WebP image.")
         };
 
         await using var buffer = new MemoryStream();
@@ -166,17 +221,44 @@ public sealed partial class BrandingService(
             throw new DomainValidationException("INVALID_ASSET_TYPE", "The file contents do not match an allowed image type.");
         }
 
-        await FileUploadValidator.EnsureCleanAndValidSignatureAsync(
-            buffer,
-            fileName,
-            contentType,
-            extension,
-            "INVALID_ASSET_TYPE",
-            "The file contents do not match an allowed image type.",
-            antivirusScanner,
-            cancellationToken);
+        MemoryStream processed;
+        if (extension == ".svg")
+        {
+            buffer.Position = 0;
+            if (antivirusScanner is not null)
+            {
+                var scan = await antivirusScanner.ScanAsync(buffer, FileUploadValidator.SanitizeFileName(fileName), contentType, cancellationToken);
+                buffer.Position = 0;
+                if (!scan.IsClean)
+                {
+                    throw new DomainValidationException(
+                        "FILE_INFECTED",
+                        $"File upload rejected by security scan ({scan.ThreatName ?? "threat detected"}).");
+                }
+            }
 
-        buffer.Position = 0;
+            processed = SvgSanitizer.ValidateAndSanitize(buffer);
+        }
+        else
+        {
+            await FileUploadValidator.EnsureCleanAndValidSignatureAsync(
+                buffer,
+                fileName,
+                contentType,
+                extension,
+                "INVALID_ASSET_TYPE",
+                "The file contents do not match an allowed image type.",
+                antivirusScanner,
+                cancellationToken);
+
+            buffer.Position = 0;
+            processed = assetProcessor is not null
+                ? await assetProcessor.ProcessAsync(normalizedKind, extension, buffer, cancellationToken)
+                : buffer;
+        }
+
+        await using var ownedProcessed = ReferenceEquals(processed, buffer) ? null : processed;
+        processed.Position = 0;
         var tenantId = RequireTenant(platform);
         var folder = tenantId == Guid.Empty ? "branding/platform" : $"branding/{tenantId:N}";
         var profile = await LoadOrCreateTrackedAsync(tenantId, cancellationToken);
@@ -188,10 +270,10 @@ public sealed partial class BrandingService(
                 profile.Id,
                 normalizedKind,
                 cancellationToken);
-            await limitService.EnsureStorageAllowsAsync(tenantId, total, replacing, cancellationToken);
+            await limitService.EnsureStorageAllowsAsync(tenantId, processed.Length, replacing, cancellationToken);
         }
 
-        var stored = await fileStorage.SaveAsync(folder, $"{normalizedKind}-{Guid.NewGuid():N}{extension}", buffer, cancellationToken);
+        var stored = await fileStorage.SaveAsync(folder, $"{normalizedKind}-{Guid.NewGuid():N}{extension}", processed, cancellationToken);
         switch (normalizedKind)
         {
             case "logo":

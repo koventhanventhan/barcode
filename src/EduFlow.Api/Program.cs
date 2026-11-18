@@ -316,7 +316,15 @@ static void UseBrandingFiles(WebApplication app)
     app.UseStaticFiles(new StaticFileOptions
     {
         FileProvider = new PhysicalFileProvider(storage.Root),
-        RequestPath = storage.PublicPath
+        RequestPath = storage.PublicPath,
+        OnPrepareResponse = ctx =>
+        {
+            ctx.Context.Response.Headers.TryAdd("X-Content-Type-Options", "nosniff");
+            if (ctx.File.Name.EndsWith(".svg", StringComparison.OrdinalIgnoreCase))
+            {
+                ctx.Context.Response.Headers["Content-Security-Policy"] = "default-src 'none'; style-src 'unsafe-inline'";
+            }
+        }
     });
 }
 

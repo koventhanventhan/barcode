@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { FeatureGate, useFeature } from "@/components/feature-gate";
 import { PageHeader } from "@/components/page-header";
 import { PageSkeleton } from "@/components/skeletons";
@@ -24,7 +24,6 @@ import type { TimetableClash, WeeklyTimetable } from "@/features/operations/api"
 import { api, ApiError } from "@/lib/api";
 
 export function TimetablePage() {
-  const { t } = useTranslation();
   const toast = useToast();
   const queryClient = useQueryClient();
   const { hasPermission, isReadOnly } = useAuth();

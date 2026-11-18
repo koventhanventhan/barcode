@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { PageHeader } from "@/components/page-header";
 import { PageSkeleton } from "@/components/skeletons";
 import { useToast } from "@/components/toast";
@@ -14,7 +14,6 @@ type StudentRow = { id: string; fullName: string; studentCode: string };
 type StudentPage = { items: StudentRow[] };
 
 export function ParentsAdminPage() {
-  const { t } = useTranslation();
   const toast = useToast();
   const { isReadOnly, hasPermission } = useAuth();
   const canEdit = hasPermission("students.edit") && !isReadOnly;

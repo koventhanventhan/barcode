@@ -1,7 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { applyDocumentLanguage } from "@/i18n/language";
 import {
   brandPresets,
   contrastRatio,
@@ -31,16 +30,12 @@ describe("brand scale contrast", () => {
   });
 });
 
-describe("document language", () => {
-  it("sets the html lang so Tamil and Sinhala fonts apply", () => {
-    applyDocumentLanguage("ta");
-    expect(document.documentElement.lang).toBe("ta");
-    applyDocumentLanguage("si");
-    expect(document.documentElement.lang).toBe("si");
+describe("message preview fonts", () => {
+  it("keeps Tamil and Sinhala font fallbacks for message previews while UI stays English", () => {
     const css = readFileSync(path.resolve("src/styles/globals.css"), "utf8");
     const main = readFileSync(path.resolve("src/main.tsx"), "utf8");
-    expect(css).toContain('html[lang="ta"]');
-    expect(css).toContain('html[lang="si"]');
+    expect(css).toContain('[lang="ta"]');
+    expect(css).toContain('[lang="si"]');
     expect(main).toContain("@fontsource/noto-sans-tamil");
     expect(main).toContain("@fontsource/noto-sans-sinhala");
   });

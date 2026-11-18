@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { useNavigate, useParams } from "react-router-dom";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { PageHeader } from "@/components/page-header";
@@ -24,7 +24,6 @@ import type { Plan, TenantDetail } from "@/lib/types";
 
 export function TenantDetailPage() {
   const { id = "" } = useParams();
-  const { t } = useTranslation();
   const toast = useToast();
   const navigate = useNavigate();
   const auth = useAuth();

@@ -1,4 +1,8 @@
-{
+type InterpolationVars = Record<string, string | number | boolean | null | undefined> & {
+  defaultValue?: string;
+};
+
+export const strings = {
   "home": {
     "eyebrow": "School operations",
     "tagline": "Student records, attendance, and fees for Sri Lankan institutes.",
@@ -76,7 +80,6 @@
     "expand": "Expand sidebar",
     "account": "Account",
     "logout": "Log out",
-    "language": "Language",
     "theme": "Theme",
     "themeLight": "Use light theme",
     "themeDark": "Use dark theme",
@@ -87,11 +90,6 @@
     "skip": "Skip to content",
     "branch": "Branch",
     "allBranches": "All branches"
-  },
-  "lang": {
-    "en": "English",
-    "ta": "Tamil",
-    "si": "Sinhala"
   },
   "auth": {
     "loginTitle": "Sign in",
@@ -246,7 +244,8 @@
     "previewButton": "Primary action",
     "saved": "Branding saved. The app is using these colors.",
     "resetDone": "Branding reset to the default palette.",
-    "resetConfirm": "Reset colors, logo, and theme to the defaults?"
+    "resetConfirm": "Reset colors, logo, and theme to the defaults?",
+    "uploadHint": "PNG, JPG, SVG, or WebP up to 2 MB."
   },
   "tenants": {
     "title": "Institutes",
@@ -853,8 +852,17 @@
     "pickDescription": "Open an exam to enter marks, lock the grid, and publish results.",
     "name": "Exam name",
     "kindLabel": "Exam type",
-    "kind": { "Term": "Term", "Unit": "Unit", "Test": "Test" },
-    "status": { "Draft": "Draft", "Scheduled": "Scheduled", "Locked": "Locked", "Published": "Published" },
+    "kind": {
+      "Term": "Term",
+      "Unit": "Unit",
+      "Test": "Test"
+    },
+    "status": {
+      "Draft": "Draft",
+      "Scheduled": "Scheduled",
+      "Locked": "Locked",
+      "Published": "Published"
+    },
     "batch": "Batch",
     "chooseBatch": "Choose a batch",
     "scheme": "Grading scheme",
@@ -883,7 +891,11 @@
     "students": "Students",
     "ranks": "Rank list",
     "rankScope": "Rank list",
-    "scope": { "batch": "Batch", "level": "Level", "subject": "Subject" },
+    "scope": {
+      "batch": "Batch",
+      "level": "Level",
+      "subject": "Subject"
+    },
     "firstSubject": "First subject",
     "rank": "Rank",
     "score": "Score",
@@ -1009,7 +1021,7 @@
     "homeHighlight2": "Generate monthly batch invoices without duplicates, record cash or bank slips with receipts, or accept PayHere online.",
     "homeHighlight3": "Control SMS, Email, and WhatsApp alerts with per-message ON/OFF switches, Colombo quiet hours, and Unicode segment tracking.",
     "statPlans": "Plans from Starter to Enterprise",
-    "statLangs": "Trilingual templates and UI",
+    "statLangs": "Trilingual parent alerts",
     "statScan": "Target barcode scan response",
     "statTrial": "Card-free evaluation period",
     "ctaTitle": "Ready to try EduFlow with your batches?",
@@ -1082,7 +1094,7 @@
     "aboutLead": "Tuition institutes and schools across Colombo, Jaffna, Kandy, and Galle need software that respects local workflows — LKR fee structures, Code128 barcode IDs, Tamil/Sinhala parent SMS, and dependable backups.",
     "aboutBody": "EduFlow replaces scattered registers, Excel sheets, and manual SMS phones with one multi-tenant platform. Every institute gets isolated data, custom white-label colors, and real ON/OFF switches backed by server enforcement.",
     "aboutOfficesLabel": "Offices",
-    "aboutOfficesNote": "Serving institutes island-wide in English, Tamil, and Sinhala.",
+    "aboutOfficesNote": "Serving institutes island-wide with English, Tamil, and Sinhala parent messages.",
     "notFoundTitle": "Page not found",
     "notFoundBody": "The page you requested does not exist or has moved. Return home or browse our feature pages.",
     "footerTagline": "Cloud attendance, fee billing, exams, parent portal, and isolated backups for Sri Lankan schools and tuition institutes.",
@@ -1204,7 +1216,7 @@
       },
       "languages": {
         "q": "Do you support Tamil and Sinhala?",
-        "a": "The app, message templates, and SMS length rules support English, Tamil, and Sinhala."
+        "a": "Message templates, live previews, and SMS length rules support English, Tamil, and Sinhala. The workspace UI is in English."
       },
       "portal": {
         "q": "Can parents be turned off?",
@@ -1358,4 +1370,27 @@
     "load": "This page could not be loaded.",
     "generic": "Something went wrong. Try again."
   }
+} as const;
+
+function lookup(path: string): string | undefined {
+  const parts = path.split(".");
+  let current: unknown = strings;
+  for (const part of parts) {
+    if (current && typeof current === "object" && part in current) {
+      current = (current as Record<string, unknown>)[part];
+    } else {
+      return undefined;
+    }
+  }
+  return typeof current === "string" ? current : undefined;
+}
+
+export function t(key: string, vars?: InterpolationVars): string {
+  let template = lookup(key) ?? vars?.defaultValue ?? key;
+  if (!vars) return template;
+  for (const [k, v] of Object.entries(vars)) {
+    if (k === "defaultValue" || v === undefined || v === null) continue;
+    template = template.split(`{{${k}}}`).join(String(v));
+  }
+  return template;
 }

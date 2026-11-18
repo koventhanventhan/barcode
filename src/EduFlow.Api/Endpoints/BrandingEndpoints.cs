@@ -10,15 +10,27 @@ public static class BrandingEndpoints
 {
     public static IEndpointRouteBuilder MapBrandingEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/api/public/branding", async (HttpContext httpContext, IBrandingService branding, CancellationToken ct) =>
+        app.MapGet("/api/public/branding", async (
+                [FromQuery] string? code,
+                HttpContext httpContext,
+                IBrandingService branding,
+                CancellationToken ct) =>
             {
                 httpContext.Response.Headers.CacheControl = "public, no-cache";
                 httpContext.Response.Headers.Vary = "Host, X-Tenant";
-                return Results.Ok(await branding.GetPublicAsync(ct));
+                var hasExplicitCode = httpContext.Request.Query.ContainsKey("code");
+                return Results.Ok(await branding.GetPublicAsync(code, hasExplicitCode, ct));
             })
             .WithTags("Branding")
             .WithName("GetPublicBranding")
+            .RequireRateLimiting("public")
             .AllowAnonymous();
+
+        app.MapGet("/api/branding/current", async (IBrandingService branding, CancellationToken ct) =>
+                Results.Ok(await branding.GetCurrentAsync(ct)))
+            .WithTags("Branding")
+            .WithName("GetCurrentBranding")
+            .RequireAuthorization();
 
         var settings = app.MapGroup("/api/settings/branding")
             .WithTags("Branding")

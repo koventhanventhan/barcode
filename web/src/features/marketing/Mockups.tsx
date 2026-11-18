@@ -1,11 +1,10 @@
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { Check, Lock, ShieldCheck, Smartphone } from "lucide-react";
 import { ProductName } from "@/config/brand";
 import type { FeatureSlug } from "./catalog";
 import { Img } from "./Img";
 
 export function HeroProductCard() {
-  const { t } = useTranslation();
   return (
     <div className="rounded-lg border border-border bg-card p-3.5 text-foreground shadow-sm">
       <div className="flex items-center justify-between border-b border-border pb-2">

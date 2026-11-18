@@ -1,12 +1,11 @@
 import { useState, type FormEvent } from "react";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ApiError } from "@/lib/api";
 import type { ScanResult } from "./api";
 
 export function JoinPage() {
-  const { t } = useTranslation();
   const [institute, setInstitute] = useState("");
   const [joinCode, setJoinCode] = useState("");
   const [studentCode, setStudentCode] = useState("");

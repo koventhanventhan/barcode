@@ -11,7 +11,7 @@ import {
 } from "@tanstack/react-table";
 import { ChevronDown, Download } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { buildCsv, downloadCsv } from "@/lib/csv";
@@ -40,7 +40,6 @@ export function DataTable<T>({
   getRowId?: (row: T) => string;
   enableExport?: boolean;
 }) {
-  const { t } = useTranslation();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});

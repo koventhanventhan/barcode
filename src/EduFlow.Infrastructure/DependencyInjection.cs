@@ -209,6 +209,7 @@ public static class DependencyInjection
             opts.PublicPath = configuration["FileStorage:PublicPath"] ?? "/files";
         });
         services.AddSingleton<IFileStorage, LocalFileStorage>();
+        services.AddSingleton<IBrandingAssetProcessor, SkiaSharpBrandingAssetProcessor>();
         services.AddScoped<DbSeeder>();
 
         return services;

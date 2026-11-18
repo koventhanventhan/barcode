@@ -27,6 +27,15 @@ export type MeResponse = {
   permissions: string[];
 };
 
+export type PublicBranding = {
+  displayName: string;
+  tagline: string | null;
+  logoUrl: string | null;
+  faviconUrl: string | null;
+  primaryColor: string;
+  accentColor: string;
+};
+
 export type Branding = {
   primaryColor: string;
   accentColor: string;

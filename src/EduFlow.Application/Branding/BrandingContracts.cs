@@ -1,5 +1,13 @@
 namespace EduFlow.Application.Branding;
 
+public sealed record PublicBrandingDto(
+    string DisplayName,
+    string? Tagline,
+    string? LogoUrl,
+    string? FaviconUrl,
+    string PrimaryColor,
+    string AccentColor);
+
 public sealed record BrandingDto(
     string PrimaryColor,
     string AccentColor,
@@ -27,9 +35,22 @@ public sealed record UpdateBrandingRequest(
     string ThemeMode,
     bool RemoveProductBranding);
 
+public interface IBrandingAssetProcessor
+{
+    Task<MemoryStream> ProcessAsync(
+        string kind,
+        string extension,
+        MemoryStream input,
+        CancellationToken cancellationToken = default);
+}
+
 public interface IBrandingService
 {
-    Task<BrandingDto> GetPublicAsync(CancellationToken cancellationToken = default);
+    Task<PublicBrandingDto> GetPublicAsync(
+        string? code = null,
+        bool hasExplicitCode = false,
+        CancellationToken cancellationToken = default);
+    Task<BrandingDto> GetCurrentAsync(CancellationToken cancellationToken = default);
     Task<BrandingDto> GetForEditAsync(bool platform, CancellationToken cancellationToken = default);
     Task<BrandingDto> UpdateAsync(bool platform, UpdateBrandingRequest request, CancellationToken cancellationToken = default);
     Task<BrandingDto> ResetAsync(bool platform, CancellationToken cancellationToken = default);

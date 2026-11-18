@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { z } from "zod";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { DataTable, type DataColumn } from "@/components/data-table/DataTable";
@@ -28,7 +28,6 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 export function SubjectsPage() {
-  const { t } = useTranslation();
   const toast = useToast();
   const { hasPermission, isReadOnly } = useAuth();
   const queryClient = useQueryClient();
@@ -131,7 +130,6 @@ function SubjectDialog({
   onOpenChange: (open: boolean) => void;
   onSubmit: (body: FormValues) => void;
 }) {
-  const { t } = useTranslation();
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     values: {

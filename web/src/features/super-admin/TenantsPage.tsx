@@ -2,7 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { Link } from "react-router-dom";
 import { z } from "zod";
 import { DataTable, type DataColumn } from "@/components/data-table/DataTable";
@@ -18,7 +18,6 @@ import type { Plan, TenantSummary } from "@/lib/types";
 import { passwordSchema } from "@/features/auth/password";
 
 export function TenantsPage() {
-  const { t } = useTranslation();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);

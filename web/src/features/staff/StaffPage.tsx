@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { z } from "zod";
 import { DataTable, type DataColumn } from "@/components/data-table/DataTable";
 import { EmptyState } from "@/components/empty-state";
@@ -51,7 +51,6 @@ const schema = z.object({
 });
 
 export function StaffPage() {
-  const { t } = useTranslation();
   const toast = useToast();
   const { hasPermission, isReadOnly } = useAuth();
   const queryClient = useQueryClient();
@@ -550,7 +549,6 @@ function StaffDialog({
   onOpenChange: (open: boolean) => void;
   onSubmit: (body: z.infer<typeof schema>) => void;
 }) {
-  const { t } = useTranslation();
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
     defaultValues: {

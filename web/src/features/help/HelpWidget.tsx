@@ -1,24 +1,19 @@
 import { CircleHelp, X } from "lucide-react";
-import { useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { useState } from "react";
+import { t } from "@/config/strings";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { filterHelpArticles, helpArticleIds, type HelpArticle } from "./articles";
 
 export function HelpWidget({ className = "" }: { className?: string }) {
-  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
-  const articles = useMemo<HelpArticle[]>(
-    () =>
-      helpArticleIds.map((id) => ({
-        id,
-        title: t(`help.articles.${id}.title`),
-        body: t(`help.articles.${id}.body`),
-      })),
-    [t],
-  );
+  const articles: HelpArticle[] = helpArticleIds.map((id) => ({
+    id,
+    title: t(`help.articles.${id}.title`),
+    body: t(`help.articles.${id}.body`),
+  }));
   const matches = filterHelpArticles(articles, query);
   const current = matches.find((article) => article.id === selected) ?? null;
 

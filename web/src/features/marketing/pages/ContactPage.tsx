@@ -1,10 +1,9 @@
 import { Mail, MapPin, Phone } from "lucide-react";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { DemoRequestForm } from "../DemoRequestForm";
 import { MarketingMeta } from "../MarketingMeta";
 
 export function ContactPage() {
-  const { t } = useTranslation();
 
   return (
     <>

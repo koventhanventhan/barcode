@@ -1,14 +1,12 @@
 import { ChevronDown, Menu, X } from "lucide-react";
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { ProductName } from "@/config/brand";
-import { applyDocumentLanguage, LOCALES, type AppLocale } from "@/i18n/language";
 import { cn } from "@/lib/utils";
 import { FEATURE_PAGES } from "./catalog";
 
 export function MarketingLayout({ children }: { children: ReactNode }) {
-  const { t, i18n } = useTranslation();
   const location = useLocation();
   const [megaOpen, setMegaOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -54,11 +52,6 @@ export function MarketingLayout({ children }: { children: ReactNode }) {
   }
 
   const featureActive = location.pathname === "/features" || location.pathname.startsWith("/features/");
-
-  function changeLanguage(locale: AppLocale) {
-    void i18n.changeLanguage(locale);
-    applyDocumentLanguage(locale);
-  }
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -143,21 +136,6 @@ export function MarketingLayout({ children }: { children: ReactNode }) {
           </nav>
 
           <div className="hidden items-center gap-2.5 md:flex">
-            <label className="sr-only" htmlFor="header-lang">
-              {t("shell.language")}
-            </label>
-            <select
-              id="header-lang"
-              className="h-9 rounded-md border border-border bg-background px-2 text-xs font-medium text-foreground"
-              value={i18n.resolvedLanguage ?? i18n.language}
-              onChange={(event) => changeLanguage(event.target.value as AppLocale)}
-            >
-              {LOCALES.map((locale) => (
-                <option key={locale} value={locale}>
-                  {locale.toUpperCase()}
-                </option>
-              ))}
-            </select>
             <Link
               to="/login"
               className="rounded-md px-3 py-2 text-sm font-medium text-foreground underline-offset-4 hover:text-primary hover:underline"
@@ -236,21 +214,6 @@ export function MarketingLayout({ children }: { children: ReactNode }) {
             </div>
 
             <div className="mt-6 grid gap-3 border-t border-border pt-4">
-              <label className="grid gap-1 text-xs font-medium text-muted">
-                {t("shell.language")}
-                <select
-                  aria-label={t("shell.language")}
-                  className="h-10 rounded-md border border-border bg-background px-2.5 text-sm text-foreground"
-                  value={i18n.resolvedLanguage ?? i18n.language}
-                  onChange={(event) => changeLanguage(event.target.value as AppLocale)}
-                >
-                  {LOCALES.map((locale) => (
-                    <option key={locale} value={locale}>
-                      {t(`lang.${locale}`)}
-                    </option>
-                  ))}
-                </select>
-              </label>
               <Link
                 to="/login"
                 className="inline-flex h-10 items-center justify-center rounded-md border border-border text-sm font-medium"
@@ -317,21 +280,6 @@ export function MarketingLayout({ children }: { children: ReactNode }) {
                 superadmin@eduflow.lk
               </a>
             </p>
-            <label className="mt-4 grid gap-1 text-xs font-medium text-muted">
-              {t("shell.language")}
-              <select
-                aria-label={`${t("shell.language")} (footer)`}
-                className="h-9 rounded-md border border-border bg-background px-2 text-xs text-foreground"
-                value={i18n.resolvedLanguage ?? i18n.language}
-                onChange={(event) => changeLanguage(event.target.value as AppLocale)}
-              >
-                {LOCALES.map((locale) => (
-                  <option key={locale} value={locale}>
-                    {t(`lang.${locale}`)}
-                  </option>
-                ))}
-              </select>
-            </label>
           </div>
         </div>
         <div className="border-t border-border">

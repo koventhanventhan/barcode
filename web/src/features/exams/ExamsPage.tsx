@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ClipboardCheck, Lock, LockOpen, Printer, Send } from "lucide-react";
 import { useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { useFeature } from "@/components/feature-gate";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
@@ -29,7 +29,6 @@ import { applyMarkPaste, cellKey, type MarkDraft } from "./marksGrid";
 type DraftSubject = { subjectId: string; maxMarks: string };
 
 export function ExamsPage() {
-  const { t } = useTranslation();
   const toast = useToast();
   const queryClient = useQueryClient();
   const reports = useFeature("PerformanceReports");

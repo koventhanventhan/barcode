@@ -1,5 +1,5 @@
 import { AlertTriangle, MessageSquare } from "lucide-react";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { Link } from "react-router-dom";
 import type { SmsQuotaSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -11,7 +11,6 @@ export function SmsQuotaCard({
   quota: SmsQuotaSummary;
   showLogLink?: boolean;
 }) {
-  const { t } = useTranslation();
   const pct = Math.min(100, Math.max(0, quota.usagePercentage));
   const barColor = quota.isExceeded100Percent
     ? "bg-danger"

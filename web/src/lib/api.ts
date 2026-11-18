@@ -43,6 +43,13 @@ export async function api<T>(path: string, init: RequestInit = {}, retry = true)
   return (await response.json()) as T;
 }
 
+export async function fetchPublicBranding(code: string): Promise<import("./types").PublicBranding> {
+  const query = `?code=${encodeURIComponent(code.trim().toLowerCase())}`;
+  const response = await fetch(url(`/api/public/branding${query}`), { credentials: "include" });
+  if (!response.ok) throw await toError(response);
+  return (await response.json()) as import("./types").PublicBranding;
+}
+
 export async function refreshAccessToken(): Promise<AuthResponse | null> {
   if (!refreshPromise) {
     refreshPromise = (async () => {

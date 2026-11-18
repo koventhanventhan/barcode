@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Clock, CreditCard, Download, ShieldCheck, XCircle } from "lucide-react";
 import { useRef } from "react";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { Link, useParams } from "react-router-dom";
 import { PageHeader } from "@/components/page-header";
 import { PageSkeleton } from "@/components/skeletons";
@@ -14,7 +14,6 @@ import { formatMoney, type PayHereCheckoutSessionDto, type PayHereWebhookResultD
 
 export function PaymentStatusPage() {
   const { orderId = "" } = useParams();
-  const { t } = useTranslation();
   const toast = useToast();
   const branding = useBranding();
   const queryClient = useQueryClient();

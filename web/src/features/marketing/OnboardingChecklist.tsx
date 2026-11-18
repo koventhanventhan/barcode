@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
 
@@ -7,7 +7,6 @@ type OnboardingStep = { key: string; title: string; done: boolean; href: string 
 type OnboardingChecklistDto = { steps: OnboardingStep[]; completed: number; total: number };
 
 export function OnboardingChecklist() {
-  const { t } = useTranslation();
   const checklist = useQuery({
     queryKey: ["onboarding"],
     queryFn: () => api<OnboardingChecklistDto>("/api/onboarding"),

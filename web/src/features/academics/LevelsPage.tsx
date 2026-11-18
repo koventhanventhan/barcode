@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { PageHeader } from "@/components/page-header";
 import { PageSkeleton } from "@/components/skeletons";
 import { useToast } from "@/components/toast";
@@ -10,7 +10,6 @@ import { api, ApiError } from "@/lib/api";
 import type { SubscriptionSummary } from "@/lib/types";
 
 export function LevelsPage() {
-  const { t } = useTranslation();
   const toast = useToast();
   const { isReadOnly, hasPermission } = useAuth();
   const queryClient = useQueryClient();

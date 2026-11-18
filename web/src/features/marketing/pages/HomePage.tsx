@@ -1,12 +1,11 @@
 import { ArrowRight, CheckCircle2, CreditCard, MessageSquare, QrCode } from "lucide-react";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { Link } from "react-router-dom";
 import { Img } from "../Img";
 import { MarketingMeta } from "../MarketingMeta";
 import { HeroProductCard } from "../Mockups";
 
 export function HomePage() {
-  const { t } = useTranslation();
 
   const highlights = [
     {

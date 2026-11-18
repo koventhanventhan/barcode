@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { HardDrive } from "lucide-react";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { formatBytes } from "@/features/operations/api";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -13,7 +13,6 @@ type StorageUsage = {
 };
 
 export function StorageUsageCard() {
-  const { t } = useTranslation();
   const usage = useQuery({
     queryKey: ["storage-usage"],
     queryFn: () => api<StorageUsage>("/api/storage/usage"),

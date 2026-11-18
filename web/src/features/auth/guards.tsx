@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { Navigate, useLocation } from "react-router-dom";
 import { PageSkeleton } from "@/components/skeletons";
 import { useAuth } from "./AuthProvider";
@@ -29,7 +29,6 @@ export function RequireRole({ roles, children }: { roles: readonly string[]; chi
 }
 
 export function AccessDenied() {
-  const { t } = useTranslation();
   return (
     <section className="mx-auto max-w-lg rounded-lg border border-border bg-card p-6">
       <h1 className="text-lg font-semibold">{t("auth.deniedTitle")}</h1>

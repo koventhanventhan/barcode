@@ -1,8 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { I18nextProvider } from "react-i18next";
 import { describe, expect, it, vi } from "vitest";
-import i18n from "@/i18n";
 import { DataTable, type DataColumn } from "./DataTable";
 
 type Row = { id: string; name: string; city: string };
@@ -32,9 +30,7 @@ const columns: DataColumn<Row>[] = [
 
 function renderTable() {
   return render(
-    <I18nextProvider i18n={i18n}>
-      <DataTable data={rows} columns={columns} filename="people.csv" pageSize={2} getRowId={(row) => row.id} />
-    </I18nextProvider>,
+          <DataTable data={rows} columns={columns} filename="people.csv" pageSize={2} getRowId={(row) => row.id} />,
   );
 }
 

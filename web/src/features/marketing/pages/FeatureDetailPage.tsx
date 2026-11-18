@@ -1,5 +1,5 @@
 import { ArrowRight, ChevronRight } from "lucide-react";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { Link, useParams } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { findFeaturePage, type FeatureSlug } from "../catalog";
@@ -19,7 +19,6 @@ const SLUG_SECTION_MAP: Record<FeatureSlug, { sectionKey: string; points: string
 
 export function FeatureDetailPage({ fixedSlug }: { fixedSlug?: FeatureSlug }) {
   const { slug: routeSlug } = useParams();
-  const { t } = useTranslation();
   const feature = findFeaturePage(fixedSlug ?? routeSlug);
 
   if (!feature) {

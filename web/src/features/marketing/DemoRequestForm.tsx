@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ApiError, api } from "@/lib/api";
@@ -12,7 +12,6 @@ export function DemoRequestForm({
   title?: string;
   submitLabel?: string;
 }) {
-  const { t } = useTranslation();
   const [sent, setSent] = useState("");
   const [error, setError] = useState("");
   const mutation = useMutation({

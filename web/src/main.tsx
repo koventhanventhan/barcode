@@ -13,7 +13,6 @@ import "@fontsource/noto-sans-sinhala/600.css";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "@/app/App.tsx";
-import "@/i18n";
 import "@/styles/globals.css";
 
 function preloadFont(href: string) {

@@ -1,12 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { I18nextProvider } from "react-i18next";
 import { MemoryRouter } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { StaticFeatureProvider } from "@/components/feature-gate";
 import { ToastProvider } from "@/components/toast";
-import i18n from "@/i18n";
 import { BroadcastPage } from "./BroadcastPage";
 
 const preview = {
@@ -46,8 +44,7 @@ function renderPage() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <I18nextProvider i18n={i18n}>
-        <ToastProvider>
+              <ToastProvider>
           <StaticFeatureProvider
             features={[
               { featureKey: "BroadcastMessages", isInPlan: true, isOverridden: false, isTenantEnabled: true, isEffectiveEnabled: true, updatedAt: null },
@@ -61,16 +58,11 @@ function renderPage() {
             </MemoryRouter>
           </StaticFeatureProvider>
         </ToastProvider>
-      </I18nextProvider>
     </QueryClientProvider>,
   );
 }
 
 describe("Broadcast page", () => {
-  beforeEach(async () => {
-    await i18n.changeLanguage("en");
-  });
-
   it("shows the live recipient count and segment estimate, then asks before sending", async () => {
     const user = userEvent.setup();
     renderPage();

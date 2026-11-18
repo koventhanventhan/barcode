@@ -1,18 +1,46 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useForm } from "react-hook-form";
-import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { z } from "zod";
+import { FormField, fieldError } from "@/components/form-field";
+import { useToast } from "@/components/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FormField, fieldError } from "@/components/form-field";
 import { ProductName } from "@/config/brand";
+import { t } from "@/config/strings";
+import { BrandLogo } from "@/features/branding/BrandLogo";
 import { useBranding } from "@/features/branding/BrandingProvider";
-import { useToast } from "@/components/toast";
 import { ApiError, api } from "@/lib/api";
+import { cn } from "@/lib/utils";
 import { homeFor, useAuth } from "./AuthProvider";
 import { passwordSchema } from "./password";
+
+const BRAND_DEBOUNCE_MS = 400;
+
+function useDebouncedBrandPreview(instituteCode: string | undefined) {
+  const branding = useBranding();
+  const initialRef = useRef(true);
+  const previewInstitute = branding.previewInstitute;
+  const hostSubdomain = branding.hostSubdomain;
+
+  useEffect(() => {
+    const normalized = (instituteCode ?? "").trim().toLowerCase();
+    if (initialRef.current) {
+      initialRef.current = false;
+      if (normalized && normalized === hostSubdomain && previewInstitute) {
+        previewInstitute(normalized);
+      }
+      return;
+    }
+
+    if (!previewInstitute) return;
+    const timer = window.setTimeout(() => {
+      previewInstitute(normalized);
+    }, BRAND_DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
+  }, [instituteCode, hostSubdomain, previewInstitute]);
+}
 
 const loginSchema = z.object({
   institute: z.string().optional(),
@@ -22,7 +50,6 @@ const loginSchema = z.object({
 });
 
 export function LoginPage() {
-  const { t } = useTranslation();
   const auth = useAuth();
   const branding = useBranding();
   const navigate = useNavigate();
@@ -31,8 +58,10 @@ export function LoginPage() {
   const [formError, setFormError] = useState("");
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { institute: branding.institute ?? "", email: "", phone: "", password: "" },
+    defaultValues: { institute: branding.hostSubdomain || branding.institute || "", email: "", phone: "", password: "" },
   });
+  const watchedInstitute = form.watch("institute");
+  useDebouncedBrandPreview(watchedInstitute);
 
   if (parentOff) {
     return (
@@ -94,13 +123,7 @@ export function LoginPage() {
         })}
       >
         <FormField label={t("auth.institute")} hint={t("auth.instituteHint")} htmlFor="institute" error={fieldError(form, "institute")}>
-          <Input
-            id="institute"
-            autoComplete="organization"
-            {...form.register("institute", {
-              onBlur: (event) => branding.setInstitute(event.target.value),
-            })}
-          />
+          <Input id="institute" autoComplete="organization" {...form.register("institute")} />
         </FormField>
         {mode === "parent" ? (
           <FormField label={t("auth.phone")} htmlFor="phone" error={fieldError(form, "phone")}>
@@ -134,7 +157,6 @@ export function LoginPage() {
 }
 
 export function ForgotPasswordPage() {
-  const { t } = useTranslation();
   const [sent, setSent] = useState(false);
   const [formError, setFormError] = useState("");
   const branding = useBranding();
@@ -145,8 +167,10 @@ export function ForgotPasswordPage() {
   });
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
-    defaultValues: { institute: branding.institute ?? "", email: "", phone: "" },
+    defaultValues: { institute: branding.hostSubdomain || branding.institute || "", email: "", phone: "" },
   });
+  const watchedInstitute = form.watch("institute");
+  useDebouncedBrandPreview(watchedInstitute);
 
   return (
     <AuthFrame>
@@ -201,7 +225,6 @@ export function ForgotPasswordPage() {
 }
 
 export function ResetPasswordPage() {
-  const { t } = useTranslation();
   const [params] = useSearchParams();
   const [done, setDone] = useState(false);
   const [formError, setFormError] = useState("");
@@ -277,12 +300,12 @@ export function ResetPasswordPage() {
 }
 
 export function AcceptInvitePage() {
-  const { t } = useTranslation();
   const auth = useAuth();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const [formError, setFormError] = useState("");
   const phoneFromLink = params.get("phone") ?? "";
+  const codeFromLink = params.get("code") ?? params.get("institute") ?? "";
   const branding = useBranding();
   const schema = z.object({
     institute: z.string().optional(),
@@ -295,7 +318,7 @@ export function AcceptInvitePage() {
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
     defaultValues: {
-      institute: branding.institute ?? "",
+      institute: codeFromLink || branding.hostSubdomain || branding.institute || "",
       email: params.get("email") ?? "",
       phone: phoneFromLink,
       token: params.get("token") ?? "",
@@ -303,6 +326,8 @@ export function AcceptInvitePage() {
       password: "",
     },
   });
+  const watchedInstitute = form.watch("institute");
+  useDebouncedBrandPreview(watchedInstitute);
 
   return (
     <AuthFrame>
@@ -314,7 +339,7 @@ export function AcceptInvitePage() {
           setFormError("");
           try {
             const institute = values.institute?.trim() ?? "";
-            if (values.phone) branding.setInstitute(institute);
+            if (institute) branding.setInstitute(institute);
             const response = await api<{ accessToken: string; user: { role: string } }>(
               "/api/auth/accept-invite",
               {
@@ -336,15 +361,13 @@ export function AcceptInvitePage() {
           }
         })}
       >
+        <FormField label={t("auth.institute")} hint={t("auth.instituteHint")} htmlFor="invite-institute" error={fieldError(form, "institute")}>
+          <Input id="invite-institute" {...form.register("institute")} />
+        </FormField>
         {phoneFromLink ? (
-          <>
-            <FormField label={t("auth.institute")} htmlFor="invite-institute" error={fieldError(form, "institute")}>
-              <Input id="invite-institute" {...form.register("institute")} />
-            </FormField>
-            <FormField label={t("auth.phone")} htmlFor="invite-phone" error={fieldError(form, "phone")}>
-              <Input id="invite-phone" type="tel" {...form.register("phone")} />
-            </FormField>
-          </>
+          <FormField label={t("auth.phone")} htmlFor="invite-phone" error={fieldError(form, "phone")}>
+            <Input id="invite-phone" type="tel" {...form.register("phone")} />
+          </FormField>
         ) : (
           <FormField label={t("auth.email")} htmlFor="email" error={fieldError(form, "email")}>
             <Input id="email" type="email" {...form.register("email")} />
@@ -367,7 +390,6 @@ export function AcceptInvitePage() {
 }
 
 export function ChangePasswordPage() {
-  const { t } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
@@ -423,57 +445,49 @@ export function ChangePasswordPage() {
   );
 }
 
-function LanguageSelect() {
-  const { t, i18n } = useTranslation();
-  return (
-    <label className="mb-4 flex items-center justify-end gap-2 text-xs text-muted">
-      <span>{t("shell.language")}</span>
-      <select
-        aria-label={t("shell.language")}
-        className="h-8 rounded-md border border-border bg-card px-2"
-        value={i18n.resolvedLanguage ?? i18n.language}
-        onChange={(event) => void i18n.changeLanguage(event.target.value)}
-      >
-        <option value="en">{t("lang.en")}</option>
-        <option value="ta">{t("lang.ta")}</option>
-        <option value="si">{t("lang.si")}</option>
-      </select>
-    </label>
-  );
-}
-
 function AuthFrame({ children }: { children: ReactNode }) {
   const branding = useBranding();
-  const name = branding.branding?.instituteDisplayName ?? ProductName;
-  const hideProduct = branding.branding?.removeProductBranding;
+  const name = branding.publicBranding?.displayName ?? branding.branding?.instituteDisplayName ?? ProductName;
+  const tagline = branding.publicBranding?.tagline ?? branding.branding?.tagline ?? null;
+  const logoUrl = branding.publicBranding?.logoUrl ?? branding.branding?.logoUrl ?? null;
+  const hideProduct = branding.branding?.removeProductBranding ?? false;
+  const brandSignature = `${name}|${logoUrl ?? ""}|${tagline ?? ""}`;
+  const [fading, setFading] = useState(false);
+  const prevSignature = useRef(brandSignature);
+
+  useEffect(() => {
+    if (prevSignature.current === brandSignature) return;
+    prevSignature.current = brandSignature;
+    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    if (reduced) return;
+    setFading(true);
+    const timer = window.setTimeout(() => setFading(false), 150);
+    return () => window.clearTimeout(timer);
+  }, [brandSignature]);
+
   return (
-    <div className="grid min-h-screen md:grid-cols-[minmax(240px,38%)_1fr]">
-      <aside
-        className="flex flex-col justify-between bg-primary px-6 py-8 text-primary-foreground md:min-h-screen"
-        style={
-          branding.branding?.loginBackgroundUrl
-            ? {
-                backgroundImage: `linear-gradient(to bottom, color-mix(in srgb, var(--primary) 78%, transparent), var(--primary)), url(${branding.branding.loginBackgroundUrl})`,
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }
-            : undefined
-        }
-      >
-        <div>
-          {branding.branding?.logoUrl ? (
-            <img src={branding.branding.logoUrl} alt="" className="mb-4 h-10 w-auto" />
-          ) : null}
-          <p className="text-lg font-semibold tracking-tight">{name}</p>
-          {branding.branding?.tagline ? <p className="mt-2 max-w-xs text-sm opacity-90">{branding.branding.tagline}</p> : null}
+    <div className="flex min-h-screen flex-col md:grid md:grid-cols-[minmax(260px,38%)_1fr]">
+      <header className="flex items-center gap-3 bg-primary px-4 py-3 text-primary-foreground transition-colors duration-150 motion-reduce:transition-none md:hidden">
+        <div className={cn("flex min-w-0 items-center gap-3 transition-opacity duration-150 motion-reduce:transition-none", fading ? "opacity-50" : "opacity-100")}>
+          <BrandLogo logoUrl={logoUrl} displayName={name} size="md" inverted />
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold tracking-tight">{name}</p>
+            {tagline ? <p className="truncate text-xs opacity-85">{tagline}</p> : null}
+          </div>
+        </div>
+      </header>
+      <aside className="hidden flex-col justify-between bg-primary px-8 py-10 text-primary-foreground transition-colors duration-150 motion-reduce:transition-none md:flex md:min-h-screen">
+        <div className={cn("transition-opacity duration-150 motion-reduce:transition-none", fading ? "opacity-50" : "opacity-100")}>
+          <div className="mb-5">
+            <BrandLogo logoUrl={logoUrl} displayName={name} size="lg" inverted />
+          </div>
+          <p className="text-xl font-semibold tracking-tight">{name}</p>
+          {tagline ? <p className="mt-2 max-w-xs text-sm opacity-90">{tagline}</p> : null}
         </div>
         {hideProduct || name === ProductName ? null : <p className="mt-8 text-xs opacity-80">{ProductName}</p>}
       </aside>
-      <main className="flex items-center justify-center px-4 py-10">
-        <div className="w-full max-w-sm">
-          <LanguageSelect />
-          {children}
-        </div>
+      <main className="flex flex-1 items-center justify-center px-4 py-10">
+        <div className="w-full max-w-sm">{children}</div>
       </main>
     </div>
   );

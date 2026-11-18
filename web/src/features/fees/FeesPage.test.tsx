@@ -1,12 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { I18nextProvider } from "react-i18next";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { StaticFeatureProvider } from "@/components/feature-gate";
 import { ToastProvider } from "@/components/toast";
-import i18n from "@/i18n";
 import { formatMoney } from "./api";
 import { FeesPage } from "./FeesPage";
 import { PaymentStatusPage } from "./PaymentStatusPage";
@@ -185,15 +183,13 @@ describe("Fees and PayHere UI", () => {
 
     render(
       <QueryClientProvider client={queryClient}>
-        <I18nextProvider i18n={i18n}>
-          <ToastProvider>
+                  <ToastProvider>
             <MemoryRouter initialEntries={["/pay/PH-TEST-001"]}>
               <Routes>
                 <Route path="/pay/:orderId" element={<PaymentStatusPage />} />
               </Routes>
             </MemoryRouter>
           </ToastProvider>
-        </I18nextProvider>
       </QueryClientProvider>,
     );
 
@@ -214,8 +210,7 @@ describe("Fees and PayHere UI", () => {
 
     render(
       <QueryClientProvider client={queryClient}>
-        <I18nextProvider i18n={i18n}>
-          <ToastProvider>
+                  <ToastProvider>
             <StaticFeatureProvider
               features={[
                 { featureKey: "DataExport", isInPlan: true, isOverridden: false, isTenantEnabled: true, isEffectiveEnabled: true, updatedAt: null },
@@ -227,7 +222,6 @@ describe("Fees and PayHere UI", () => {
               </MemoryRouter>
             </StaticFeatureProvider>
           </ToastProvider>
-        </I18nextProvider>
       </QueryClientProvider>,
     );
 

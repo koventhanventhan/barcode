@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { BranchSwitcher } from "@/components/layout/BranchSwitcher";
 import { PageHeader } from "@/components/page-header";
@@ -12,7 +12,6 @@ import { api } from "@/lib/api";
 import { colomboToday, type AttendanceReport } from "./api";
 
 export function ReportsPage() {
-  const { t } = useTranslation();
   const { hasPermission } = useAuth();
   const today = colomboToday();
   const [from, setFrom] = useState(today);

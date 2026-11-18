@@ -1,10 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { HelmetProvider } from "react-helmet-async";
-import { I18nextProvider } from "react-i18next";
 import { MemoryRouter, Outlet, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import i18n from "@/i18n";
 import { LoginPage } from "@/features/auth/AuthPages";
 import { AuthContext, type AuthContextValue } from "@/features/auth/AuthProvider";
 import { BrandingProvider } from "@/features/branding/BrandingProvider";
@@ -50,8 +48,7 @@ function renderRoute(route: string) {
   return render(
     <HelmetProvider>
       <QueryClientProvider client={client}>
-        <I18nextProvider i18n={i18n}>
-          <AuthContext.Provider value={authMock}>
+                  <AuthContext.Provider value={authMock}>
             <MemoryRouter initialEntries={[route]}>
               <BrandingProvider>
                 <Routes>
@@ -82,7 +79,6 @@ function renderRoute(route: string) {
               </BrandingProvider>
             </MemoryRouter>
           </AuthContext.Provider>
-        </I18nextProvider>
       </QueryClientProvider>
     </HelmetProvider>,
   );

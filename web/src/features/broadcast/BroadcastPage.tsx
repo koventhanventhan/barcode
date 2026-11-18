@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Megaphone } from "lucide-react";
 import { useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { FeatureGate, useFeature } from "@/components/feature-gate";
 import { PageHeader } from "@/components/page-header";
@@ -57,7 +57,6 @@ const fieldClass =
   "h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 export function BroadcastPage() {
-  const { t } = useTranslation();
   const blocked = (
     <p className="text-sm text-muted">{t("broadcast.disabled")}</p>
   );
@@ -69,7 +68,6 @@ export function BroadcastPage() {
 }
 
 function BroadcastComposer() {
-  const { t } = useTranslation();
   const toast = useToast();
   const auth = useAuth();
   const queryClient = useQueryClient();
@@ -263,12 +261,12 @@ function BroadcastComposer() {
           </label>
           <label className="block text-xs font-medium">
             {t("broadcast.template")}
-            <Textarea className="mt-1 min-h-16" value={bodyTemplate} onChange={(event) => setBodyTemplate(event.target.value)} />
+            <Textarea lang={language} className="mt-1 min-h-16" value={bodyTemplate} onChange={(event) => setBodyTemplate(event.target.value)} />
           </label>
           <p className="text-xs text-muted">{t("broadcast.variables")}</p>
           <label className="block text-xs font-medium">
             {t("broadcast.message")}
-            <Textarea className="mt-1" value={message} onChange={(event) => setMessage(event.target.value)} required />
+            <Textarea lang={language} className="mt-1" value={message} onChange={(event) => setMessage(event.target.value)} required />
           </label>
           <label className="block text-xs font-medium">
             {t("broadcast.schedule")}
@@ -293,7 +291,7 @@ function BroadcastComposer() {
               {preview.data.isUnicode ? <p className="text-xs text-muted">{t("broadcast.unicodeHint")}</p> : <p className="text-xs text-muted">{t("broadcast.gsmHint")}</p>}
               {preview.data.wouldExceedQuota ? <p className="text-xs text-warning">{t("broadcast.overQuota", { policy: preview.data.overQuotaPolicy })}</p> : null}
               {preview.data.quietHoursActive ? <p className="text-xs text-warning">{t("broadcast.quietHours")}</p> : null}
-              {preview.data.sampleBody ? <p className="rounded-md border border-border bg-secondary px-3 py-2 text-xs">{preview.data.sampleBody}</p> : null}
+              {preview.data.sampleBody ? <p lang={language} className="rounded-md border border-border bg-secondary px-3 py-2 text-xs">{preview.data.sampleBody}</p> : null}
             </dl>
           ) : !previewError ? <p className="mt-3 text-sm text-muted">{t("broadcast.estimateEmpty")}</p> : null}
         </aside>

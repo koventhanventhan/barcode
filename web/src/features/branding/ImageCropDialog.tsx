@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 
@@ -12,7 +12,6 @@ export function ImageCropDialog({
   onCancel: () => void;
   onConfirm: (blob: Blob) => void;
 }) {
-  const { t } = useTranslation();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const [zoom, setZoom] = useState(1);

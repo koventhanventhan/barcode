@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { api } from "@/lib/api";
 import { getSelectedBranch, setSelectedBranch, subscribeBranch } from "@/lib/session";
@@ -9,7 +9,6 @@ type BranchOption = { id: string; name: string; code: string };
 type BranchScope = { canViewAll: boolean; branches: BranchOption[] };
 
 export function BranchSwitcher() {
-  const { t } = useTranslation();
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState<string | null>(getSelectedBranch());

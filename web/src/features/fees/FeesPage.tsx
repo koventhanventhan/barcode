@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell, CreditCard, Download, FileSpreadsheet, FileText, Lock, Plus, Receipt, RefreshCw, ShieldCheck } from "lucide-react";
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { useNavigate } from "react-router-dom";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { BranchSwitcher } from "@/components/layout/BranchSwitcher";
@@ -41,7 +41,6 @@ import {
 type TabKey = "overview" | "invoices" | "bankSlips" | "credits" | "structures" | "cashierClosing" | "payhere";
 
 export function FeesPage() {
-  const { t } = useTranslation();
   const toast = useToast();
   const navigate = useNavigate();
   const auth = useAuth();

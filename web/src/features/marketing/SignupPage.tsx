@@ -2,7 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { z } from "zod";
 import { FormField, fieldError } from "@/components/form-field";
@@ -32,7 +32,6 @@ type SignupValues = {
 };
 
 export function SignupPage() {
-  const { t } = useTranslation();
   const auth = useAuth();
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -48,7 +47,7 @@ export function SignupPage() {
         planCode: z.string().min(1),
         phone: z.string().optional(),
       }),
-    [t],
+    [],
   );
   const form = useForm<SignupValues>({
     resolver: zodResolver(schema),
@@ -71,7 +70,7 @@ export function SignupPage() {
 
   useEffect(() => {
     document.title = t("signup.metaTitle", { product: ProductName });
-  }, [t]);
+  }, []);
 
   return (
     <main className="mx-auto grid min-h-screen max-w-lg content-center gap-4 px-4 py-10">

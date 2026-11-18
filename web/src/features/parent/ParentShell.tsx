@@ -2,7 +2,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { BookOpen, CalendarDays, ClipboardCheck, CreditCard, House, Inbox, LogOut, Moon, Sun } from "lucide-react";
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useFeature } from "@/components/feature-gate";
 import { PageSkeleton } from "@/components/skeletons";
@@ -10,6 +10,7 @@ import { ProductName } from "@/config/brand";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { HelpWidget } from "@/features/help/HelpWidget";
 import { useBranding } from "@/features/branding/BrandingProvider";
+import { BrandLogo } from "@/features/branding/BrandLogo";
 import { ApiError, api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { readSelectedChild, type ParentHome } from "./model";
@@ -31,7 +32,6 @@ export function useParentPortal() {
 }
 
 export function ParentShell() {
-  const { t } = useTranslation();
   const auth = useAuth();
   const branding = useBranding();
   const navigate = useNavigate();
@@ -128,9 +128,12 @@ export function ParentShell() {
         </a>
         <header className="border-b border-border bg-card">
           <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3">
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">{institute}</p>
-              <p className="truncate text-[12px] text-muted">{auth.user?.fullName}</p>
+            <div className="flex min-w-0 items-center gap-2.5">
+              <BrandLogo logoUrl={branding.branding?.logoUrl} displayName={institute} size="sm" />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold">{institute}</p>
+                <p className="truncate text-[12px] text-muted">{auth.user?.fullName}</p>
+              </div>
             </div>
             <div className="flex items-center gap-1">
               <button

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Check, ChevronDown, Minus } from "lucide-react";
 import { Fragment, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
 import type { Plan } from "@/lib/types";
@@ -41,7 +41,6 @@ function FeatureMark({ included, yes, no }: { included: boolean; yes: string; no
 }
 
 export function PricingPage() {
-  const { t } = useTranslation();
   const plans = useQuery({ queryKey: ["public-plans"], queryFn: () => api<Plan[]>("/api/plans") });
   const [cycle, setCycle] = useState<"monthly" | "yearly">("monthly");
   const [openFaq, setOpenFaq] = useState<string | null>("trial");

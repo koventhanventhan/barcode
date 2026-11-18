@@ -6,7 +6,8 @@
 | GET | `/health` | Public | Process liveness |
 | GET | `/api/info` | Public | Product metadata |
 | GET | `/api/plans` | Public | Active subscription plans with features and limits |
-| GET | `/api/public/branding` | Public | Institute or platform branding. Uses host subdomain or `X-Tenant`. |
+| GET | `/api/public/branding` | Public | Institute or platform branding (`?code=`, host subdomain, or `X-Tenant`). Returns 6 public fields only; rate-limited and cached 5 min. |
+| GET | `/api/branding/current` | Bearer | Authenticated user's institute or platform branding (`BrandingDto`). |
 | GET | `/api/public/subdomains/{subdomain}/availability` | Public | Institute address check for signup |
 | POST | `/api/public/signup` | Public | Create an institute, admin, and 14-day trial |
 | POST | `/api/public/demo-requests` | Public | Store a demo request and email the super admin |

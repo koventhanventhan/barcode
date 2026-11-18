@@ -2,7 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { z } from "zod";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -48,7 +48,6 @@ type StudentDetail = FormValues & {
 export function StudentFormPage() {
   const { id } = useParams();
   const isNew = !id;
-  const { t } = useTranslation();
   const toast = useToast();
   const navigate = useNavigate();
   const queryClient = useQueryClient();

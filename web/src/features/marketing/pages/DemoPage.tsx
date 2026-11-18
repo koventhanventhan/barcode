@@ -1,6 +1,6 @@
 import { Play } from "lucide-react";
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { api } from "@/lib/api";
@@ -10,7 +10,6 @@ import { Img } from "../Img";
 import { MarketingMeta } from "../MarketingMeta";
 
 export function DemoPage() {
-  const { t } = useTranslation();
   const auth = useAuth();
   const [opening, setOpening] = useState(false);
   const [error, setError] = useState("");

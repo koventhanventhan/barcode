@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { api } from "@/lib/api";
 import type { FeatureStatus } from "@/lib/types";
 import { useAuth } from "@/features/auth/AuthProvider";
@@ -58,7 +58,6 @@ export function FeatureGate({
   children: ReactNode;
   fallback?: ReactNode;
 }) {
-  const { t } = useTranslation();
   const state = useFeature(feature);
   if (state.isLoading) return null;
   if (!state.isInPlan) return fallback ?? <p className="text-sm text-muted">{t("gates.upgrade")}</p>;

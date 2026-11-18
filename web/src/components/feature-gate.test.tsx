@@ -1,7 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { I18nextProvider } from "react-i18next";
 import { describe, expect, it } from "vitest";
-import i18n from "@/i18n";
 import type { FeatureStatus } from "@/lib/types";
 import { FeatureGate, StaticFeatureProvider } from "./feature-gate";
 
@@ -18,13 +16,11 @@ function row(partial: Partial<FeatureStatus> & Pick<FeatureStatus, "featureKey">
 
 function renderGate(features: FeatureStatus[], fallback?: string) {
   return render(
-    <I18nextProvider i18n={i18n}>
-      <StaticFeatureProvider features={features}>
+          <StaticFeatureProvider features={features}>
         <FeatureGate feature="ParentPortal" fallback={fallback ? <p>{fallback}</p> : undefined}>
           <p>Portal content</p>
         </FeatureGate>
-      </StaticFeatureProvider>
-    </I18nextProvider>,
+      </StaticFeatureProvider>,
   );
 }
 

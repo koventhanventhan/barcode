@@ -1,8 +1,6 @@
 import { render, screen } from "@testing-library/react";
-import { I18nextProvider } from "react-i18next";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it } from "vitest";
-import i18n from "@/i18n";
 import type { AuthUser } from "@/lib/types";
 import { AuthContext, type AuthContextValue } from "./AuthProvider";
 import { RequireAuth, RequireRole } from "./guards";
@@ -36,8 +34,7 @@ function value(account: AuthUser | null): AuthContextValue {
 
 function renderAt(path: string, account: AuthUser | null) {
   return render(
-    <I18nextProvider i18n={i18n}>
-      <MemoryRouter initialEntries={[path]}>
+          <MemoryRouter initialEntries={[path]}>
         <AuthContext.Provider value={value(account)}>
           <Routes>
             <Route path="/login" element={<p>Login screen</p>} />
@@ -63,8 +60,7 @@ function renderAt(path: string, account: AuthUser | null) {
             />
           </Routes>
         </AuthContext.Provider>
-      </MemoryRouter>
-    </I18nextProvider>,
+      </MemoryRouter>,
   );
 }
 

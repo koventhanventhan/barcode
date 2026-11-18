@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Archive, Download, Play, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { FeatureGate, useFeature } from "@/components/feature-gate";
 import { PageHeader } from "@/components/page-header";
 import { PageSkeleton } from "@/components/skeletons";
@@ -24,7 +24,6 @@ import { api, ApiError } from "@/lib/api";
 import { downloadApi } from "@/lib/download";
 
 export function BackupsAndCleanupPage() {
-  const { t } = useTranslation();
   const toast = useToast();
   const queryClient = useQueryClient();
   const { hasPermission, isReadOnly } = useAuth();

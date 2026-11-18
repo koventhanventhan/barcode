@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { z } from "zod";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { DataTable, type DataColumn } from "@/components/data-table/DataTable";
@@ -39,7 +39,6 @@ const groupSchema = z.object({
 });
 
 export function BatchesPage() {
-  const { t } = useTranslation();
   const toast = useToast();
   const { hasPermission, isReadOnly } = useAuth();
   const queryClient = useQueryClient();
@@ -203,7 +202,6 @@ function BatchDialog({
   onOpenChange: (open: boolean) => void;
   onSubmit: (body: BatchForm) => void;
 }) {
-  const { t } = useTranslation();
   const form = useForm<BatchForm>({
     resolver: zodResolver(batchSchema),
     values: {
@@ -272,7 +270,6 @@ function GroupDialog({
   onOpenChange: (open: boolean) => void;
   onSubmit: (body: z.infer<typeof groupSchema>) => void;
 }) {
-  const { t } = useTranslation();
   const form = useForm<z.infer<typeof groupSchema>>({
     resolver: zodResolver(groupSchema),
     defaultValues: { name: "", code: "", isActive: true },

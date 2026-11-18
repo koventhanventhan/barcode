@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { useToast } from "@/components/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,7 +23,6 @@ const typeOptions = [
 ] as const;
 
 export function AddOnsPanel({ tenantId, planCode }: { tenantId: string; planCode: string }) {
-  const { t } = useTranslation();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [type, setType] = useState<(typeof typeOptions)[number][0]>("ExtraStorageGb");

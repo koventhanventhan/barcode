@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, Megaphone, Play, ShieldAlert, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { Link } from "react-router-dom";
 import { PageHeader } from "@/components/page-header";
 import { PageSkeleton } from "@/components/skeletons";
@@ -25,7 +25,6 @@ import { api, ApiError } from "@/lib/api";
 import { downloadApi } from "@/lib/download";
 
 export function PlatformDashboardPage() {
-  const { t } = useTranslation();
   const toast = useToast();
   const queryClient = useQueryClient();
 

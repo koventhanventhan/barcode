@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { RefreshCw, RotateCcw } from "lucide-react";
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { PageSkeleton } from "@/components/skeletons";
@@ -22,7 +22,6 @@ import type {
 import { SmsQuotaCard } from "./SmsQuotaCard";
 
 export function MessageLogPage() {
-  const { t } = useTranslation();
   const toast = useToast();
   const { isReadOnly, hasPermission } = useAuth();
   const canManage = hasPermission("settings.manage") && !isReadOnly;

@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { Link } from "react-router-dom";
 import { PageHeader } from "@/components/page-header";
 import { useToast } from "@/components/toast";
@@ -16,7 +16,6 @@ export type ImportReport = {
 };
 
 export function ImportReportView({ report }: { report: ImportReport }) {
-  const { t } = useTranslation();
   return (
     <div className="grid gap-3">
       <p className="text-sm">{t("students.imported", { count: report.imported })}</p>
@@ -50,7 +49,6 @@ export function ImportReportView({ report }: { report: ImportReport }) {
 }
 
 export function ImportStudentsPage() {
-  const { t } = useTranslation();
   const toast = useToast();
   const { hasPermission } = useAuth();
   const [file, setFile] = useState<File | null>(null);

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Building2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { useToast } from "@/components/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,6 @@ import type { TenantBankAccountDto } from "@/features/fees/api";
 import { api } from "@/lib/api";
 
 export function BankAccountSettingsCard({ disabled }: { disabled: boolean }) {
-  const { t } = useTranslation();
   const toast = useToast();
   const queryClient = useQueryClient();
 

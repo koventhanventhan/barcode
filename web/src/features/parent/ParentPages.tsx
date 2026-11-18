@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { Link } from "react-router-dom";
 import { EmptyState } from "@/components/empty-state";
 import { useToast } from "@/components/toast";
@@ -31,7 +31,6 @@ function childPath(studentId: string, suffix: string) {
 }
 
 export function ParentDashboardPage() {
-  const { t } = useTranslation();
   const { studentId, home } = useParentPortal();
   const child = home.children.find((item) => item.id === studentId);
   const dashboard = useQuery({
@@ -99,7 +98,6 @@ export function ParentDashboardPage() {
 }
 
 export function ParentAttendancePage() {
-  const { t } = useTranslation();
   const { studentId } = useParentPortal();
   const query = useQuery({
     queryKey: ["parent-attendance", studentId],
@@ -131,7 +129,6 @@ export function ParentAttendancePage() {
 }
 
 export function ParentClassesPage() {
-  const { t } = useTranslation();
   const { studentId } = useParentPortal();
   const query = useQuery({
     queryKey: ["parent-classes", studentId],
@@ -146,7 +143,6 @@ export function ParentClassesPage() {
 }
 
 export function ParentResultsPage() {
-  const { t } = useTranslation();
   const toast = useToast();
   const { studentId, home } = useParentPortal();
   const query = useQuery({
@@ -213,7 +209,6 @@ export function ParentResultsPage() {
 }
 
 export function ParentFeesPage() {
-  const { t } = useTranslation();
   const toast = useToast();
   const queryClient = useQueryClient();
   const { studentId, home } = useParentPortal();
@@ -539,7 +534,6 @@ export function ParentFeesPage() {
 }
 
 export function ParentMessagesPage() {
-  const { t } = useTranslation();
   const query = useQuery({
     queryKey: ["parent-messages"],
     queryFn: () => api<ParentMessage[]>("/api/parent/messages"),

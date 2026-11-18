@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { PageHeader } from "@/components/page-header";
 import { PageSkeleton } from "@/components/skeletons";
@@ -13,7 +13,6 @@ import { SmsQuotaCard } from "@/features/features/SmsQuotaCard";
 import { OnboardingChecklist } from "@/features/marketing/OnboardingChecklist";
 
 export function DashboardPage() {
-  const { t } = useTranslation();
   const { hasPermission } = useAuth();
   const subscription = useQuery({
     queryKey: ["subscription"],

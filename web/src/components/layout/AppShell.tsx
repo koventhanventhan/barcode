@@ -10,7 +10,6 @@ import {
   IdCard,
   ScanLine,
   KeyRound,
-  Languages,
   Layers,
   LayoutDashboard,
   LogOut,
@@ -28,13 +27,14 @@ import {
   X,
 } from "lucide-react";
 import { useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { BranchSwitcher } from "@/components/layout/BranchSwitcher";
 import { ProductName } from "@/config/brand";
+import { t } from "@/config/strings";
 import { useAuth } from "@/features/auth/AuthProvider";
-import { HelpWidget } from "@/features/help/HelpWidget";
+import { BrandLogo } from "@/features/branding/BrandLogo";
 import { useBranding } from "@/features/branding/BrandingProvider";
+import { HelpWidget } from "@/features/help/HelpWidget";
 import type { PlatformAnnouncement } from "@/features/operations/api";
 import { api } from "@/lib/api";
 import type { SubscriptionSummary } from "@/lib/types";
@@ -49,7 +49,6 @@ type NavItem = {
 };
 
 export function AppShell() {
-  const { t, i18n } = useTranslation();
   const auth = useAuth();
   const branding = useBranding();
   const navigate = useNavigate();
@@ -105,7 +104,7 @@ export function AppShell() {
       { to: "/admin/plans", label: t("nav.plans"), icon: CreditCard, show: platform, group: "platform" },
       { to: "/admin/branding", label: t("nav.platformBranding"), icon: Palette, show: platform, group: "platform" },
     ].filter((item) => item.show);
-  }, [canAcademics, canAttendance, canBroadcast, canExams, canFees, canSettings, canStaff, canStudents, inInstitute, platform, t, user]);
+  }, [canAcademics, canAttendance, canBroadcast, canExams, canFees, canSettings, canStaff, canStudents, inInstitute, platform, user]);
 
   const matches = items.filter((item) => item.label.toLowerCase().includes(query.trim().toLowerCase()));
   const name = branding.branding?.instituteDisplayName || ProductName;
@@ -128,7 +127,7 @@ export function AppShell() {
         )}
       >
         <div className="flex h-14 items-center gap-2 border-b border-border px-3">
-          {branding.branding?.logoUrl ? <img src={branding.branding.logoUrl} alt="" className="h-7 w-7 object-contain" /> : <span className="h-7 w-7 rounded-md bg-primary" />}
+          <BrandLogo logoUrl={branding.branding?.logoUrl} displayName={name} size="sm" />
           {collapsed ? null : (
             <span className="min-w-0">
               <span className="block truncate text-sm font-semibold">{name}</span>
@@ -179,6 +178,10 @@ export function AppShell() {
           <button type="button" className="hidden h-8 w-8 items-center justify-center rounded-md border border-border md:inline-flex" onClick={() => setCollapsed((value) => !value)} aria-label={collapsed ? t("shell.expand") : t("shell.collapse")}>
             <PanelLeft className="h-4 w-4" />
           </button>
+          <div className="flex items-center gap-2 md:hidden">
+            <BrandLogo logoUrl={branding.branding?.logoUrl} displayName={name} size="sm" />
+            <span className="max-w-[110px] truncate text-sm font-semibold">{name}</span>
+          </div>
           <div className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-2 top-2 h-4 w-4 text-muted" aria-hidden="true" />
             <input
@@ -211,20 +214,6 @@ export function AppShell() {
             ) : null}
           </div>
           <BranchSwitcher />
-          <label className="hidden items-center gap-1 text-xs text-muted sm:flex">
-            <Languages className="h-4 w-4" aria-hidden="true" />
-            <span className="sr-only">{t("shell.language")}</span>
-            <select
-              aria-label={t("shell.language")}
-              className="h-8 rounded-md border border-border bg-card px-2"
-              value={i18n.language}
-              onChange={(event) => void i18n.changeLanguage(event.target.value)}
-            >
-              <option value="en">{t("lang.en")}</option>
-              <option value="ta">{t("lang.ta")}</option>
-              <option value="si">{t("lang.si")}</option>
-            </select>
-          </label>
           <button
             type="button"
             className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border"

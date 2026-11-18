@@ -1,12 +1,11 @@
 import { ArrowRight } from "lucide-react";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { Link } from "react-router-dom";
 import { ProductName } from "@/config/brand";
 import { Img } from "../Img";
 import { MarketingMeta } from "../MarketingMeta";
 
 export function AboutPage() {
-  const { t } = useTranslation();
 
   return (
     <>

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Lock, RotateCcw, Send } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { Link } from "react-router-dom";
 import { PageHeader } from "@/components/page-header";
 import { PageSkeleton } from "@/components/skeletons";
@@ -36,7 +36,6 @@ import { StorageUsageCard } from "./StorageUsageCard";
 import { BankAccountSettingsCard } from "./BankAccountSettingsCard";
 
 export function FeaturesPage() {
-  const { t } = useTranslation();
   const toast = useToast();
   const { isReadOnly, hasPermission } = useAuth();
   const canManage = hasPermission("settings.manage") && !isReadOnly;
@@ -546,9 +545,9 @@ export function FeaturesPage() {
                   value={selectedLang}
                   onChange={(e) => setSelectedLang(e.target.value)}
                 >
-                  <option value="en">{t("lang.en")}</option>
-                  <option value="ta">{t("lang.ta")}</option>
-                  <option value="si">{t("lang.si")}</option>
+                  <option value="en">English</option>
+                  <option value="ta">Tamil</option>
+                  <option value="si">Sinhala</option>
                 </select>
               </div>
             </div>
@@ -560,6 +559,7 @@ export function FeaturesPage() {
                     {t("notifications.emailSubject")}
                   </span>
                   <Input
+                    lang={selectedLang}
                     value={draftSubject}
                     disabled={!canManage}
                     onChange={(e) => setDraftSubject(e.target.value)}
@@ -571,6 +571,7 @@ export function FeaturesPage() {
                     {t("notifications.templateBody")}
                   </span>
                   <Textarea
+                    lang={selectedLang}
                     rows={4}
                     value={draftBody}
                     disabled={!canManage}
@@ -643,10 +644,10 @@ export function FeaturesPage() {
                     {t("notifications.left")})
                   </span>
                 </div>
-                <p className="mb-1 text-xs font-medium text-muted">
+                <p lang={selectedLang} className="mb-1 text-xs font-medium text-muted">
                   {renderedPreviewSubject}
                 </p>
-                <p className="whitespace-pre-wrap rounded border border-border bg-card p-3 text-sm">
+                <p lang={selectedLang} className="whitespace-pre-wrap rounded border border-border bg-card p-3 text-sm">
                   {renderedPreviewBody}
                 </p>
               </div>
@@ -905,9 +906,9 @@ export function FeaturesPage() {
               value={testLang}
               onChange={(e) => setTestLang(e.target.value)}
             >
-              <option value="en">{t("lang.en")}</option>
-              <option value="ta">{t("lang.ta")}</option>
-              <option value="si">{t("lang.si")}</option>
+              <option value="en">English</option>
+              <option value="ta">Tamil</option>
+              <option value="si">Sinhala</option>
             </select>
           </label>
 
@@ -962,7 +963,6 @@ function FeatureGroup({
   disabled: boolean;
   onToggle: (feature: FeatureStatus, isEnabled: boolean) => void;
 }) {
-  const { t } = useTranslation();
   return (
     <section className="mb-4 rounded-lg border border-border bg-card">
       <h2 className="border-b border-border px-4 py-3 text-sm font-semibold">

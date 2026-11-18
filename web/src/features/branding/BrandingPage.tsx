@@ -2,7 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { z } from "zod";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { FormField, fieldError } from "@/components/form-field";
@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { applyBrandToDocument, brandPresets, resolveThemeMode } from "@/lib/color";
 import { api } from "@/lib/api";
 import type { Branding } from "@/lib/types";
+import { BrandLogo } from "./BrandLogo";
 import { useBranding } from "./BrandingProvider";
 import { ImageCropDialog } from "./ImageCropDialog";
 
@@ -30,7 +31,6 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 export function BrandingPage({ platform = false }: { platform?: boolean }) {
-  const { t } = useTranslation();
   const toast = useToast();
   const queryClient = useQueryClient();
   const live = useBranding();
@@ -99,6 +99,7 @@ export function BrandingPage({ platform = false }: { platform?: boolean }) {
     onSuccess: async () => {
       toast.success(t("branding.saved"));
       await queryClient.invalidateQueries({ queryKey: ["public-branding"] });
+      await queryClient.invalidateQueries({ queryKey: ["current-branding"] });
       await queryClient.invalidateQueries({ queryKey: ["branding-edit"] });
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : t("errors.generic")),
@@ -110,19 +111,33 @@ export function BrandingPage({ platform = false }: { platform?: boolean }) {
       toast.success(t("branding.resetDone"));
       setResetOpen(false);
       await queryClient.invalidateQueries({ queryKey: ["public-branding"] });
+      await queryClient.invalidateQueries({ queryKey: ["current-branding"] });
       await queryClient.invalidateQueries({ queryKey: ["branding-edit"] });
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : t("errors.generic")),
   });
 
-  async function upload(kind: "logo" | "favicon" | "background", blob: Blob) {
+  async function upload(kind: "logo" | "favicon" | "background", fileOrBlob: Blob, fileName?: string) {
     const body = new FormData();
-    body.append("file", blob, `${kind}.png`);
+    body.append("file", fileOrBlob, fileName ?? `${kind}.png`);
     body.append("kind", kind);
     await api<Branding>(`${base}/assets`, { method: "POST", body });
     toast.success(t("branding.saved"));
     await queryClient.invalidateQueries({ queryKey: ["public-branding"] });
+    await queryClient.invalidateQueries({ queryKey: ["current-branding"] });
     await queryClient.invalidateQueries({ queryKey: ["branding-edit"] });
+  }
+
+  function handlePickedAsset(kind: "logo" | "favicon" | "background", file: File) {
+    const isSvg = file.type === "image/svg+xml" || file.name.toLowerCase().endsWith(".svg");
+    if (isSvg) {
+      void upload(kind, file, file.name || `${kind}.svg`).catch((error: unknown) => {
+        toast.error(error instanceof Error ? error.message : t("errors.generic"));
+      });
+      return;
+    }
+    setCropKind(kind);
+    setCropFile(file);
   }
 
   if (query.isLoading || !query.data) return <PageSkeleton />;
@@ -216,10 +231,11 @@ export function BrandingPage({ platform = false }: { platform?: boolean }) {
             </span>
           </label>
           <div className="grid gap-3 sm:grid-cols-3">
-            <AssetButton label={t("branding.logo")} url={query.data.logoUrl} onPick={(file) => { setCropKind("logo"); setCropFile(file); }} />
-            <AssetButton label={t("branding.favicon")} url={query.data.faviconUrl} onPick={(file) => { setCropKind("favicon"); setCropFile(file); }} />
-            <AssetButton label={t("branding.background")} url={query.data.loginBackgroundUrl} onPick={(file) => { setCropKind("background"); setCropFile(file); }} />
+            <AssetButton label={t("branding.logo")} url={query.data.logoUrl} onPick={(file) => handlePickedAsset("logo", file)} />
+            <AssetButton label={t("branding.favicon")} url={query.data.faviconUrl} onPick={(file) => handlePickedAsset("favicon", file)} />
+            <AssetButton label={t("branding.background")} url={query.data.loginBackgroundUrl} onPick={(file) => handlePickedAsset("background", file)} />
           </div>
+          <p className="text-xs text-muted">{t("branding.uploadHint")}</p>
           <Button type="submit" disabled={save.isPending}>
             {save.isPending ? t("common.saving") : t("common.save")}
           </Button>
@@ -228,6 +244,9 @@ export function BrandingPage({ platform = false }: { platform?: boolean }) {
           <p className="text-xs font-medium uppercase tracking-wide text-muted">{t("branding.preview")}</p>
           <div className="mt-3 overflow-hidden rounded-md border border-border">
             <div className="px-3 py-4 text-primary-foreground" style={{ background: values.primaryColor }}>
+              <div className="mb-2">
+                <BrandLogo logoUrl={query.data.logoUrl} displayName={values.instituteDisplayName || "EduFlow"} size="md" inverted />
+              </div>
               <p className="text-sm font-semibold">{values.instituteDisplayName}</p>
               {values.tagline ? <p className="mt-1 text-xs opacity-90">{values.tagline}</p> : null}
             </div>
@@ -287,7 +306,6 @@ function ColorField({
 }
 
 function AssetButton({ label, url, onPick }: { label: string; url: string | null; onPick: (file: File) => void }) {
-  const { t } = useTranslation();
   return (
     <label className="grid gap-1 text-[13px]">
       <span className="font-medium">{label}</span>
@@ -295,7 +313,7 @@ function AssetButton({ label, url, onPick }: { label: string; url: string | null
       <span className="inline-flex h-8 cursor-pointer items-center justify-center rounded-md border border-border">{t("branding.upload")}</span>
       <input
         type="file"
-        accept="image/png,image/jpeg,image/webp"
+        accept="image/png,image/jpeg,image/webp,image/svg+xml"
         className="sr-only"
         onChange={(event) => {
           const file = event.target.files?.[0];

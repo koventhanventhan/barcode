@@ -1,5 +1,4 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { I18nextProvider } from "react-i18next";
 import { describe, expect, it, vi } from "vitest";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
@@ -8,7 +7,6 @@ import { StatCard } from "@/components/stat-card";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { AuthContext, type AuthContextValue } from "@/features/auth/AuthProvider";
-import i18n from "@/i18n";
 
 function authValue(permissions: string[]): AuthContextValue {
   return {
@@ -61,8 +59,7 @@ describe("UI primitives", () => {
     const onConfirm = vi.fn();
     const onOpenChange = vi.fn();
     render(
-      <I18nextProvider i18n={i18n}>
-        <ConfirmDialog
+              <ConfirmDialog
           open
           title="Delete item"
           description="This cannot be undone."
@@ -70,8 +67,7 @@ describe("UI primitives", () => {
           destructive
           onConfirm={onConfirm}
           onOpenChange={onOpenChange}
-        />
-      </I18nextProvider>,
+        />,
     );
 
     expect(screen.getByText("Delete item")).toBeInTheDocument();

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { Link } from "react-router-dom";
 import { BranchSwitcher } from "@/components/layout/BranchSwitcher";
 import { FeatureGate } from "@/components/feature-gate";
@@ -35,7 +35,6 @@ export type StudentListItem = {
 type StudentPage = { items: StudentListItem[]; total: number; page: number; pageSize: number };
 
 export function StudentsPage() {
-  const { t } = useTranslation();
   const toast = useToast();
   const { hasPermission } = useAuth();
   const [search, setSearch] = useState("");

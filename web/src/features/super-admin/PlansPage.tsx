@@ -2,7 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import { useTranslation } from "react-i18next";
+import { t } from "@/config/strings";
 import { z } from "zod";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { DataTable, type DataColumn } from "@/components/data-table/DataTable";
@@ -81,14 +81,13 @@ function fromPlan(plan: Plan): PlanForm {
 }
 
 export function PlansPage() {
-  const { t } = useTranslation();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<Plan | null>(null);
   const [creating, setCreating] = useState(false);
   const [removeId, setRemoveId] = useState<Plan | null>(null);
   const plans = useQuery({ queryKey: ["plans"], queryFn: () => api<Plan[]>("/api/super-admin/plans") });
-  const schema = useMemo(() => buildSchema(t("plans.priceInvalid")), [t]);
+  const schema = useMemo(() => buildSchema(t("plans.priceInvalid")), []);
   const form = useForm<PlanForm>({ resolver: zodResolver(schema), defaultValues: emptyForm() });
 
   function openCreate() {
