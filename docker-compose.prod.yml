@@ -17,10 +17,10 @@ services:
       test:
         [
           "CMD-SHELL",
-          "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q \"SELECT 1\" || exit 1",
+          "/opt/mssql-tools18/bin/sqlcmd -S 127.0.0.1,1433 -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q \"SELECT 1\" -l 5 || exit 1",
         ]
       interval: 15s
-      timeout: 5s
+      timeout: 10s
       retries: 15
       start_period: 45s
 
