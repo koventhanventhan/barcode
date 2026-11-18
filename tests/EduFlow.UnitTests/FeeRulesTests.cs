@@ -99,7 +99,7 @@ public sealed class FeeRulesTests
     [Fact]
     public void PayHere_gateway_encrypts_secrets_and_verifies_md5sig_accurately()
     {
-        var provider = DataProtectionProvider.Create("EduFlow.Tests");
+        var provider = DataProtectionProvider.Create("Admino.Tests");
         var gateway = new PayHerePaymentGateway(provider);
 
         const string merchantId = "1211149";

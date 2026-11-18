@@ -1076,7 +1076,7 @@ export const strings = {
     "statLangs": "Trilingual parent alerts",
     "statScan": "Target barcode scan response",
     "statTrial": "Card-free evaluation period",
-    "ctaTitle": "Ready to try EduFlow with your batches?",
+    "ctaTitle": "Ready to try Admino with your batches?",
     "ctaBody": "Launch a private 14-day institute workspace in under two minutes or explore the seeded Royal Vidyalaya demo.",
     "featuresOverviewTitle": "Built for daily institute operations",
     "featuresOverviewBody": "Six focused modules share one student ledger, one permission model, and server-enforced feature switches.",
@@ -1144,7 +1144,7 @@ export const strings = {
     "contactBody": "Colombo & Jaffna. We reply within one working day.",
     "aboutTitle": "Designed for Sri Lankan classrooms and tuition centers",
     "aboutLead": "Tuition institutes and schools across Colombo, Jaffna, Kandy, and Galle need software that respects local workflows — LKR fee structures, Code128 barcode IDs, Tamil/Sinhala parent SMS, and dependable backups.",
-    "aboutBody": "EduFlow replaces scattered registers, Excel sheets, and manual SMS phones with one multi-tenant platform. Every institute gets isolated data, custom white-label colors, and real ON/OFF switches backed by server enforcement.",
+    "aboutBody": "Admino replaces scattered registers, Excel sheets, and manual SMS phones with one multi-tenant platform. Every institute gets isolated data, custom white-label colors, and real ON/OFF switches backed by server enforcement.",
     "aboutOfficesLabel": "Offices",
     "aboutOfficesNote": "Serving institutes island-wide with English, Tamil, and Sinhala parent messages.",
     "notFoundTitle": "Page not found",
@@ -1153,7 +1153,7 @@ export const strings = {
     "footerCompany": "Company",
     "footerRights": "Built for Sri Lankan education institutes.",
     "footerSmallPrint": "Asia/Colombo timezone · LKR billing",
-    "shotCaption": "EduFlow dashboard with today’s attendance, fees collected, and SMS usage.",
+    "shotCaption": "Admino dashboard with today’s attendance, fees collected, and SMS usage.",
     "shotInstitute": "Royal Vidyalaya",
     "shotToday": "Today",
     "shotAttendance": "Attendance",
@@ -1239,7 +1239,7 @@ export const strings = {
     },
     "faq": {
       "payment": {
-        "q": "How do we pay for EduFlow?",
+        "q": "How do we pay for Admino?",
         "a": "Platform invoices are handled by the product owner. Online student fees use PayHere only when that feature is on the plan."
       },
       "trial": {

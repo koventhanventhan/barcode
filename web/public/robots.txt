@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://eduflow.lk/sitemap.xml
+Sitemap: https://admino.lk/sitemap.xml

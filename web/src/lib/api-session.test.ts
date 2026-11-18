@@ -19,7 +19,7 @@ import {
 const sampleUser = {
   id: "u1",
   tenantId: "t1",
-  email: "admin@demo.eduflow.lk",
+  email: "admin@demo.admino.lk",
   fullName: "Admin",
   role: "InstituteAdmin" as const,
   permissions: ["students.view"],

@@ -104,7 +104,7 @@ describe("LoginPage and brand-aware auth", () => {
         if (url.includes("/api/public/branding")) {
           return new Response(
             JSON.stringify({
-              displayName: "EduFlow",
+              displayName: "Admino",
               tagline: "Platform operations",
               logoUrl: null,
               faviconUrl: null,
@@ -148,12 +148,12 @@ describe("LoginPage and brand-aware auth", () => {
     const user = userEvent.setup();
     renderWithBranding("/login");
 
-    await user.type(screen.getByLabelText("Email"), "superadmin@eduflow.lk");
+    await user.type(screen.getByLabelText("Email"), "superadmin@admino.lk");
     await user.type(screen.getByLabelText("Password"), "SuperAdmin@123!");
     await user.click(screen.getByRole("button", { name: "Sign in" }));
 
     expect(screen.queryByText("Required")).not.toBeInTheDocument();
-    expect(loginMock).toHaveBeenCalledWith("superadmin@eduflow.lk", "SuperAdmin@123!", "");
+    expect(loginMock).toHaveBeenCalledWith("superadmin@admino.lk", "SuperAdmin@123!", "");
     expect(await screen.findByText("Admin home")).toBeInTheDocument();
   });
 
@@ -161,8 +161,8 @@ describe("LoginPage and brand-aware auth", () => {
     const user = userEvent.setup();
     renderWithBranding("/login");
 
-    expect(await screen.findAllByText("EduFlow")).not.toHaveLength(0);
-    expect(screen.getAllByLabelText("EduFlow monogram").length).toBeGreaterThan(0);
+    expect(await screen.findAllByText("Admino")).not.toHaveLength(0);
+    expect(screen.getAllByLabelText("Admino monogram").length).toBeGreaterThan(0);
 
     const instituteInput = screen.getByLabelText(/Institute code/i);
     await user.type(instituteInput, "alpha");
@@ -181,17 +181,17 @@ describe("LoginPage and brand-aware auth", () => {
     await user.clear(instituteInput);
     await waitFor(
       () => {
-        expect(document.title).toBe("EduFlow");
+        expect(document.title).toBe("Admino");
         expect(screen.queryByText("Alpha Academy")).not.toBeInTheDocument();
       },
       { timeout: 1500 },
     );
-    expect(screen.getAllByLabelText("EduFlow monogram").length).toBeGreaterThan(0);
+    expect(screen.getAllByLabelText("Admino monogram").length).toBeGreaterThan(0);
   });
 
   it("falls back to monogram when logo fails to load or is absent", () => {
     expect(monogramFor("Royal Vidyalaya")).toBe("RO");
-    expect(monogramFor("EduFlow")).toBe("ED");
+    expect(monogramFor("Admino")).toBe("AD");
 
     render(<BrandLogo logoUrl="/broken.png" displayName="Royal Vidyalaya" size="lg" />);
     const img = screen.getByAltText("Royal Vidyalaya logo");
@@ -241,10 +241,10 @@ describe("LoginPage and brand-aware auth", () => {
   });
 
   it("extracts institute code from tenant subdomains only", () => {
-    expect(extractInstituteCodeFromHost("alpha.eduflow.lk")).toBe("alpha");
+    expect(extractInstituteCodeFromHost("alpha.admino.lk")).toBe("alpha");
     expect(extractInstituteCodeFromHost("demo.localhost")).toBe("demo");
     expect(extractInstituteCodeFromHost("localhost")).toBe("");
-    expect(extractInstituteCodeFromHost("eduflow.lk")).toBe("");
-    expect(extractInstituteCodeFromHost("www.eduflow.lk")).toBe("");
+    expect(extractInstituteCodeFromHost("admino.lk")).toBe("");
+    expect(extractInstituteCodeFromHost("www.admino.lk")).toBe("");
   });
 });

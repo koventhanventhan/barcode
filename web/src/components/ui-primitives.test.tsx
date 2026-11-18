@@ -13,7 +13,7 @@ function authValue(permissions: string[]): AuthContextValue {
     user: {
       id: "1",
       tenantId: "t1",
-      email: "admin@demo.eduflow.lk",
+      email: "admin@demo.admino.lk",
       fullName: "Admin User",
       role: "InstituteAdmin",
       permissions,

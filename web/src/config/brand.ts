@@ -1,1 +1,1 @@
-export const ProductName = "EduFlow";
+export const ProductName = "Admino";

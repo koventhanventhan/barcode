@@ -60,7 +60,7 @@ export function FeatureMockup({ slug }: { slug: FeatureSlug }) {
           </div>
           <Img
             src="/images/screens/parent-mobile.png"
-            alt="EduFlow Parent Portal mobile dashboard for Nimal Perera"
+            alt="Admino Parent Portal mobile dashboard for Nimal Perera"
             width={360}
             height={680}
             className="rounded-none border-0"
@@ -73,10 +73,10 @@ export function FeatureMockup({ slug }: { slug: FeatureSlug }) {
 
   if (slug === "attendance") {
     return (
-      <BrowserFrame title="demo.eduflow.lk/app/attendance">
+      <BrowserFrame title="demo.admino.lk/app/attendance">
         <Img
           src="/images/screens/scanner.png"
-          alt="EduFlow barcode scanner screen marking Nimal Perera present"
+          alt="Admino barcode scanner screen marking Nimal Perera present"
           width={1440}
           height={900}
           className="rounded-none border-0"
@@ -87,7 +87,7 @@ export function FeatureMockup({ slug }: { slug: FeatureSlug }) {
 
   if (slug === "backup") {
     return (
-      <BrowserFrame title="demo.eduflow.lk/app/settings/backups">
+      <BrowserFrame title="demo.admino.lk/app/settings/backups">
         <div className="grid gap-4 bg-background p-5 text-sm">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
             <div>
@@ -120,7 +120,7 @@ export function FeatureMockup({ slug }: { slug: FeatureSlug }) {
 
   if (slug === "fees") {
     return (
-      <BrowserFrame title="demo.eduflow.lk/app/fees">
+      <BrowserFrame title="demo.admino.lk/app/fees">
         <div className="grid gap-4 bg-background p-5 text-sm">
           <div className="grid grid-cols-3 gap-2">
             <div className="rounded-md border border-border bg-card p-3">
@@ -169,7 +169,7 @@ export function FeatureMockup({ slug }: { slug: FeatureSlug }) {
 
   if (slug === "exams") {
     return (
-      <BrowserFrame title="demo.eduflow.lk/app/exams">
+      <BrowserFrame title="demo.admino.lk/app/exams">
         <div className="grid gap-4 bg-background p-5 text-sm">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
@@ -216,7 +216,7 @@ export function FeatureMockup({ slug }: { slug: FeatureSlug }) {
   }
 
   return (
-    <BrowserFrame title="demo.eduflow.lk/app/settings/features">
+    <BrowserFrame title="demo.admino.lk/app/settings/features">
       <div className="grid gap-3 bg-background p-5 text-sm">
         <div className="flex items-center justify-between border-b border-border pb-2">
           <p className="font-heading text-sm font-semibold">Feature & Notification Controls</p>

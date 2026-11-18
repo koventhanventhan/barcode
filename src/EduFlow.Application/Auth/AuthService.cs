@@ -506,7 +506,7 @@ public sealed class AuthService(
         await emailSender.SendAsync(
             new EmailMessage(
                 To: user.Email,
-                Subject: "You have been invited to join EduFlow",
+                Subject: "You have been invited to join Admino",
                 HtmlBody: $"<p>Hello {user.FullName}, accept your invitation with token <code>{rawToken}</code>.</p>",
                 PlainTextBody: $"Accept your invitation with token {rawToken}.",
                 Metadata: new Dictionary<string, string>
@@ -740,7 +740,7 @@ public sealed class AuthService(
             .Include(u => u.CustomRole)
             .ThenInclude(r => r!.Permissions)
             .FirstOrDefaultAsync(
-                u => !u.IsDeleted && u.IsActive && u.Email == "admin@demo.eduflow.lk",
+                u => !u.IsDeleted && u.IsActive && u.Email == "admin@demo.admino.lk",
                 cancellationToken);
 
         if (user is null)

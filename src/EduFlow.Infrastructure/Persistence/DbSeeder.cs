@@ -266,7 +266,7 @@ public sealed class DbSeeder(
         {
             Name = "Royal Vidyalaya Higher Education Institute",
             Subdomain = demoSubdomain,
-            ContactEmail = "admin@demo.eduflow.lk",
+            ContactEmail = "admin@demo.admino.lk",
             ContactPhone = "+94 11 234 5678",
             Address = "No. 42, Galle Road, Colombo 03",
             TimeZone = "Asia/Colombo",
@@ -317,7 +317,7 @@ public sealed class DbSeeder(
             db.Users.Add(new User
             {
                 TenantId = demoTenant.Id,
-                Email = "admin@demo.eduflow.lk",
+                Email = "admin@demo.admino.lk",
                 FullName = "Kasun Perera",
                 Phone = "+94 77 123 4567",
                 PasswordHash = PasswordHasher.HashPassword(demoAdminPassword),
@@ -440,13 +440,13 @@ public sealed class DbSeeder(
 
         var teacher = await db.Users
             .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(user => !user.IsDeleted && user.TenantId == demo.Id && user.Email == "teacher@demo.eduflow.lk", cancellationToken);
+            .FirstOrDefaultAsync(user => !user.IsDeleted && user.TenantId == demo.Id && user.Email == "teacher@demo.admino.lk", cancellationToken);
         if (teacher is null)
         {
             teacher = new User
             {
                 TenantId = demo.Id,
-                Email = "teacher@demo.eduflow.lk",
+                Email = "teacher@demo.admino.lk",
                 FullName = "Amali Fernando",
                 Phone = "+94 77 555 0142",
                 PasswordHash = PasswordHasher.HashPassword(configuration["Seed:DemoTeacher:Password"] ?? "DemoTeacher@123!"),

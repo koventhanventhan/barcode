@@ -395,7 +395,7 @@ export function TenantDetailPage() {
               maxLength={11}
               value={smsSenderId ?? detail.smsSenderId ?? ""}
               onChange={(e) => setSmsSenderId(e.target.value)}
-              placeholder="EduFlow"
+              placeholder="Admino"
             />
           </label>
           <label className="inline-flex h-9 items-center gap-2 text-xs">

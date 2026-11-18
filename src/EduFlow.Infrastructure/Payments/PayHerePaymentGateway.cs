@@ -8,7 +8,7 @@ namespace EduFlow.Infrastructure.Payments;
 
 public sealed class PayHerePaymentGateway(IDataProtectionProvider dataProtectionProvider) : IPaymentGateway
 {
-    private const string ProtectorPurpose = "EduFlow.PayHere.MerchantSecret.v1";
+    private const string ProtectorPurpose = "Admino.PayHere.MerchantSecret.v1";
     private const string SandboxCheckoutUrl = "https://sandbox.payhere.lk/pay/checkout";
     private const string LiveCheckoutUrl = "https://www.payhere.lk/pay/checkout";
 

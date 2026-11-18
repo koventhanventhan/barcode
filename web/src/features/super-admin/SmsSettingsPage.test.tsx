@@ -16,7 +16,7 @@ const settingsResponse = {
   userId: "user-42",
   hasApiKey: true,
   apiKeySource: "Database",
-  senderId: "EduFlow",
+  senderId: "Admino",
   promotionalSenderId: null,
   baseUrl: "https://app.notify.lk/api/v1",
   testMode: true,

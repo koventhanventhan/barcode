@@ -25,8 +25,8 @@ const env = {
   RateLimiting__AuthPermitLimit: "1000",
   RateLimiting__PublicPermitLimit: "1000",
   RateLimiting__ScanPermitLimit: "2000",
-  Jwt__SigningKey: "EduFlow_E2E_Signing_Key_Must_Be_At_Least_32_Bytes_Long!",
-  SUPERADMIN_EMAIL: "superadmin@eduflow.lk",
+  Jwt__SigningKey: "Admino_E2E_Signing_Key_Must_Be_At_Least_32_Bytes_Long!",
+  SUPERADMIN_EMAIL: "superadmin@admino.lk",
   SUPERADMIN_PASSWORD: "SuperAdmin@123!",
 };
 

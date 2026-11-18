@@ -25,7 +25,7 @@ async function logoutViaUi(page: Page) {
   await expect(page).toHaveURL(/\/login$/);
 }
 
-test.describe.serial("EduFlow Phase 11 E2E journeys", () => {
+test.describe.serial("Admino Phase 11 E2E journeys", () => {
   test("1. signup -> add student -> print ID card PDF", async ({ page }) => {
     const suffix = Date.now().toString().slice(-6);
     const subdomain = `e2e-growth-${suffix}`;
@@ -39,7 +39,7 @@ test.describe.serial("EduFlow Phase 11 E2E journeys", () => {
     await page.locator("#instituteName").fill(`Colombo Academy ${suffix}`);
     await page.locator("#subdomain").fill(subdomain);
     await page.locator("#adminFullName").fill("Kamal Jayawardena");
-    await page.locator("#adminEmail").fill(`kamal-${suffix}@eduflow.lk`);
+    await page.locator("#adminEmail").fill(`kamal-${suffix}@admino.lk`);
     await page.locator("#phone").fill("0771112233");
     await page.locator("#adminPassword").fill("StrongPass@123!");
     await page.locator("#planCode").selectOption("Growth");
@@ -72,7 +72,7 @@ test.describe.serial("EduFlow Phase 11 E2E journeys", () => {
   test("2. start class -> scan barcode -> parent SMS in log -> stop class -> absent messages", async ({ page }) => {
     await loginViaUi(page, {
       institute: "demo",
-      email: "admin@demo.eduflow.lk",
+      email: "admin@demo.admino.lk",
       password: "DemoAdmin@123!",
     });
     await expect(page).toHaveURL(/\/app$/);
@@ -106,7 +106,7 @@ test.describe.serial("EduFlow Phase 11 E2E journeys", () => {
   test("3. invoice -> PayHere sandbox -> official receipt PDF", async ({ page }) => {
     await loginViaUi(page, {
       institute: "demo",
-      email: "admin@demo.eduflow.lk",
+      email: "admin@demo.admino.lk",
       password: "DemoAdmin@123!",
     });
     await expect(page).toHaveURL(/\/app$/);
@@ -137,7 +137,7 @@ test.describe.serial("EduFlow Phase 11 E2E journeys", () => {
 
     await loginViaUi(page, {
       institute: "demo",
-      email: "admin@demo.eduflow.lk",
+      email: "admin@demo.admino.lk",
       password: "DemoAdmin@123!",
     });
     await expect(page).toHaveURL(/\/app$/);
@@ -173,7 +173,7 @@ test.describe.serial("EduFlow Phase 11 E2E journeys", () => {
     await page.getByRole("button", { name: "Back to sign in" }).click();
     await loginViaUi(page, {
       institute: "demo",
-      email: "admin@demo.eduflow.lk",
+      email: "admin@demo.admino.lk",
       password: "DemoAdmin@123!",
     });
     await expect(page).toHaveURL(/\/app$/);
@@ -200,7 +200,7 @@ test.describe.serial("EduFlow Phase 11 E2E journeys", () => {
   test("5. branding color change reflects on login page", async ({ page, browser }) => {
     await loginViaUi(page, {
       institute: "demo",
-      email: "admin@demo.eduflow.lk",
+      email: "admin@demo.admino.lk",
       password: "DemoAdmin@123!",
     });
     await expect(page).toHaveURL(/\/app$/);
@@ -216,7 +216,7 @@ test.describe.serial("EduFlow Phase 11 E2E journeys", () => {
     const freshContext = await browser.newContext();
     const freshPage = await freshContext.newPage();
     await freshPage.addInitScript(() => {
-      localStorage.setItem("eduflow.tenant", "demo");
+      localStorage.setItem("admino.tenant", "demo");
     });
     await freshPage.goto("/login");
     await expect.poll(async () => {
@@ -236,7 +236,7 @@ test.describe.serial("EduFlow Phase 11 E2E journeys", () => {
     await page.locator("#instituteName").fill(`Isolated Institute ${suffix}`);
     await page.locator("#subdomain").fill(subdomain);
     await page.locator("#adminFullName").fill("Malini Fernando");
-    await page.locator("#adminEmail").fill(`malini-${suffix}@eduflow.lk`);
+    await page.locator("#adminEmail").fill(`malini-${suffix}@admino.lk`);
     await page.locator("#phone").fill("0773334455");
     await page.locator("#adminPassword").fill("StrongPass@123!");
     await page.locator("#planCode").selectOption("Starter");
@@ -257,7 +257,7 @@ test.describe.serial("EduFlow Phase 11 E2E journeys", () => {
     await page.locator("#instituteName").fill(`Starter Limit School ${suffix}`);
     await page.locator("#subdomain").fill(subdomain);
     await page.locator("#adminFullName").fill("Nadeesha Silva");
-    await page.locator("#adminEmail").fill(`nadeesha-${suffix}@eduflow.lk`);
+    await page.locator("#adminEmail").fill(`nadeesha-${suffix}@admino.lk`);
     await page.locator("#phone").fill("0776667788");
     await page.locator("#adminPassword").fill("StrongPass@123!");
     await page.locator("#planCode").selectOption("Starter");

@@ -2930,7 +2930,7 @@ public sealed class FeeService(
                     new EnqueueNotificationRequest(
                         MessageType: NotificationMessageType.PaymentReceivedAdmin,
                         RecipientPhone: tenant.ContactPhone ?? "+94771234567",
-                        RecipientEmail: tenant.ContactEmail ?? "admin@demo.eduflow.lk",
+                        RecipientEmail: tenant.ContactEmail ?? "admin@demo.admino.lk",
                         RecipientName: tenant.Name,
                         StudentId: student.Id,
                         StudentName: student.FullName,
@@ -3052,7 +3052,7 @@ public sealed class FeeService(
             ["amount"] = paymentGateway.FormatAmount(session.Amount),
             ["first_name"] = firstName,
             ["last_name"] = lastName,
-            ["email"] = tenant.ContactEmail ?? "parent@eduflow.lk",
+            ["email"] = tenant.ContactEmail ?? "parent@admino.lk",
             ["phone"] = student.GuardianPhone,
             ["address"] = student.Address,
             ["city"] = student.City ?? "Colombo",

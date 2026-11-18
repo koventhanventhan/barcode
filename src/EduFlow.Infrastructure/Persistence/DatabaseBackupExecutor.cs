@@ -12,9 +12,9 @@ public sealed class DatabaseBackupExecutor(AppDbContext db) : IDatabaseBackupExe
         {
             var connString = db.Database.GetConnectionString() ?? string.Empty;
             var builder = new SqlConnectionStringBuilder(connString);
-            var dbName = string.IsNullOrWhiteSpace(builder.InitialCatalog) ? "EduFlow" : builder.InitialCatalog;
+            var dbName = string.IsNullOrWhiteSpace(builder.InitialCatalog) ? "Admino" : builder.InitialCatalog;
             var safeDbName = dbName.Replace("]", "]]", StringComparison.Ordinal);
-            var tempBakPath = Path.Combine(Path.GetTempPath(), $"eduflow-{Guid.NewGuid():N}.bak");
+            var tempBakPath = Path.Combine(Path.GetTempPath(), $"admino-{Guid.NewGuid():N}.bak");
             var sqlCommand = $"BACKUP DATABASE [{safeDbName}] TO DISK = @p0 WITH INIT";
 
             try
@@ -41,14 +41,14 @@ public sealed class DatabaseBackupExecutor(AppDbContext db) : IDatabaseBackupExe
 
                 return new DatabaseBackupExecutionResult(
                     "SqlServer",
-                    $"BACKUP DATABASE [{dbName}] TO DISK = 'eduflow-platform.bak' WITH INIT",
+                    $"BACKUP DATABASE [{dbName}] TO DISK = 'admino-platform.bak' WITH INIT",
                     null);
             }
         }
 
         return new DatabaseBackupExecutionResult(
             db.Database.ProviderName ?? "Relational",
-            "BACKUP DATABASE [EduFlow] TO DISK = 'eduflow-platform.bak' WITH INIT",
+            "BACKUP DATABASE [Admino] TO DISK = 'admino-platform.bak' WITH INIT",
             null);
     }
 }

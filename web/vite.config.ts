@@ -17,8 +17,8 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["favicon.svg", "icons/icon-192.png", "icons/icon-512.png"],
       manifest: {
-        name: "EduFlow Parent",
-        short_name: "EduFlow",
+        name: "Admino Parent",
+        short_name: "Admino",
         description: "Attendance, fees, results, and messages for parents.",
         theme_color: "#1f4e46",
         background_color: "#f4f6f5",

@@ -245,7 +245,7 @@ export function BrandingPage({ platform = false }: { platform?: boolean }) {
           <div className="mt-3 overflow-hidden rounded-md border border-border">
             <div className="px-3 py-4 text-primary-foreground" style={{ background: values.primaryColor }}>
               <div className="mb-2">
-                <BrandLogo logoUrl={query.data.logoUrl} displayName={values.instituteDisplayName || "EduFlow"} size="md" inverted />
+                <BrandLogo logoUrl={query.data.logoUrl} displayName={values.instituteDisplayName || "Admino"} size="md" inverted />
               </div>
               <p className="text-sm font-semibold">{values.instituteDisplayName}</p>
               {values.tagline ? <p className="mt-1 text-xs opacity-90">{values.tagline}</p> : null}

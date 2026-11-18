@@ -13,7 +13,7 @@ public class TransactionalEmailTests
             brand,
             "A&B",
             "token-1",
-            "https://eduflow.lk/reset-password?token=token-1",
+            "https://admino.lk/reset-password?token=token-1",
             new DateTimeOffset(2026, 11, 20, 0, 0, 0, TimeSpan.Zero));
 
         reset.Subject.Should().Contain("<script>");

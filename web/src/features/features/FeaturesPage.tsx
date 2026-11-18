@@ -54,7 +54,7 @@ export function FeaturesPage() {
   const [testType, setTestType] = useState<string>("AttendancePresent");
   const [testLang, setTestLang] = useState<string>("en");
   const [testPhone, setTestPhone] = useState<string>("+94771234567");
-  const [testEmail, setTestEmail] = useState<string>("parent@demo.eduflow.lk");
+  const [testEmail, setTestEmail] = useState<string>("parent@demo.admino.lk");
 
   const featuresQuery = useQuery({
     queryKey: ["features"],
@@ -416,7 +416,7 @@ export function FeaturesPage() {
                   value={senderIdDraft}
                   onChange={(e) => setSenderIdDraft(e.target.value)}
                   disabled={!canManage || !workspace.canCustomizeSmsSenderId}
-                  placeholder="EduFlow"
+                  placeholder="Admino"
                 />
               </label>
               <Button

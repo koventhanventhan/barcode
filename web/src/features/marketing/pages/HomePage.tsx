@@ -41,7 +41,7 @@ export function HomePage() {
   return (
     <>
       <MarketingMeta
-        title={t("marketing.metaTitle", { product: "EduFlow" })}
+        title={t("marketing.metaTitle", { product: "Admino" })}
         description={t("marketing.subhead")}
         path="/"
       />

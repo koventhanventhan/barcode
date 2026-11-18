@@ -21,7 +21,7 @@ public sealed class MarketingFlowTests(ApiFactory factory) : IClassFixture<ApiFa
     {
         var client = factory.CreateClient();
         var subdomain = $"p10{Guid.NewGuid():N}"[..12];
-        var email = $"{subdomain}@eduflow.test";
+        var email = $"{subdomain}@admino.test";
         var availability = await client.GetAsync($"/api/public/subdomains/{subdomain}/availability");
         availability.StatusCode.Should().Be(HttpStatusCode.OK);
         (await availability.Content.ReadFromJsonAsync<SubdomainAvailabilityDto>(IntegrationTestHelpers.JsonOptions))!
@@ -82,7 +82,7 @@ public sealed class MarketingFlowTests(ApiFactory factory) : IClassFixture<ApiFa
             180,
             "Please show barcode attendance."));
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        factory.Services.GetRequiredService<InMemoryEmailStore>().FindLatest("superadmin@eduflow.lk", "DemoRequest")
+        factory.Services.GetRequiredService<InMemoryEmailStore>().FindLatest("superadmin@admino.lk", "DemoRequest")
             .Should().NotBeNull();
 
         using var scope = factory.Services.CreateScope();

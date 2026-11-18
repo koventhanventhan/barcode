@@ -26,8 +26,8 @@ public sealed class ProductionSafetyIntegrationTests
         using var factory = new ProductionApiFactory(new Dictionary<string, string?>
         {
             ["Jwt:SigningKey"] = signingKey,
-            ["AllowedHosts"] = "eduflow.lk;*.eduflow.lk",
-            ["SUPERADMIN_EMAIL"] = "ops@eduflow.lk",
+            ["AllowedHosts"] = "admino.lk;*.admino.lk",
+            ["SUPERADMIN_EMAIL"] = "ops@admino.lk",
             ["SUPERADMIN_PASSWORD"] = StrongProdPassword,
             ["Demo:Enabled"] = "false"
         });
@@ -43,7 +43,7 @@ public sealed class ProductionSafetyIntegrationTests
         {
             ["Jwt:SigningKey"] = StrongProdJwtKey,
             ["AllowedHosts"] = "*",
-            ["SUPERADMIN_EMAIL"] = "ops@eduflow.lk",
+            ["SUPERADMIN_EMAIL"] = "ops@admino.lk",
             ["SUPERADMIN_PASSWORD"] = StrongProdPassword,
             ["Demo:Enabled"] = "false"
         });
@@ -58,8 +58,8 @@ public sealed class ProductionSafetyIntegrationTests
         using var factory = new ProductionApiFactory(new Dictionary<string, string?>
         {
             ["Jwt:SigningKey"] = StrongProdJwtKey,
-            ["AllowedHosts"] = "eduflow.lk;*.eduflow.lk",
-            ["SUPERADMIN_EMAIL"] = "ops@eduflow.lk",
+            ["AllowedHosts"] = "admino.lk;*.admino.lk",
+            ["SUPERADMIN_EMAIL"] = "ops@admino.lk",
             ["SUPERADMIN_PASSWORD"] = StartupSecurityValidator.KnownDefaultSuperAdminPassword,
             ["Demo:Enabled"] = "false"
         });
@@ -74,8 +74,8 @@ public sealed class ProductionSafetyIntegrationTests
         using var factory = new ProductionApiFactory(new Dictionary<string, string?>
         {
             ["Jwt:SigningKey"] = StrongProdJwtKey,
-            ["AllowedHosts"] = "eduflow.lk;*.eduflow.lk",
-            ["SUPERADMIN_EMAIL"] = "ops@eduflow.lk",
+            ["AllowedHosts"] = "admino.lk;*.admino.lk",
+            ["SUPERADMIN_EMAIL"] = "ops@admino.lk",
             ["SUPERADMIN_PASSWORD"] = StrongProdPassword,
             ["Demo:Enabled"] = "false"
         });
@@ -88,21 +88,21 @@ public sealed class ProductionSafetyIntegrationTests
         badHostRes.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
         using var rootHostReq = new HttpRequestMessage(HttpMethod.Get, "/health");
-        rootHostReq.Headers.Host = "eduflow.lk";
+        rootHostReq.Headers.Host = "admino.lk";
         var rootHostRes = await client.SendAsync(rootHostReq);
         rootHostRes.StatusCode.Should().Be(HttpStatusCode.OK);
 
         using var subHostReq = new HttpRequestMessage(HttpMethod.Get, "/health");
-        subHostReq.Headers.Host = "royal.eduflow.lk";
+        subHostReq.Headers.Host = "royal.admino.lk";
         var subHostRes = await client.SendAsync(subHostReq);
         subHostRes.StatusCode.Should().Be(HttpStatusCode.OK);
 
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         (await db.Tenants.IgnoreQueryFilters().AnyAsync(t => t.Subdomain == "demo")).Should().BeFalse();
-        (await db.Users.IgnoreQueryFilters().AnyAsync(u => u.Email == "admin@demo.eduflow.lk")).Should().BeFalse();
-        (await db.Users.IgnoreQueryFilters().AnyAsync(u => u.Email == "superadmin@eduflow.lk")).Should().BeFalse();
-        (await db.Users.IgnoreQueryFilters().AnyAsync(u => u.Email == "ops@eduflow.lk")).Should().BeTrue();
+        (await db.Users.IgnoreQueryFilters().AnyAsync(u => u.Email == "admin@demo.admino.lk")).Should().BeFalse();
+        (await db.Users.IgnoreQueryFilters().AnyAsync(u => u.Email == "superadmin@admino.lk")).Should().BeFalse();
+        (await db.Users.IgnoreQueryFilters().AnyAsync(u => u.Email == "ops@admino.lk")).Should().BeTrue();
     }
 
     private sealed class ProductionApiFactory : WebApplicationFactory<Program>
@@ -119,7 +119,7 @@ public sealed class ProductionSafetyIntegrationTests
                 ["Hangfire:EnableRecurringJobs"] = "false",
                 ["ConnectionStrings:Default"] = string.Empty
             };
-            _sqliteConnString = $"Data Source=EduFlowProdSafety_{Guid.NewGuid():N};Mode=Memory;Cache=Shared;Default Timeout=30";
+            _sqliteConnString = $"Data Source=AdminoProdSafety_{Guid.NewGuid():N};Mode=Memory;Cache=Shared;Default Timeout=30";
             _sqliteConnection = new SqliteConnection(_sqliteConnString);
             _sqliteConnection.Open();
         }

@@ -276,8 +276,8 @@ export function MarketingLayout({ children }: { children: ReactNode }) {
             <p className="text-xs font-semibold uppercase tracking-wider text-muted">{t("marketing.contactTitle")}</p>
             <p className="mt-3 text-sm text-foreground">Colombo · Jaffna</p>
             <p className="mt-1 text-sm">
-              <a href="mailto:superadmin@eduflow.lk" className="text-primary underline-offset-4 hover:underline">
-                superadmin@eduflow.lk
+              <a href="mailto:superadmin@admino.lk" className="text-primary underline-offset-4 hover:underline">
+                superadmin@admino.lk
               </a>
             </p>
           </div>

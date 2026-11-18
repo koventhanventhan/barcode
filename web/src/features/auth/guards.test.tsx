@@ -9,7 +9,7 @@ function user(role: AuthUser["role"]): AuthUser {
   return {
     id: "1",
     tenantId: role === "SuperAdmin" ? null : "tenant",
-    email: "a@eduflow.lk",
+    email: "a@admino.lk",
     fullName: "Amal Perera",
     role,
     permissions: [],

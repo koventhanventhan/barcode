@@ -47,7 +47,7 @@ public sealed class BrandingTests(ApiFactory factory) : IClassFixture<ApiFactory
         }
 
         var platform = JsonSerializer.Deserialize<PublicBrandingDto>(platformJson, IntegrationTestHelpers.JsonOptions)!;
-        platform.DisplayName.Should().Be("EduFlow");
+        platform.DisplayName.Should().Be("Admino");
         platform.PrimaryColor.Should().Be("#1F4E46");
 
         // 2. Unknown code returns identical platform brand without revealing existence

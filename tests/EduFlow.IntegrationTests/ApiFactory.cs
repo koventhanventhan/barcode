@@ -20,7 +20,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
     private string? _sqlServerConnectionString;
     private SqliteConnection? _sqliteConnection;
-    private readonly string _sqliteConnectionString = $"Data Source=EduFlow_{Guid.NewGuid():N};Mode=Memory;Cache=Shared;Default Timeout=30";
+    private readonly string _sqliteConnectionString = $"Data Source=Admino_{Guid.NewGuid():N};Mode=Memory;Cache=Shared;Default Timeout=30";
 
     public async Task InitializeAsync()
     {
@@ -54,7 +54,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         {
             var builder = new SqlConnectionStringBuilder(_sharedMsSqlContainer.GetConnectionString())
             {
-                InitialCatalog = $"EduFlowTest_{Guid.NewGuid():N}"
+                InitialCatalog = $"AdminoTest_{Guid.NewGuid():N}"
             };
             _sqlServerConnectionString = builder.ConnectionString;
         }

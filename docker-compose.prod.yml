@@ -1,4 +1,4 @@
-name: eduflow-prod
+name: admino-prod
 
 services:
   sqlserver:
@@ -32,10 +32,10 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__Default: ${ConnectionStrings__Default:-Server=sqlserver,1433;Database=EduFlow;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;Encrypt=True}
-      Cors__Origins__0: https://${DOMAIN:-eduflow.lk}
-      App__PublicWebUrl: https://${DOMAIN:-eduflow.lk}
-      AllowedHosts: ${AllowedHosts:-${DOMAIN:-eduflow.lk};*.${DOMAIN:-eduflow.lk}}
+      ConnectionStrings__Default: ${ConnectionStrings__Default:-Server=sqlserver,1433;Database=Admino;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;Encrypt=True}
+      Cors__Origins__0: https://${DOMAIN:-admino.lk}
+      App__PublicWebUrl: https://${DOMAIN:-admino.lk}
+      AllowedHosts: ${AllowedHosts:-${DOMAIN:-admino.lk};*.${DOMAIN:-admino.lk}}
       Jwt__SigningKey: ${Jwt__SigningKey:?Jwt__SigningKey is required}
       SUPERADMIN_EMAIL: ${SUPERADMIN_EMAIL:?SUPERADMIN_EMAIL is required}
       SUPERADMIN_PASSWORD: ${SUPERADMIN_PASSWORD:?SUPERADMIN_PASSWORD is required}
@@ -46,13 +46,13 @@ services:
       Sms__Provider: ${Sms__Provider:-NotifyLk}
       Sms__UserId: ${Sms__UserId:-}
       Sms__ApiKey: ${Sms__ApiKey:-}
-      Sms__SenderId: ${Sms__SenderId:-EduFlow}
+      Sms__SenderId: ${Sms__SenderId:-Admino}
       Sms__PromotionalSenderId: ${Sms__PromotionalSenderId:-}
       Sms__BaseUrl: ${Sms__BaseUrl:-https://app.notify.lk/api/v1}
       Sms__TestMode: ${Sms__TestMode:-true}
       Sms__TestAllowList: ${Sms__TestAllowList:-}
       Notifications__Email__Provider: ${Notifications__Email__Provider:-Smtp}
-      Notifications__Email__FromEmail: ${Notifications__Email__FromEmail:-noreply@eduflow.lk}
+      Notifications__Email__FromEmail: ${Notifications__Email__FromEmail:-noreply@admino.lk}
       Notifications__Email__Smtp__Host: ${Notifications__Email__Smtp__Host:-}
       Notifications__Email__Smtp__Port: ${Notifications__Email__Smtp__Port:-587}
       Notifications__Email__Smtp__Username: ${Notifications__Email__Smtp__Username:-}
@@ -63,9 +63,9 @@ services:
       Notifications__WhatsApp__CloudApi__AccessToken: ${Notifications__WhatsApp__CloudApi__AccessToken:-}
       Monitoring__SeqUrl: ${Monitoring__SeqUrl:-}
     volumes:
-      - eduflow_storage:/app/storage
-      - eduflow_logs:/app/logs
-      - eduflow_keys:/home/app/.aspnet/DataProtection-Keys
+      - admino_storage:/app/storage
+      - admino_logs:/app/logs
+      - admino_keys:/home/app/.aspnet/DataProtection-Keys
     depends_on:
       sqlserver:
         condition: service_healthy
@@ -82,8 +82,8 @@ services:
     image: caddy:2.8-alpine
     restart: unless-stopped
     environment:
-      DOMAIN: ${DOMAIN:-eduflow.lk}
-      ACME_EMAIL: ${ACME_EMAIL:-ops@eduflow.lk}
+      DOMAIN: ${DOMAIN:-admino.lk}
+      ACME_EMAIL: ${ACME_EMAIL:-ops@admino.lk}
     ports:
       - "80:80"
       - "443:443"
@@ -98,8 +98,8 @@ services:
 volumes:
   sqlserver_data:
   sqlserver_backups:
-  eduflow_storage:
-  eduflow_logs:
-  eduflow_keys:
+  admino_storage:
+  admino_logs:
+  admino_keys:
   caddy_data:
   caddy_config:

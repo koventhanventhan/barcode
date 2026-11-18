@@ -34,10 +34,10 @@ public sealed class SecurityHardeningUnitTests
     [Fact]
     public void PiiRedactor_MasksEmailPhoneQueryStrings_AndAuditSecrets()
     {
-        PiiRedactor.MaskEmail("superadmin@eduflow.lk").Should().Be("s***n@eduflow.lk");
+        PiiRedactor.MaskEmail("superadmin@admino.lk").Should().Be("s***n@admino.lk");
         PiiRedactor.MaskPhone("+94771234567").Should().Be("+947***567");
 
-        var redactedQuery = PiiRedactor.RedactQueryString("?email=admin@eduflow.lk&token=secret123&page=2");
+        var redactedQuery = PiiRedactor.RedactQueryString("?email=admin@admino.lk&token=secret123&page=2");
         redactedQuery.Should().Be("?email=[REDACTED]&token=[REDACTED]&page=2");
 
         var json = PiiRedactor.SerializeAuditDetails(new

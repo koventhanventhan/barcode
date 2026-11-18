@@ -364,7 +364,7 @@ public sealed class BackupAndCleanupService(
             await notificationService.EnqueueAsync(
                 new EnqueueNotificationRequest(
                     NotificationMessageType.BackupResultAdmin,
-                    RecipientEmail: tenant.ContactEmail ?? $"admin@{tenant.Subdomain}.eduflow.lk",
+                    RecipientEmail: tenant.ContactEmail ?? $"admin@{tenant.Subdomain}.admino.lk",
                     RecipientName: tenant.Name,
                     Variables: new Dictionary<string, string>
                     {
@@ -786,7 +786,7 @@ public sealed class BackupAndCleanupService(
 
                     if (execResult.NativeBackupBytes is { Length: > 0 })
                     {
-                        var bakEntry = archive.CreateEntry("eduflow.bak", CompressionLevel.Fastest);
+                        var bakEntry = archive.CreateEntry("admino.bak", CompressionLevel.Fastest);
                         await using var entryStream = bakEntry.Open();
                         await entryStream.WriteAsync(execResult.NativeBackupBytes, cancellationToken);
                     }

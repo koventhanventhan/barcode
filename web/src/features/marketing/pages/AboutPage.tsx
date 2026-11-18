@@ -32,7 +32,7 @@ export function AboutPage() {
 
           <Img
             src="/images/about-team.jpg"
-            alt="EduFlow support and engineering team in Colombo"
+            alt="Admino support and engineering team in Colombo"
             width={1200}
             height={800}
             priority
@@ -52,8 +52,8 @@ export function AboutPage() {
           <div className="border-l-2 border-primary pl-4">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted">{t("marketing.contactTitle")}</p>
             <p className="mt-1 font-heading text-lg font-bold">
-              <a href="mailto:superadmin@eduflow.lk" className="text-primary underline-offset-4 hover:underline">
-                superadmin@eduflow.lk
+              <a href="mailto:superadmin@admino.lk" className="text-primary underline-offset-4 hover:underline">
+                superadmin@admino.lk
               </a>
             </p>
             <p className="mt-1 text-sm text-muted">{t("marketing.contactBody")}</p>

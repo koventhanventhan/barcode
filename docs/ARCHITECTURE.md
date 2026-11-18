@@ -1,6 +1,6 @@
 # Architecture
 
-EduFlow is a multi-tenant student management SaaS built on .NET 8 Clean Architecture and React 18.
+Admino is a multi-tenant student management SaaS built on .NET 8 Clean Architecture and React 18.
 
 ## Projects
 

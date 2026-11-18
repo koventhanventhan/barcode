@@ -26,7 +26,7 @@ export function SmsSettingsPage() {
   const [userId, setUserId] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [clearApiKey, setClearApiKey] = useState(false);
-  const [senderId, setSenderId] = useState("EduFlow");
+  const [senderId, setSenderId] = useState("Admino");
   const [promotionalSenderId, setPromotionalSenderId] = useState("");
   const [baseUrl, setBaseUrl] = useState("https://app.notify.lk/api/v1");
   const [testMode, setTestMode] = useState(true);
@@ -34,7 +34,7 @@ export function SmsSettingsPage() {
   const [lowBalanceThreshold, setLowBalanceThreshold] = useState("500");
 
   const [testTo, setTestTo] = useState("");
-  const [testMessage, setTestMessage] = useState("EduFlow SMS gateway test message.");
+  const [testMessage, setTestMessage] = useState("Admino SMS gateway test message.");
   const [testSenderId, setTestSenderId] = useState("");
   const [testPromotional, setTestPromotional] = useState(false);
   const [lastTestResult, setLastTestResult] = useState<SuperAdminTestSmsResult | null>(null);
@@ -281,7 +281,7 @@ export function SmsSettingsPage() {
                   maxLength={11}
                   value={senderId}
                   onChange={(e) => setSenderId(e.target.value)}
-                  placeholder="EduFlow"
+                  placeholder="Admino"
                 />
               </label>
               <label className="grid gap-1 text-xs">

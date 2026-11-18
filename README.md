@@ -1,4 +1,4 @@
-# EduFlow
+# Admino
 
 Multi-tenant student management SaaS for Sri Lankan schools and tuition institutes.
 
@@ -34,7 +34,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-For production HTTPS + wildcard subdomains (`*.eduflow.lk`) using Caddy and `docker-compose.prod.yml`, follow [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+For production HTTPS + wildcard subdomains (`*.admino.lk`) using Caddy and `docker-compose.prod.yml`, follow [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Seed & Demo Credentials
 
@@ -42,25 +42,25 @@ For production HTTPS + wildcard subdomains (`*.eduflow.lk`) using Caddy and `doc
 
 | Role | Institute Subdomain | Login | Password (Dev Default) |
 |---|---|---|---|
-| **Super Admin** | *(leave blank)* | `superadmin@eduflow.lk` | `SuperAdmin@123!` |
-| **Demo Institute Admin** | `demo` | `admin@demo.eduflow.lk` | `DemoAdmin@123!` |
-| **Demo Teacher** | `demo` | `teacher@demo.eduflow.lk` | `DemoTeacher@123!` |
+| **Super Admin** | *(leave blank)* | `superadmin@admino.lk` | `SuperAdmin@123!` |
+| **Demo Institute Admin** | `demo` | `admin@demo.admino.lk` | `DemoAdmin@123!` |
+| **Demo Teacher** | `demo` | `teacher@demo.admino.lk` | `DemoTeacher@123!` |
 
 Override Super Admin credentials with `SUPERADMIN_EMAIL` / `SUPERADMIN_PASSWORD` in `.env` before production startup. You can also launch the read-only public demo from the landing page (`/`).
 
 ## Screenshots
 
 ### Public Landing & Pricing
-![EduFlow Landing Page](docs/screenshots/landing.png)
+![Admino Landing Page](docs/screenshots/landing.png)
 
 ### Institute Admin Dashboard
-![EduFlow Admin Dashboard](docs/screenshots/dashboard.png)
+![Admino Admin Dashboard](docs/screenshots/dashboard.png)
 
 ### Barcode Attendance Scanner
-![EduFlow Attendance Scanner](docs/screenshots/scanner.png)
+![Admino Attendance Scanner](docs/screenshots/scanner.png)
 
 ### Mobile-First Parent Portal (360px)
-![EduFlow Parent Portal Mobile](docs/screenshots/parent-mobile.png)
+![Admino Parent Portal Mobile](docs/screenshots/parent-mobile.png)
 
 ## Tests & Quality Gates
 
@@ -80,9 +80,9 @@ See [docs/TESTING.md](docs/TESTING.md) and [docs/ARCHITECTURE.md](docs/ARCHITECT
 ## Production Launch Checklist
 
 - [ ] Copy `.env.example` to `.env` and replace `MSSQL_SA_PASSWORD`, `Jwt__SigningKey` (32+ chars), and `SUPERADMIN_PASSWORD`.
-- [ ] Point DNS `@` and `*` (`*.eduflow.lk`) to the server IP and verify TLS in [docker/Caddyfile](docker/Caddyfile).
+- [ ] Point DNS `@` and `*` (`*.admino.lk`) to the server IP and verify TLS in [docker/Caddyfile](docker/Caddyfile).
 - [ ] Set real notification provider credentials (`NotifyLk`, `Smtp`/`Brevo`, `CloudApi`) and verify SMS quota/quiet-hours settings.
-- [ ] Configure PayHere live merchant ID + secret per institute (encrypted at rest via ASP.NET Data Protection keys persisted in volume `eduflow_keys`).
+- [ ] Configure PayHere live merchant ID + secret per institute (encrypted at rest via ASP.NET Data Protection keys persisted in volume `admino_keys`).
 - [ ] Enable `Hangfire__EnableRecurringJobs=true` and `Hangfire__Storage=SqlServer`.
 - [ ] Confirm nightly `platform-db-backup` schedule and test a dry-run restore per [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 - [ ] Run backend tests, frontend coverage gate, Playwright E2E, and `tests/load/scan-k6.js` (`p95 < 300 ms`).

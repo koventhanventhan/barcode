@@ -7,7 +7,7 @@ namespace EduFlow.Api.Endpoints;
 
 public static class AuthEndpoints
 {
-    public const string RefreshTokenCookieName = "eduflow_refresh_token";
+    public const string RefreshTokenCookieName = "admino_refresh_token";
 
     public static IEndpointRouteBuilder MapAuthEndpoints(this IEndpointRouteBuilder app)
     {

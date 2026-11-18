@@ -30,8 +30,8 @@ export function ContactPage() {
                 <div>
                   <dt className="text-xs font-semibold uppercase tracking-wider text-muted">{t("marketing.email")}</dt>
                   <dd className="mt-0.5 font-medium">
-                    <a href="mailto:superadmin@eduflow.lk" className="text-primary underline-offset-4 hover:underline">
-                      superadmin@eduflow.lk
+                    <a href="mailto:superadmin@admino.lk" className="text-primary underline-offset-4 hover:underline">
+                      superadmin@admino.lk
                     </a>
                   </dd>
                 </div>

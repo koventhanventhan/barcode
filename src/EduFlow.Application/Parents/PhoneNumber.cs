@@ -2,7 +2,7 @@ namespace EduFlow.Application.Parents;
 
 public static class PhoneNumber
 {
-    public const string PlaceholderDomain = ".parent.eduflow.local";
+    public const string PlaceholderDomain = ".parent.admino.local";
 
     public static string Normalize(string? raw)
     {

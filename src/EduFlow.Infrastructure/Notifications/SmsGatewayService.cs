@@ -24,7 +24,7 @@ public sealed class SmsGatewayConfigProvider(
     IHostEnvironment hostEnvironment,
     ILogger<SmsGatewayConfigProvider> logger) : ISmsGatewayConfigProvider
 {
-    private const string ProtectorPurpose = "EduFlow.SmsGateway.ApiKey.v1";
+    private const string ProtectorPurpose = "Admino.SmsGateway.ApiKey.v1";
     private readonly IDataProtector _protector = dataProtectionProvider.CreateProtector(ProtectorPurpose);
 
     public async Task<EffectiveSmsGatewayConfig> GetEffectiveConfigAsync(CancellationToken cancellationToken = default)
@@ -37,7 +37,7 @@ public sealed class SmsGatewayConfigProvider(
 
         var provider = Coalesce(row?.Provider, smsOpt.Provider, "Fake");
         var userId = Coalesce(row?.UserId, smsOpt.UserId);
-        var senderId = Coalesce(row?.SenderId, smsOpt.SenderId, "EduFlow");
+        var senderId = Coalesce(row?.SenderId, smsOpt.SenderId, "Admino");
         var promoSenderId = FirstNonEmpty(row?.PromotionalSenderId, smsOpt.PromotionalSenderId);
         var baseUrl = Coalesce(row?.BaseUrl, smsOpt.BaseUrl, "https://app.notify.lk/api/v1");
         var testMode = row?.TestMode ?? smsOpt.TestMode ?? hostEnvironment.IsDevelopment();
@@ -201,8 +201,8 @@ public sealed class SmsGatewayAdminService(
     IOptions<NotificationOptions> options,
     IConfiguration configuration) : ISmsGatewayAdminService
 {
-    private const string ProtectorPurpose = "EduFlow.SmsGateway.ApiKey.v1";
-    private const string BalanceCacheKey = "EduFlow:SmsGateway:Balance:v1";
+    private const string ProtectorPurpose = "Admino.SmsGateway.ApiKey.v1";
+    private const string BalanceCacheKey = "Admino:SmsGateway:Balance:v1";
     private readonly IDataProtector _protector = dataProtectionProvider.CreateProtector(ProtectorPurpose);
 
     public async Task<SuperAdminSmsSettingsDto> GetSettingsAsync(CancellationToken cancellationToken = default)
@@ -259,7 +259,7 @@ public sealed class SmsGatewayAdminService(
             throw new DomainValidationException("INVALID_THRESHOLD", "Low-balance threshold must be between 0 and 1,000,000.");
         }
 
-        var normalizedSenderId = NotificationService.NormalizeSenderId(request.SenderId) ?? "EduFlow";
+        var normalizedSenderId = NotificationService.NormalizeSenderId(request.SenderId) ?? "Admino";
         var normalizedPromoSenderId = NotificationService.NormalizeSenderId(request.PromotionalSenderId);
         var normalizedAllowList = string.Join(", ", SriLankanPhoneNormalizer.ParseAllowList(request.TestAllowList));
         var baseUrl = string.IsNullOrWhiteSpace(request.BaseUrl)

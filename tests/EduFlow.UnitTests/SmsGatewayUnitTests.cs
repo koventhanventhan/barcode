@@ -135,7 +135,7 @@ public sealed class SmsGatewayUnitTests
             Provider: "NotifyLk",
             UserId: "user-1",
             ApiKey: apiKey,
-            SenderId: "EduFlow",
+            SenderId: "Admino",
             PromotionalSenderId: "EduPromo",
             BaseUrl: "https://app.notify.lk/api/v1",
             TestMode: true,
@@ -165,7 +165,7 @@ public sealed class SmsGatewayUnitTests
         sentEn.Succeeded.Should().BeTrue();
         handler.Requests.Should().HaveCount(1);
         handler.Bodies[0].Should().Contain("to=94771112233");
-        handler.Bodies[0].Should().Contain("sender_id=EduFlow");
+        handler.Bodies[0].Should().Contain("sender_id=Admino");
         handler.Bodies[0].Should().NotContain("type=unicode");
 
         // 4. Allowed number + Sinhala Unicode + Promotional -> HTTP POST with type=unicode & PromotionalSenderId

@@ -6,7 +6,7 @@ namespace EduFlow.Infrastructure.Security;
 
 public static class StartupSecurityValidator
 {
-    public const string KnownDefaultSuperAdminEmail = "superadmin@eduflow.lk";
+    public const string KnownDefaultSuperAdminEmail = "superadmin@admino.lk";
     public const string KnownDefaultSuperAdminPassword = "SuperAdmin@123!";
     public const int MinimumJwtSigningKeyLength = 32;
     public const int MinimumSuperAdminPasswordLength = 12;
@@ -83,7 +83,7 @@ public static class StartupSecurityValidator
         IConfiguration configuration,
         IHostEnvironment environment)
     {
-        var fullName = configuration["Seed:SuperAdmin:FullName"] ?? "EduFlow Super Admin";
+        var fullName = configuration["Seed:SuperAdmin:FullName"] ?? "Admino Super Admin";
 
         if (IsDevelopmentOrTesting(environment))
         {

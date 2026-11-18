@@ -10,7 +10,7 @@ public sealed class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<App
     {
         var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
         optionsBuilder.UseSqlServer(
-            "Server=localhost,1433;Database=EduFlow;User Id=sa;Password=EduFlow_Dev_Pass1!;TrustServerCertificate=True;Encrypt=True",
+            "Server=localhost,1433;Database=Admino;User Id=sa;Password=Admino_Dev_Pass1!;TrustServerCertificate=True;Encrypt=True",
             sql => sql.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName));
 
         return new AppDbContext(optionsBuilder.Options, new TenantContext());

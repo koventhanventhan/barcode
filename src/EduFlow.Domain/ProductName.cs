@@ -2,5 +2,5 @@ namespace EduFlow.Domain;
 
 public static class ProductName
 {
-    public const string Value = "EduFlow";
+    public const string Value = "Admino";
 }

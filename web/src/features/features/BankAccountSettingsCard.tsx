@@ -116,7 +116,7 @@ export function BankAccountSettingsCard({ disabled }: { disabled: boolean }) {
             value={accountName}
             disabled={disabled}
             onChange={(e) => setAccountName(e.target.value)}
-            placeholder="EduFlow Academy (Pvt) Ltd"
+            placeholder="Admino Academy (Pvt) Ltd"
             required={isEnabled}
           />
         </div>

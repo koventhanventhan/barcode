@@ -14,7 +14,7 @@ public static class IntegrationTestHelpers
     {
         var response = await client.PostAsJsonAsync(
             "/api/auth/login",
-            new LoginRequest("superadmin@eduflow.lk", "SuperAdmin@123!"));
+            new LoginRequest("superadmin@admino.lk", "SuperAdmin@123!"));
 
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<AuthResponse>(JsonOptions))!;

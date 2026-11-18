@@ -55,10 +55,10 @@ public sealed class ProductionSafetyTests
     [Theory]
     [InlineData(null, "StrongProdPass!123")]
     [InlineData("", "StrongProdPass!123")]
-    [InlineData("ops@eduflow.lk", null)]
-    [InlineData("ops@eduflow.lk", "")]
-    [InlineData("ops@eduflow.lk", "Short1!")]
-    [InlineData("ops@eduflow.lk", StartupSecurityValidator.KnownDefaultSuperAdminPassword)]
+    [InlineData("ops@admino.lk", null)]
+    [InlineData("ops@admino.lk", "")]
+    [InlineData("ops@admino.lk", "Short1!")]
+    [InlineData("ops@admino.lk", StartupSecurityValidator.KnownDefaultSuperAdminPassword)]
     public void SuperAdmin_seed_credentials_fail_in_production_when_missing_short_or_default(
         string? email,
         string? password)
@@ -67,7 +67,7 @@ public sealed class ProductionSafetyTests
         {
             ["SUPERADMIN_EMAIL"] = email,
             ["SUPERADMIN_PASSWORD"] = password,
-            ["Seed:SuperAdmin:Email"] = "superadmin@eduflow.lk"
+            ["Seed:SuperAdmin:Email"] = "superadmin@admino.lk"
         });
 
         var act = () => StartupSecurityValidator.ResolveAndValidateSuperAdminCredentials(
@@ -111,7 +111,7 @@ public sealed class ProductionSafetyTests
     [InlineData(null)]
     [InlineData("")]
     [InlineData("*")]
-    [InlineData("eduflow.lk;*")]
+    [InlineData("admino.lk;*")]
     public void ValidateAllowedHosts_rejects_wildcard_or_empty_outside_development_and_testing(string? allowedHosts)
     {
         var config = BuildConfig(new Dictionary<string, string?>
@@ -128,7 +128,7 @@ public sealed class ProductionSafetyTests
     {
         var config = BuildConfig(new Dictionary<string, string?>
         {
-            ["AllowedHosts"] = "eduflow.lk;*.eduflow.lk"
+            ["AllowedHosts"] = "admino.lk;*.admino.lk"
         });
 
         StartupSecurityValidator.ValidateAllowedHosts(config, new TestHostEnvironment("Production"));

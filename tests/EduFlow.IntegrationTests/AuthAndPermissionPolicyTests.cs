@@ -215,7 +215,7 @@ public sealed class AuthAndPermissionPolicyTests(ApiFactory factory) : IClassFix
         {
             using var req = new HttpRequestMessage(HttpMethod.Post, "/api/auth/forgot-password")
             {
-                Content = JsonContent.Create(new ForgotPasswordRequest("nobody@eduflow.lk"))
+                Content = JsonContent.Create(new ForgotPasswordRequest("nobody@admino.lk"))
             };
             req.Headers.Add("X-Forwarded-For", "203.0.113.42");
             (await throttledClient.SendAsync(req)).StatusCode.Should().Be(HttpStatusCode.OK);
@@ -223,7 +223,7 @@ public sealed class AuthAndPermissionPolicyTests(ApiFactory factory) : IClassFix
 
         using var blockedReq = new HttpRequestMessage(HttpMethod.Post, "/api/auth/forgot-password")
         {
-            Content = JsonContent.Create(new ForgotPasswordRequest("nobody@eduflow.lk"))
+            Content = JsonContent.Create(new ForgotPasswordRequest("nobody@admino.lk"))
         };
         blockedReq.Headers.Add("X-Forwarded-For", "203.0.113.42");
         var blockedRes = await throttledClient.SendAsync(blockedReq);

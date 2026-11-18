@@ -15,7 +15,7 @@ import { ApiError, api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { readSelectedChild, type ParentHome } from "./model";
 
-const STORAGE_KEY = "eduflow.parentStudent";
+const STORAGE_KEY = "admino.parentStudent";
 
 type ParentContextValue = {
   home: ParentHome;

@@ -18,7 +18,7 @@ const BASE_URL = __ENV.BASE_URL || "http://localhost:8080";
 export function setup() {
   const suffix = Date.now().toString().slice(-6);
   const subdomain = __ENV.TENANT || `k6scan${suffix}`;
-  const email = __ENV.ADMIN_EMAIL || `admin@${subdomain}.eduflow.lk`;
+  const email = __ENV.ADMIN_EMAIL || `admin@${subdomain}.admino.lk`;
   const password = __ENV.ADMIN_PASSWORD || "ScanLoad@123!";
 
   if (!__ENV.TENANT) {

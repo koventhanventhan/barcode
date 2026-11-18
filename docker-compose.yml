@@ -1,4 +1,4 @@
-name: eduflow
+name: admino
 
 services:
   sqlserver:
@@ -27,7 +27,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__Default: Server=sqlserver,1433;Database=EduFlow;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;Encrypt=True
+      ConnectionStrings__Default: Server=sqlserver,1433;Database=Admino;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;Encrypt=True
       Cors__Origins__0: http://localhost:5173
     ports:
       - "8080:8080"

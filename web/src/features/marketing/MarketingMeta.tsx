@@ -9,7 +9,7 @@ type MarketingMetaProps = {
 
 export function MarketingMeta({ title, description, path }: MarketingMetaProps) {
   const fullTitle = title.includes(ProductName) ? title : `${title} — ${ProductName}`;
-  const canonical = `https://eduflow.lk${path === "/" ? "/" : path}`;
+  const canonical = `https://admino.lk${path === "/" ? "/" : path}`;
 
   return (
     <Helmet>
@@ -20,7 +20,7 @@ export function MarketingMeta({ title, description, path }: MarketingMetaProps) 
       <meta property="og:description" content={description} />
       <meta property="og:type" content="website" />
       <meta property="og:url" content={canonical} />
-      <meta property="og:image" content="https://eduflow.lk/og.svg" />
+      <meta property="og:image" content="https://admino.lk/og.svg" />
     </Helmet>
   );
 }

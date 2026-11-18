@@ -468,7 +468,7 @@ public sealed class NotificationService(
 
         var mergedVariables = new Dictionary<string, string>(NotificationCatalog.SampleVariables, StringComparer.OrdinalIgnoreCase)
         {
-            ["instituteName"] = tenant?.Name ?? "EduFlow Institute",
+            ["instituteName"] = tenant?.Name ?? "Admino Institute",
             ["date"] = DateTimeOffset.UtcNow.ToString("yyyy-MM-dd"),
             ["time"] = DateTimeOffset.UtcNow.ToString("hh:mm tt")
         };
@@ -505,7 +505,7 @@ public sealed class NotificationService(
 
         var email = !string.IsNullOrWhiteSpace(request.RecipientEmail)
             ? request.RecipientEmail!.Trim()
-            : tenant?.ContactEmail ?? "admin@demo.eduflow.lk";
+            : tenant?.ContactEmail ?? "admin@demo.admino.lk";
 
         var recipientName = request.RecipientName ?? student?.GuardianName ?? tenant?.Name;
         var studentName = student?.FullName ?? request.StudentName;

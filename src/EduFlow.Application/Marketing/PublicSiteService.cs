@@ -200,7 +200,7 @@ public sealed partial class PublicSiteService(
         db.DemoRequests.Add(row);
         await db.SaveChangesAsync(cancellationToken);
 
-        var support = string.IsNullOrWhiteSpace(notifyEmail) ? "superadmin@eduflow.lk" : notifyEmail.Trim();
+        var support = string.IsNullOrWhiteSpace(notifyEmail) ? "superadmin@admino.lk" : notifyEmail.Trim();
         await transactionalEmail.SendDemoRequestAsync(
             support,
             row.InstituteName,

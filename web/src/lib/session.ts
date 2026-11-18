@@ -7,12 +7,12 @@ export type Session = {
   isImpersonating: boolean;
 };
 
-const TENANT_KEY = "eduflow.tenant";
-const BRANCH_KEY = "eduflow.branch";
+const TENANT_KEY = "admino.tenant";
+const BRANCH_KEY = "admino.branch";
 const branchListeners = new Set<() => void>();
 const slugListeners = new Set<() => void>();
-const THEME_KEY = "eduflow.theme";
-const ACTOR_KEY = "eduflow.actor";
+const THEME_KEY = "admino.theme";
+const ACTOR_KEY = "admino.actor";
 
 let session: Session | null = null;
 const listeners = new Set<() => void>();

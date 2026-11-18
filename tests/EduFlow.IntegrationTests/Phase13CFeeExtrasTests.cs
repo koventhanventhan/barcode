@@ -37,7 +37,7 @@ public sealed class Phase13CFeeExtrasTests(ApiFactory factory) : IClassFixture<A
             ctx.Tenant.Subdomain,
             new UpdateTenantBankAccountRequest(
                 BankName: "Commercial Bank of Ceylon",
-                AccountName: "EduFlow Tuition Academy",
+                AccountName: "Admino Tuition Academy",
                 AccountNumber: "1000998877",
                 BranchName: "Colombo 07",
                 Instructions: "Put student code in remarks",

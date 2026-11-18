@@ -32,7 +32,7 @@ public static class PublicEndpoints
         {
             var notify = configuration["Seed:SuperAdmin:Email"]
                 ?? Environment.GetEnvironmentVariable("SUPERADMIN_EMAIL")
-                ?? "superadmin@eduflow.lk";
+                ?? "superadmin@admino.lk";
             return Results.Ok(await site.RequestDemoAsync(request, notify, ct));
         }).WithName("RequestDemo");
 

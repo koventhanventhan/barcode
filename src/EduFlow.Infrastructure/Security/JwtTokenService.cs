@@ -13,10 +13,10 @@ namespace EduFlow.Infrastructure.Security;
 public sealed class JwtOptions
 {
     public const string SectionName = "Jwt";
-    public const string KnownDevSigningKey = "EduFlow_Dev_Signing_Key_Must_Be_At_Least_32_Bytes_Long!";
+    public const string KnownDevSigningKey = "Admino_Dev_Signing_Key_Must_Be_At_Least_32_Bytes_Long!";
 
-    public string Issuer { get; set; } = "EduFlow";
-    public string Audience { get; set; } = "EduFlowClient";
+    public string Issuer { get; set; } = "Admino";
+    public string Audience { get; set; } = "AdminoClient";
     public string SigningKey { get; set; } = string.Empty;
     public int AccessTokenMinutes { get; set; } = 15;
 }

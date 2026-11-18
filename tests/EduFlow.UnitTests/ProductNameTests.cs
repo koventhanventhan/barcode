@@ -8,6 +8,6 @@ public sealed class ProductNameTests
     [Fact]
     public void Value_is_the_product_name()
     {
-        ProductName.Value.Should().Be("EduFlow");
+        ProductName.Value.Should().Be("Admino");
     }
 }
