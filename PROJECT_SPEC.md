@@ -11,7 +11,7 @@
 # PART A — MASTER CONTEXT (always applies)
 
 ## A1. Product
-Working name: **EduFlow** (single constant `ProductName` in backend config and `web/src/config/brand.ts`, so renaming is one edit).
+Working name: **Admino** (single constant `ProductName` in backend config and `web/src/config/brand.ts`, so renaming is one edit).
 A cloud SaaS for Sri Lankan schools and tuition institutes: student management, barcode attendance, fee management, exams/marks, automatic parent notifications (SMS/email/WhatsApp), parent portal, backups. Sold per institute (tenant) on subscription plans. Reference look-and-feel and sections: genixedu.app (hero, features, pricing, demo section).
 
 The software is cloud-hosted. Institute admins, staff and parents use it from any browser or phone. The Super Admin (product owner) manages all institutes.
@@ -51,7 +51,7 @@ PROJECT_SPEC.md
 ## A4. Multi-tenancy (core rule)
 - One database, shared schema, `TenantId` (Guid) on every tenant-owned table.
 - EF Core **global query filter** on `TenantId` for every tenant entity; `SaveChanges` stamps `TenantId` automatically and blocks cross-tenant writes.
-- Tenant resolved from (1) subdomain `abc.eduflow.lk`, (2) `X-Tenant` header in dev, (3) JWT claim. Super Admin has no tenant and uses `IgnoreQueryFilters` only inside explicit, audited services.
+- Tenant resolved from (1) subdomain `abc.admino.lk`, (2) `X-Tenant` header in dev, (3) JWT claim. Super Admin has no tenant and uses `IgnoreQueryFilters` only inside explicit, audited services.
 - Every entity: `Id`, `TenantId`, `CreatedAt`, `CreatedBy`, `UpdatedAt`, `IsDeleted` (soft delete).
 - **Tenant isolation tests are mandatory** (see Testing).
 
@@ -238,6 +238,6 @@ Tests: backup produces valid archive and tenant isolation inside it, retention, 
 - Security: OWASP review checklist, rate limiting, security headers, input sanitization, file upload validation (type/size/AV hook), secrets via env, audit log coverage, PII minimization in logs, CSRF for cookie flows, dependency audit in CI.
 - Performance: indexes on `(TenantId, ...)` for hot queries, pagination everywhere, EF query review (no N+1), response caching for public endpoints, load test script (k6) for scan endpoint (target p95 < 300 ms).
 - Testing completion: coverage gate (backend >= 70% on Application layer, frontend >= 60%), **Playwright E2E**: (1) signup -> add students -> print cards, (2) start class -> scan -> parent SMS in log -> stop class -> absent messages, (3) invoice -> PayHere sandbox -> receipt, (4) switch OFF parent portal -> parent blocked, switch ON -> works, (5) branding color change reflects on login page, (6) tenant isolation UI check, (7) plan limit reached message. `docs/TESTING.md` with how to run everything.
-- Deployment: production Dockerfiles (multi-stage), `docker-compose.prod.yml` (api + nginx/caddy reverse proxy with wildcard subdomain + auto TLS, SQL Server container with persistent volume and memory limit, or connection string to managed SQL), `docs/DEPLOYMENT.md` for a single VPS (min 4 GB RAM because of SQL Server) and an Azure upgrade path, wildcard DNS setup (`*.eduflow.lk`), environment variable table, backup/restore runbook, monitoring (health checks, Serilog to file/Seq), zero-downtime update steps.
+- Deployment: production Dockerfiles (multi-stage), `docker-compose.prod.yml` (api + nginx/caddy reverse proxy with wildcard subdomain + auto TLS, SQL Server container with persistent volume and memory limit, or connection string to managed SQL), `docs/DEPLOYMENT.md` for a single VPS (min 4 GB RAM because of SQL Server) and an Azure upgrade path, wildcard DNS setup (`*.admino.lk`), environment variable table, backup/restore runbook, monitoring (health checks, Serilog to file/Seq), zero-downtime update steps.
 - Final: README with screenshots, `docs/ARCHITECTURE.md`, seed/demo instructions, a launch checklist.
 DoD: full CI green, all E2E pass, a fresh clone can be deployed following `docs/DEPLOYMENT.md` only.
