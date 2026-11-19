@@ -19,17 +19,30 @@ docker compose up --build
 
 ## 2. Single-VPS Production Deployment (`docker-compose.prod.yml`)
 
-### Server Requirements
-- **Minimum 4 GB RAM** (2.5 GB allocated to SQL Server container + 1.5 GB for `.NET 8 API`, Caddy, Nginx, and OS).
-- **2 vCPU**, 40 GB SSD, Ubuntu 22.04 LTS / 24.04 LTS with Docker Engine + Docker Compose v2.
-- Open firewall ports `80/tcp` and `443/tcp` only (SQL Server port `1433` is NOT published externally).
+### Generic Ubuntu 24.04 VPS (Azure, Hetzner, DigitalOcean, Vultr)
+Any cloud provider running **Ubuntu 24.04 LTS** works identically:
+- **Sizing**: **2 vCPU**, **4 GB RAM** minimum (2.5 GB allocated to SQL Server + 1.5 GB for `.NET 8 API`, Caddy, Nginx, and OS), **40+ GB SSD** (e.g., Azure B2s, Hetzner CX22/CPX21, DigitalOcean 4 GB Droplet, or Vultr 4 GB).
+- **Firewall / Security Group (Provider Firewall + `ufw`)**:
+  - Allow inbound `80/tcp` and `443/tcp` (optionally restrict to [Cloudflare IP ranges](https://www.cloudflare.com/ips/)).
+  - Restrict `22/tcp` (SSH) to the **admin IP only**.
+  - Do **not** open SQL Server port `1433/tcp` externally (internal Docker network only).
+- **Runtime**: Install Docker Engine and Docker Compose v2 (`docker compose`).
+- **Provider VM Backups**: Enable automated VM/volume snapshots at your VPS provider (e.g., Azure Backup, Hetzner Backups, DigitalOcean Backups, or Vultr Auto Backups).
 
-### Wildcard DNS Setup (`*.admino.lk`)
-Configure DNS A/AAAA records at your DNS provider (e.g., Cloudflare, Route 53, or Namecheap):
-- `@` (`admino.lk`) -> `<VPS_PUBLIC_IP>`
-- `*` (`*.admino.lk`) -> `<VPS_PUBLIC_IP>`
-
-> **Note on Wildcard TLS in Caddy**: The included [Caddyfile](../docker/Caddyfile) automatically provisions Let's Encrypt TLS certificates on demand. For wildcard `*.admino.lk` SAN certificates without HTTP-01 per subdomain, build Caddy with the Cloudflare/Route53 DNS plugin or add Caddy `on_demand_tls` with an internal ask endpoint.
+### Wildcard DNS & Cloudflare Origin Certificate Setup (`*.admino.lk`)
+1. In Cloudflare DNS for your domain, create proxied (**Orange Cloud**) `A`/`AAAA` records pointing to `<VPS_PUBLIC_IP>`:
+   - `@` (`admino.lk`) -> `<VPS_PUBLIC_IP>` (Proxied)
+   - `*` (`*.admino.lk`) -> `<VPS_PUBLIC_IP>` (Proxied)
+2. In Cloudflare **SSL/TLS -> Overview**, set encryption mode to **Full (strict)**.
+3. In Cloudflare **SSL/TLS -> Origin Server**, create an **Origin Certificate** covering `admino.lk` and `*.admino.lk` (PEM format, 15-year validity).
+4. On the VPS inside the cloned repo, save the certificate and private key under `certs/` (gitignored; mounted read-only into Caddy at `/certs`):
+   ```bash
+   mkdir -p certs
+   # Paste Origin Certificate into certs/origin.pem and Private Key into certs/origin.key
+   chmod 644 certs/origin.pem
+   chmod 600 certs/origin.key
+   ```
+   [Caddyfile](../docker/Caddyfile) uses `tls /certs/origin.pem /certs/origin.key` (no ACME), trusts Cloudflare's IPv4/IPv6 ranges (`trusted_proxies static`), and forwards `{client_ip}` to the API (`UseForwardedHeaders` trusts only Docker networks).
 
 ### Fresh-Clone Production Launch Steps
 ```bash
@@ -39,7 +52,6 @@ cp .env.example .env
 Edit `.env` for production (never commit `.env`):
 ```env
 DOMAIN=admino.lk
-ACME_EMAIL=ops@admino.lk
 MSSQL_PID=Express
 MSSQL_SA_PASSWORD=<strong-32-char-password>
 MSSQL_MEMORY_LIMIT_MB=2048
@@ -54,7 +66,7 @@ docker compose -f docker-compose.prod.yml up -d --build
 Verify:
 ```bash
 docker compose -f docker-compose.prod.yml ps
-curl -fsS https://admino.lk/health
+DOMAIN=admino.lk bash scripts/smoke.sh
 ```
 The API applies EF Core migrations (`MigrateAsync`) and runs `DbSeeder.SeedAsync()` automatically on startup.
 
@@ -64,8 +76,7 @@ The API applies EF Core migrations (`MigrateAsync`) and runs `DbSeeder.SeedAsync
 
 | Variable | Required | Default | Purpose |
 |---|---|---|---|
-| `DOMAIN` | Yes (prod) | `admino.lk` | Apex domain for CORS, Caddy TLS, and wildcard subdomains |
-| `ACME_EMAIL` | Yes (prod) | `ops@admino.lk` | Let's Encrypt registration email for Caddy |
+| `DOMAIN` | Yes (prod) | `admino.lk` | Apex domain for CORS, Caddy Origin TLS, and wildcard subdomains |
 | `MSSQL_SA_PASSWORD` | Yes | — | SQL Server `sa` password (strong complexity required) |
 | `MSSQL_PID` | No | `Express` | SQL Server edition (`Express`, `Developer`, `Standard`) |
 | `MSSQL_MEMORY_LIMIT_MB` | No | `2048` | SQL Server internal memory cap in MB |
@@ -117,7 +128,7 @@ The API applies EF Core migrations (`MigrateAsync`) and runs `DbSeeder.SeedAsync
 
 1. Pull the latest release and inspect changes:
    ```bash
-   git pull origin main
+   git pull origin master
    ```
 2. Build new images without interrupting running traffic:
    ```bash
@@ -130,11 +141,13 @@ The API applies EF Core migrations (`MigrateAsync`) and runs `DbSeeder.SeedAsync
    # Wait until API healthcheck passes
    docker compose -f docker-compose.prod.yml up -d --no-deps web
    ```
-5. Verify `/health` and smoke-check `/api/info`.
+5. Verify endpoints with `DOMAIN=admino.lk bash scripts/smoke.sh`.
 
 ---
 
 ## 6. Backup & Restore Runbook
+
+> **Important — Volume Storage & Off-Host Protection**: Tenant uploads and platform/institute backup archives currently live on the VPS Docker volume (`admino_storage` via `LocalFileStorage` at `/app/storage`, alongside `sqlserver_data` and `sqlserver_backups`). Until an S3/Azure Blob `IFileStorage` adapter is added, these files are **not** replicated to external object storage and are protected **only by provider-level VM/volume backups** (e.g., Azure Backup, Hetzner/DigitalOcean/Vultr backups) or manual off-host archive copies.
 
 ### Platform-Level Database Backups (Super Admin)
 - **Schedule**: Nightly Hangfire job (`platform-db-backup`, 21:00 UTC) or on-demand via `POST /api/super-admin/platform-backups/run` (Platform Operations dashboard).

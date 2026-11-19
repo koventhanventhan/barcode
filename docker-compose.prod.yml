@@ -83,12 +83,12 @@ services:
     restart: unless-stopped
     environment:
       DOMAIN: ${DOMAIN:-admino.lk}
-      ACME_EMAIL: ${ACME_EMAIL:-ops@admino.lk}
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./certs:/certs:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:

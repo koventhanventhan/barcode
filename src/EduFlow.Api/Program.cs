@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
@@ -20,6 +21,7 @@ using EduFlow.Infrastructure.Storage;
 using Hangfire;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
 using Microsoft.EntityFrameworkCore;
@@ -46,6 +48,14 @@ builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddHealthChecks();
 builder.Services.AddResponseCaching();
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.ForwardLimit = 1;
+    // Trust only loopback (defaults) and Docker bridge networks so untrusted peers cannot spoof X-Forwarded-For.
+    options.KnownNetworks.Add(new Microsoft.AspNetCore.HttpOverrides.IPNetwork(IPAddress.Parse("172.16.0.0"), 12));
+    options.KnownNetworks.Add(new Microsoft.AspNetCore.HttpOverrides.IPNetwork(IPAddress.Parse("192.168.0.0"), 16));
+});
 builder.Services.AddInfrastructure(builder.Configuration);
 
 builder.Services
@@ -137,10 +147,16 @@ builder.Services.AddRateLimiter(options =>
             cancellationToken);
     };
 
-    static string ResolveClientKey(HttpContext httpContext) =>
-        httpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault()
-        ?? httpContext.Connection.RemoteIpAddress?.ToString()
-        ?? "local";
+    static string ResolveClientKey(HttpContext httpContext)
+    {
+        var ip = httpContext.Connection.RemoteIpAddress;
+        if (ip is null)
+        {
+            return "local";
+        }
+
+        return ip.IsIPv4MappedToIPv6 ? ip.MapToIPv4().ToString() : ip.ToString();
+    }
 
     options.AddPolicy("auth", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
@@ -202,6 +218,7 @@ StartupSecurityValidator.ValidateStartupConfiguration(app.Configuration, app.Env
 await InitializeDatabaseAsync(app.Services);
 await LogSmsStartupSummaryAsync(app.Services, app.Logger);
 
+app.UseForwardedHeaders();
 app.UseExceptionHandler();
 app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseSerilogRequestLogging(options =>

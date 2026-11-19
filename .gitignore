@@ -498,3 +498,7 @@ e2e/test-results/
 e2e/playwright-report/
 web/coverage/
 TestResults/
+
+# Cloudflare Origin TLS certificates (created on the server)
+certs/*
+!certs/README.md

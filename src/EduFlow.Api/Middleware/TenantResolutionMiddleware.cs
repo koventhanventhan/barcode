@@ -78,7 +78,10 @@ public sealed class TenantResolutionMiddleware(RequestDelegate next)
             "true",
             StringComparison.OrdinalIgnoreCase);
 
-        var ip = context.Connection.RemoteIpAddress?.ToString();
+        var remoteIp = context.Connection.RemoteIpAddress;
+        var ip = remoteIp is null
+            ? null
+            : (remoteIp.IsIPv4MappedToIPv6 ? remoteIp.MapToIPv4().ToString() : remoteIp.ToString());
 
         tenantContext.SetUser(userId, email, role, isImpersonating, isReadOnly, ip);
     }
