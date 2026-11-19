@@ -1,0 +1,14 @@
+---
+description: Frontend conventions for the React app in /web
+globs: web/src/**/*.ts,web/src/**/*.tsx
+alwaysApply: false
+---
+
+- Use the existing design tokens, shadcn components and shared components (DataTable, PageHeader, EmptyState, FeatureGate, PermissionGate). Do not create new one-off styles or colours; use CSS variables so tenant branding works.
+- Every list page: loading skeleton, empty state with an action, error state, pagination, sorting/filters.
+- Forms: React Hook Form + Zod, inline validation, disabled submit while saving, success/error toasts, confirm dialog for destructive actions.
+- Data fetching with TanStack Query; invalidate related queries after mutations. Handle `FEATURE_DISABLED`, `FEATURE_NOT_IN_PLAN` and `LIMIT_REACHED` errors with clear messages (upgrade link where relevant).
+- Never store secrets in the frontend. Never trust UI hiding as security (the API enforces it).
+- Mobile-first for scanner, parent portal and teacher attendance; admin tables become card lists on small screens. Keyboard accessible, visible focus, WCAG AA contrast.
+- English only UI text; no language switcher.
+- Add or update Vitest tests for new components and logic.

@@ -1,0 +1,20 @@
+---
+description: Security and production-safety rules; apply to every change
+alwaysApply: true
+---
+
+# Secrets and configuration
+- Never commit secrets, API keys, passwords, tokens or real phone numbers. Real values come from environment variables or user-secrets. `.env.example` has placeholders only.
+- No hardcoded default secrets in code (JWT signing key, super admin password, SMS key). Outside Development/Testing the app must fail fast at startup when a required secret is missing, too short, or equal to a known dev default.
+- Do not seed default or demo credentials outside Development, unless `Demo:Enabled=true`.
+- `AllowedHosts` must never be `*` in Production.
+- SMS: one config section (`Sms:*`). `TestMode` defaults to true in Development and on first deploy; real parents are messaged only when it is explicitly false. API keys are write-only in the UI and never logged or returned by any API.
+
+# Requests and data
+- Validate every input (FluentValidation / Zod). Never trust client-sent TenantId, role, branch or price.
+- Authorisation on every endpoint: permission policy plus `[RequireFeature]` where relevant. Parents may only access their own linked children.
+- Webhooks (PayHere etc.): verify the signature, validate amount and order, process idempotently.
+- File uploads: allow-list type and size, check magic bytes, sanitise SVG, resize images server-side.
+- Rate-limit auth, public and scan endpoints. Public endpoints return the minimum data (no tenant ids, no existence leaks).
+- Logs and audit entries must not contain passwords, tokens, API keys or full phone numbers (use the PII redactor).
+- Every security-relevant rule above needs a test.

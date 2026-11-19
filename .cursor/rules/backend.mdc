@@ -1,0 +1,12 @@
+---
+description: Backend conventions for the .NET solution
+globs: src/**/*.cs,tests/**/*.cs
+alwaysApply: false
+---
+
+- Respect layers: Domain has no dependencies; Application holds use cases and interfaces; Infrastructure implements them (EF Core, providers); Api only wires HTTP.
+- Controllers/endpoints stay thin; put logic in Application services. Return RFC 7807 problem details with stable `code` values (`FEATURE_DISABLED`, `FEATURE_NOT_IN_PLAN`, `LIMIT_REACHED`, ...).
+- EF Core: SQL Server, `AsNoTracking` for reads, paging on every list endpoint, indexes starting with `TenantId` for hot queries, migrations named `PhaseX_Description`. Avoid N+1 queries.
+- Background work uses the outbox + Hangfire with retry and idempotency keys. Re-check the feature switch at send time.
+- Add a migration for every model change; never edit an applied migration.
+- Tests: unit tests for pure rules, integration tests (Testcontainers) for endpoints. Every new tenant entity gets a tenant-isolation test; every gated endpoint gets a feature ON/OFF test.
