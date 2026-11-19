@@ -5,13 +5,20 @@
 > 2. Run **one phase per chat** (PART B). Start a NEW chat for every phase.
 > 3. In each new chat paste only: `Read PROJECT_SPEC.md PART A and execute PHASE N from PART B. Follow the Working Rules.`
 > 4. Do not move to the next phase until the phase's Definition of Done passes.
+> 5. Extra phases (12, 13A-13E) are in **PART C** at the bottom, with the exact order to run them.
+
+
+## CURRENT STATUS (update this block after each phase)
+Done and pushed: Phases 0-11, 12, 13A-13E, 13D, 14 (English-only UI + brand-aware login), 15 (Notify.lk adapter), production safety fixes, Admino rename.
+Tests at last check: unit 106/106, integration 80/80, frontend 73/73.
+Pending: PHASE 16 (deployment fixes for Azure VM behind Cloudflare), then real SMS go-live (TestMode off after tests on Dialog/Mobitel/Hutchison).
 
 ---
 
 # PART A — MASTER CONTEXT (always applies)
 
 ## A1. Product
-Working name: **Admino** (single constant `ProductName` in backend config and `web/src/config/brand.ts`, so renaming is one edit).
+Brand: **Admino** (domain admino.lk; single constant `ProductName` in backend config and `web/src/config/brand.ts`). C# namespaces and projects keep the internal name `EduFlow.*` on purpose; do not rename them.
 A cloud SaaS for Sri Lankan schools and tuition institutes: student management, barcode attendance, fee management, exams/marks, automatic parent notifications (SMS/email/WhatsApp), parent portal, backups. Sold per institute (tenant) on subscription plans. Reference look-and-feel and sections: genixedu.app (hero, features, pricing, demo section).
 
 The software is cloud-hosted. Institute admins, staff and parents use it from any browser or phone. The Super Admin (product owner) manages all institutes.
@@ -21,7 +28,7 @@ The software is cloud-hosted. Institute admins, staff and parents use it from an
 - Background jobs: **Hangfire with SQL Server storage** (reminders, outbox dispatch, backups, trial expiry, demo reset).
 - Real-time: SignalR (live attendance board).
 - Auth: JWT access token (15 min) + rotating refresh token (httpOnly cookie), role-based + permission-based.
-- Frontend: **React 18 + TypeScript + Vite**, Tailwind CSS, **shadcn/ui** (Radix), TanStack Query, TanStack Table, React Hook Form + Zod, React Router, Recharts, i18next (en / ta / si), lucide-react icons.
+- Frontend: **React 18 + TypeScript + Vite**, Tailwind CSS, **shadcn/ui** (Radix), TanStack Query, TanStack Table, React Hook Form + Zod, React Router, Recharts, lucide-react icons. **UI is English only (no i18n library, no language switcher).**
 - PDF: QuestPDF. Excel/CSV: ClosedXML. Barcode: Code128 generation (ZXing.Net / bwip-style SVG), scanning via USB scanner (keyboard-wedge) and phone camera (`@zxing/browser`).
 - File storage: `IFileStorage` abstraction (Local for dev, S3-compatible for prod: Cloudflare R2 / Backblaze B2).
 - SMS: `ISmsProvider` abstraction (+ `FakeSmsProvider` for dev/tests, one real adapter for a Sri Lankan gateway e.g. Notify.lk or Text.lk, config-driven). Email: `IEmailSender` (SMTP / Brevo). WhatsApp: `IWhatsAppProvider` (Cloud API, adapter + fake).
@@ -40,7 +47,7 @@ The software is cloud-hosted. Institute admins, staff and parents use it from an
   /EduFlow.UnitTests
   /EduFlow.IntegrationTests
 /web                      (React app)
-  /src/app, /features/*, /components/ui, /lib, /i18n, /styles, /config
+  /src/app, /features/*, /components/ui, /lib, /styles, /config
 /e2e                      (Playwright)
 /docker
 /docs                     (ARCHITECTURE.md, DEPLOYMENT.md, API.md, TESTING.md)
@@ -109,7 +116,7 @@ Banned: purple/blue-pink gradients, glassmorphism, big blurred blobs, emoji as i
 Required:
 - Tokens first: CSS variables for `--brand-50..900`, neutral slate scale, semantic success/warning/danger/info; 4/8px spacing grid; radius 6/8px; 1px borders over shadows; one elevation level for popovers.
 - Typography: **Inter** for UI (tabular-nums on numbers), **Noto Sans Tamil / Noto Sans Sinhala** fallbacks; clear scale (12/13/14/16/20/24/32), 14px base for dashboards.
-- Layout: left sidebar (collapsible, grouped nav, active indicator), top bar with search, tenant logo, language switcher, user menu; page header with title, description, primary action; breadcrumbs.
+- Layout: left sidebar (collapsible, grouped nav, active indicator), top bar with search, tenant logo, user menu; page header with title, description, primary action; breadcrumbs.
 - Data-dense, calm admin UI: tables with sticky header, column visibility, sorting, filters, pagination, row actions, bulk actions, CSV export; forms with inline validation; empty states with an action; skeleton loaders (no spinners on whole pages); confirm dialogs for destructive actions; toasts; keyboard accessible; WCAG AA contrast.
 - Dashboard: KPI cards (today's attendance %, fees collected this month, overdue count, SMS used/quota, upcoming exams), 2-3 meaningful charts, recent activity. Real numbers, no decorative widgets.
 - Mobile-first for: scanner page, parent portal, teacher attendance. Admin tables become card lists on small screens.
@@ -136,7 +143,7 @@ Required:
 8. If a requirement is ambiguous, choose the most reasonable option, note it in `docs/DECISIONS.md` in one line, and continue (do not stop to ask unless blocked).
 
 ## A12. Definition of Done (every phase)
-Builds with no warnings-as-errors, all tests green, lint and typecheck clean, new endpoints appear in Swagger with correct auth/feature attributes, UI checked at 360px and 1440px widths, new text exists in en/ta/si resource files (ta/si can start as English fallback marked `// TODO-i18n` only in the resource JSON, never in code), `docs/` updated briefly.
+Builds with no warnings-as-errors, all tests green, lint and typecheck clean, new endpoints appear in Swagger with correct auth/feature attributes, UI checked at 360px and 1440px widths, UI text is English only, `docs/` updated briefly.
 
 ---
 
@@ -157,12 +164,12 @@ Implement A4, A5, A6, A7 completely on the backend:
 Tests: tenant isolation (tenant A can never read/write tenant B in any endpoint tested via reflection over all tenant entities), feature ON/OFF behaviour, plan limits, subscription states, refresh-token rotation, permission policies.
 DoD: all above tests green.
 
-## PHASE 2 — Frontend foundation, design system, branding, i18n
+## PHASE 2 — Frontend foundation, design system, branding
 Implement A9 and A10 on the frontend:
 - Tokens, Tailwind config, shadcn component set restyled to the tokens, AppShell (sidebar, topbar, breadcrumbs), DataTable component (TanStack Table) with sorting/filter/pagination/column toggle/CSV export, FormField components with RHF + Zod, EmptyState, Skeletons, ConfirmDialog, Toast, PageHeader, StatCard, FeatureGate component (`<FeatureGate feature="ParentPortal" fallback={...}>`) and `useFeature()` hook, PermissionGate.
 - Auth screens (login, forgot password, accept invite), API client with refresh handling, route guards per role.
 - Branding runtime: fetch public branding, generate color scale, inject CSS vars, Branding settings page with live preview, dark mode toggle.
-- i18n (en/ta/si) with language switcher and persisted preference; Tamil/Sinhala fonts load correctly.
+- UI is English only: no i18n library, no language switcher. Tamil/Sinhala fonts are kept only so message-template previews (SMS text) render correctly.
 - Super Admin shell: Tenants list/detail, Plans editor, Subscription actions (using Phase 1 API).
 - Settings -> Features & Notifications page UI (switches wired to the API from Phase 1; notification part wired in Phase 4).
 Tests: component tests for DataTable, FeatureGate, branding color-scale generation (contrast assertions), route guards.
@@ -241,3 +248,111 @@ Tests: backup produces valid archive and tenant isolation inside it, retention, 
 - Deployment: production Dockerfiles (multi-stage), `docker-compose.prod.yml` (api + nginx/caddy reverse proxy with wildcard subdomain + auto TLS, SQL Server container with persistent volume and memory limit, or connection string to managed SQL), `docs/DEPLOYMENT.md` for a single VPS (min 4 GB RAM because of SQL Server) and an Azure upgrade path, wildcard DNS setup (`*.admino.lk`), environment variable table, backup/restore runbook, monitoring (health checks, Serilog to file/Seq), zero-downtime update steps.
 - Final: README with screenshots, `docs/ARCHITECTURE.md`, seed/demo instructions, a launch checklist.
 DoD: full CI green, all E2E pass, a fresh clone can be deployed following `docs/DEPLOYMENT.md` only.
+
+---
+
+# PART C — EXTRA PHASES (run at the point stated, each in a NEW chat)
+
+Recommended order:
+0 -> 1 -> 2 -> **14** -> **12** -> 3 -> **13A** -> 4 -> **15** -> **13B** -> 5 -> 6 -> **13C** -> 7 -> 8 -> 9 -> **13D** -> 10 -> 11
+(Phase 13E can be done any time after Phase 9. Phase 15 needs your SMS gateway account and approved Sender ID first; until then keep the Fake provider.)
+
+## PHASE 12 — Public pricing page (run after Phase 2)
+Build the public `/pricing` page in `/web`. Read only the files you need; reply under 12 lines.
+- Plans come from the Plans API (Starter, Growth, Pro, Enterprise). Do NOT hardcode prices.
+- Add to Plan: `PriceMonthlyLkr`, `PriceYearlyLkr` (nullable), `SetupFeeLkr` (nullable), `ExtraSmsPerSegmentLkr`, `ExtraStoragePerGbLkr`. Editable in Super Admin -> Plans (validation, live preview of the plan card).
+- Page layout (follow the existing "calm editorial" design, ONE accent colour, no gradients):
+  1. Header + Monthly/Yearly toggle (yearly shows an "N months free" badge computed from the data, never hardcoded) + currency label LKR.
+  2. Four plan columns: name, one-line audience, price (or "Contact us" if null), key limits (students, batches, staff, SMS/month, storage), "MOST POPULAR" tag on Pro, CTA "Start 14-day free trial" (Enterprise: "Talk to us").
+  3. Full comparison table with sticky header and grouped rows (Core, Messaging, Reports, Payments, Admin); checkmarks/dashes from `PlanFeature` data; on mobile use plan-selector tabs instead of four columns.
+  4. Add-ons block: extra SMS segments, extra storage, extra students (Enterprise), WhatsApp, PayHere setup help.
+  5. "Good to know": 14-day trial, no card, software only (bring own PC/tablet/scanner or phone camera), SMS segment explanation (160 English / 70 Tamil or Sinhala).
+  6. FAQ accordion (6-8 real questions: payment, trial end, data export, cancel, SMS cost, own domain, Tamil/Sinhala SMS support).
+  7. Final CTA strip + contact link.
+- Tests: renders all plans from a mocked API, toggle changes prices, null price shows "Contact us", table matches `PlanFeature` data, exactly one `<h1>`, no console errors, no horizontal scroll at 360px.
+DoD: A12 + the tests above.
+
+## PHASE 13 — Gap closure against the plan sheet
+Common instruction for every sub-phase: read PART A first; edit only what is needed; reply under 12 lines; add tests; follow the Working Rules and Definition of Done; update `docs/DECISIONS.md` and Swagger.
+
+### PHASE 13A — Multi-branch support (Pro+) — run after Phase 3
+- Branch CRUD, branch switcher in the top bar, every student/batch/staff/fee/attendance record belongs to a branch.
+- Branch-wise filters and reports; staff can be limited to specific branches; consolidated view for InstituteAdmin.
+- Gated by plan feature `MultiBranch`.
+Tests: tenant isolation still passes; add branch-isolation tests (a branch-limited staff user can never read another branch's data).
+
+### PHASE 13B — Broadcast messaging + storage and add-ons — run after Phase 4
+1. **Broadcast page** (feature key `BroadcastMessages`, all plans): audience picker (all / level / batch / batch group / selected students / only fee-overdue), channel (SMS/Email; WhatsApp if entitled), template with variables, live recipient count, live SMS segment + quota estimate (160/70 rules), schedule for later, send-confirmation dialog, sent history with per-recipient status. Respects the feature switch and quiet hours.
+2. **Storage and add-ons**: track storage used per tenant (sum of the files table), show a usage meter in Settings, block uploads over quota with `LIMIT_REACHED`. Add `TenantAddOn(TenantId, Type: ExtraStorageGb | ExtraStudents | ExtraSmsSegments, Quantity, ValidFrom, ValidTo)` so the Super Admin can grant extra storage (all plans), extra students (Enterprise) and extra SMS. `ILimitService` must add active add-ons to the plan limit.
+Tests: audience resolution, segment estimate, switch OFF blocks sending, add-on limit maths, upload blocked at quota.
+
+### PHASE 13C — Bank payment approval + fee extras — run after Phase 6
+1. **Bank payment approval**: parent or admin uploads a bank slip against an invoice; status Pending -> Admin Approves/Rejects with reason -> invoice marked paid, receipt and messages sent. Bank account details shown to parents are set in Settings.
+2. **Fee extras**: admission/registration fee type, sibling discount rule, advance/credit balance applied to the next invoice, receipt reprint, daily cashier closing report (by user, by payment method).
+Tests: approval/rejection flow, credit balance maths (decimal), sibling discount, closing report totals.
+
+### PHASE 13D — Staff attendance, online staff registration, support tickets — run after Phase 9
+1. **Staff attendance with online staff registration** (Enterprise or per-tenant override, behind the `StaffLeave` switch): staff self-registration link/QR approved by the admin, staff daily check-in (barcode or online), staff attendance report.
+2. **Priority support and onboarding** (Pro+): in-app Support page with a ticket form (subject, category, priority auto-set to High for Pro/Enterprise), ticket list with status, email to the Super Admin, Super Admin ticket inbox. The onboarding checklist stays visible on the dashboard until completed.
+Tests: registration approval flow, check-in idempotency, ticket priority by plan, tenant isolation on tickets.
+
+### PHASE 13E — Final plan-sheet audit — run after Phase 9 (or last)
+Compare the app against this table and report only what is MISSING or WRONG (max 15 lines), then fix it:
+- Every limit in A7 is enforced server-side (students, levels, batches, subjects, staff, admins, SMS, storage).
+- Every feature row in A7 is gated by plan and by the tenant switch where applicable.
+- Super Admin per-tenant overrides ("available on request") work for PayHere and staff attendance.
+- Seeded plans match the plan sheet exactly.
+
+
+---
+
+## PHASE 14 — English-only UI + brand-aware login (run NOW if Phase 2 is done, otherwise right after Phase 2)
+Read PART A first. Edit only what is needed; reply under 12 lines. Follow the Working Rules.
+
+**TASK 1 — Remove the language feature from the UI (English only)**
+- Delete every language switcher (login page, marketing header/footer, topbar user menu, parent portal, settings) and the saved-language logic.
+- Remove i18next/react-i18next and the ta/si UI resource files; keep all UI text in plain English (one `strings` module only if useful).
+- Do NOT touch SMS/email message templates: they stay multi-language (en/ta/si) and the segment calculator stays. Keep the Noto Sans Tamil/Sinhala font fallback only for rendering message previews.
+- Update `docs/DECISIONS.md`: "UI is English only; message templates remain multi-language."
+
+**TASK 2 — Brand-aware login page (/login)**
+- The left panel must show: large logo (max 160px tall, object-contain), institute display name, tagline, brand colour as the panel background (CSS variables). Collapses to a small logo header on mobile.
+- Public endpoint `GET /api/public/branding?code={instituteCode}` returns ONLY `{ displayName, tagline, logoUrl, faviconUrl, primaryColor, accentColor }`. Empty code -> PLATFORM brand (Super Admin's). Unknown code -> platform brand too (never reveal whether a code exists). Rate-limited, cached 5 min, cache invalidated on branding change.
+- Frontend: load the platform brand first. When the Institute code field changes, debounce 400 ms, fetch that code's branding, cross-fade logo, name and colours (150 ms, respect prefers-reduced-motion). Clearing the field returns to the platform brand. On a real tenant subdomain, read the code from the hostname, prefill it, and load the brand immediately.
+- Set document title and favicon from the brand. No logoUrl -> generated monogram (first 2 letters of displayName on the brand colour), never a broken image.
+- Same brand loading on /forgot-password and the accept-invite page.
+
+**TASK 3 — Logo after login**
+- Institute users (Admin, Staff, Teacher, Parent) see their institute's logo and name in sidebar/topbar; Super Admin sees the platform logo and name.
+- Super Admin -> Branding (platform) and Settings -> Branding (institute) both support logo and favicon upload (png/jpg/svg/webp, max 2 MB, validated, resized server-side); changes appear on /login immediately.
+
+Tests: branding endpoint (empty code, unknown code, valid code, no extra fields leaked, rate limit), login page swaps brand when the code changes, monogram fallback, no language switcher anywhere, lint/typecheck/test green.
+
+## PHASE 15 — Real SMS gateway adapter (run after Phase 4 AND after your gateway account + Sender ID are ready)
+Read PART A first. Reply under 12 lines. Follow the Working Rules.
+Gateway: <Notify.lk | Text.lk>. Its API documentation is pasted below; follow it exactly and do not guess any parameter.
+<PASTE THE GATEWAY API DOC TEXT HERE>
+
+1. Adapter behind the existing `ISmsProvider`: send SMS, parse the provider response into Sent/Failed with error reason, account-balance call, delivery report (webhook or polling, whichever the docs offer).
+2. Config (appsettings + environment variables, NEVER committed): `Sms:Provider` (Fake|NotifyLk|TextLk), `Sms:UserId`, `Sms:ApiKey`, `Sms:SenderId`, `Sms:BaseUrl`, `Sms:TestMode`, `Sms:TestAllowList`. Placeholders only in `.env.example`.
+3. `TestMode = true`: send real SMS ONLY to numbers in `TestAllowList`; all others are logged as `Skipped:TestMode`. Default true in Development.
+4. Phone normalisation: accept `07XXXXXXXX`, `+947XXXXXXXX`, `947XXXXXXXX` -> the one canonical format the gateway needs; reject landlines/invalid numbers with a clear status before sending.
+5. Super Admin -> Settings -> SMS page: provider, sender ID, gateway balance (cached 5 min), "Send test SMS", low-balance threshold, last 50 gateway errors. The API key is write-only in the UI (never shown after saving; if stored in DB use Data Protection encryption).
+6. Daily Hangfire job: check balance; if below the threshold, email the Super Admin (once per day).
+7. Optional per-tenant `SmsSenderId` override (Enterprise or Super Admin override); empty -> platform sender ID.
+8. Mark each message type Transactional (attendance, fees, payments, exams, class changes) or Promotional (Broadcast). Optional `Sms:PromotionalSenderId`; if unset, show a warning on the Broadcast page that delivery on some networks is not guaranteed.
+9. Segment counting stays as in A8; store gateway-reported cost/segments if the API returns them.
+
+Tests: response parsing (success, insufficient balance, invalid sender, invalid number), TestMode allow-list, phone-normalisation table, low-balance job, API key never in logs/responses (assert), feature switch OFF still prevents sending.
+
+Real-parent go-live checklist: (1) TestMode on + your own number only; (2) send Tamil and Sinhala text and check the phone display and segment count; (3) test on Dialog, Mobitel and Hutchison SIMs; (4) only then set `TestMode=false`.
+
+
+## PHASE 16 — Production deployment fixes (Azure VM + Cloudflare) — run BEFORE the first deploy
+Read AGENTS.md first. Production deployment fixes only; reply under 12 lines.
+1. HTTPS behind Cloudflare: in `docker/Caddyfile` use `tls /certs/origin.pem /certs/origin.key` for the `{$DOMAIN}` and `*.{$DOMAIN}` site (no ACME). In `docker-compose.prod.yml` mount `./certs:/certs:ro` into the caddy service. Add `certs/` to `.gitignore` and a `certs/README.md` (the files are created on the server).
+2. Real client IP: Caddy `servers { trusted_proxies static <Cloudflare IPv4 and IPv6 ranges from https://www.cloudflare.com/ips/> }`, and forward `X-Forwarded-For {client_ip}` and `X-Real-IP {client_ip}` to the api. In the API add `UseForwardedHeaders` (XForwardedFor + XForwardedProto), trusting only the Docker network. The rate limiter (`Program.cs` `ResolveClientKey`) and `TenantResolutionMiddleware` must use `Connection.RemoteIpAddress` after forwarded headers; stop reading the raw `X-Forwarded-For` header. Add tests.
+3. `docs/DEPLOYMENT.md`: replace the wildcard TLS note with the Cloudflare Origin Certificate steps, change `git pull origin main` to `master`, add an "Azure VM" section (B-series VM, NSG ports 80/443, SSH only from the admin IP, Azure Backup enabled).
+4. Add `scripts/smoke.sh` that curls `/health`, `/api/info` and the public branding endpoint on `$DOMAIN`.
+5. Backups: document clearly that uploads and platform backups live on the VM volume (`LocalFileStorage`) and are protected only by Azure Backup of the VM; list "S3/Azure Blob IFileStorage adapter" in docs/DECISIONS.md as a future task.
+Run `dotnet build`, `dotnet test`, then commit and push.
