@@ -7,4 +7,6 @@ public interface IAppLinks
     string ParentResetUrl(string phone, string token);
 
     string PasswordResetUrl(string email, string token);
+
+    string StaffRegistrationUrl(string token);
 }

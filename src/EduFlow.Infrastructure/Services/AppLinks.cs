@@ -15,4 +15,7 @@ public sealed class AppLinks(IConfiguration configuration) : IAppLinks
 
     public string PasswordResetUrl(string email, string token) =>
         $"{BaseUrl}/reset-password?email={Uri.EscapeDataString(email)}&token={Uri.EscapeDataString(token)}";
+
+    public string StaffRegistrationUrl(string token) =>
+        $"{BaseUrl}/staff-register?token={Uri.EscapeDataString(token)}";
 }

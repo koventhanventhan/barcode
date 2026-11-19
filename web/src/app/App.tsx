@@ -43,6 +43,8 @@ const ExamsPage = lazy(() => import("@/features/exams/ExamsPage").then((m) => ({
 const PaymentStatusPage = lazy(() => import("@/features/fees/PaymentStatusPage").then((m) => ({ default: m.PaymentStatusPage })));
 const BackupsAndCleanupPage = lazy(() => import("@/features/operations/BackupsAndCleanupPage").then((m) => ({ default: m.BackupsAndCleanupPage })));
 const StaffPage = lazy(() => import("@/features/staff/StaffPage").then((m) => ({ default: m.StaffPage })));
+const StaffRegisterPage = lazy(() => import("@/features/staff/StaffRegisterPage").then((m) => ({ default: m.StaffRegisterPage })));
+const SupportTicketsPage = lazy(() => import("@/features/support/SupportTicketsPage").then((m) => ({ default: m.SupportTicketsPage })));
 const ImportStudentsPage = lazy(() => import("@/features/students/ImportStudentsPage").then((m) => ({ default: m.ImportStudentsPage })));
 const StudentFormPage = lazy(() => import("@/features/students/StudentFormPage").then((m) => ({ default: m.StudentFormPage })));
 const StudentsPage = lazy(() => import("@/features/students/StudentsPage").then((m) => ({ default: m.StudentsPage })));
@@ -60,6 +62,7 @@ const ParentMessagesPage = lazy(() => import("@/features/parent/ParentPages").th
 const PlatformDashboardPage = lazy(() => import("@/features/super-admin/PlatformDashboardPage").then((m) => ({ default: m.PlatformDashboardPage })));
 const PlansPage = lazy(() => import("@/features/super-admin/PlansPage").then((m) => ({ default: m.PlansPage })));
 const SmsSettingsPage = lazy(() => import("@/features/super-admin/SmsSettingsPage").then((m) => ({ default: m.SmsSettingsPage })));
+const SupportInboxPage = lazy(() => import("@/features/super-admin/SupportInboxPage").then((m) => ({ default: m.SupportInboxPage })));
 const TenantDetailPage = lazy(() => import("@/features/super-admin/TenantDetailPage").then((m) => ({ default: m.TenantDetailPage })));
 const TenantsPage = lazy(() => import("@/features/super-admin/TenantsPage").then((m) => ({ default: m.TenantsPage })));
 
@@ -102,6 +105,7 @@ export default function App() {
                         <Route path="*" element={<NotFoundPage />} />
                       </Route>
                       <Route path="/signup" element={<SignupPage />} />
+                      <Route path="/staff-register" element={<StaffRegisterPage />} />
                       <Route path="/join" element={<JoinPage />} />
                       <Route path="/pay/:orderId" element={<PaymentStatusPage />} />
                       <Route path="/login" element={<GuestOnly><LoginPage /></GuestOnly>} />
@@ -133,10 +137,12 @@ export default function App() {
                         <Route path="/app/settings/messages" element={<RequireRole roles={INSTITUTE_ROLES}><MessageLogPage /></RequireRole>} />
                         <Route path="/app/settings/backups" element={<RequireRole roles={INSTITUTE_ROLES}><BackupsAndCleanupPage /></RequireRole>} />
                         <Route path="/app/settings/branding" element={<RequireRole roles={INSTITUTE_ROLES}><BrandingPage /></RequireRole>} />
+                        <Route path="/app/support" element={<RequireRole roles={INSTITUTE_ROLES}><SupportTicketsPage /></RequireRole>} />
                         <Route path="/admin/dashboard" element={<RequireRole roles={["SuperAdmin"]}><PlatformDashboardPage /></RequireRole>} />
                         <Route path="/admin/tenants" element={<RequireRole roles={["SuperAdmin"]}><TenantsPage /></RequireRole>} />
                         <Route path="/admin/tenants/:id" element={<RequireRole roles={["SuperAdmin"]}><TenantDetailPage /></RequireRole>} />
                         <Route path="/admin/plans" element={<RequireRole roles={["SuperAdmin"]}><PlansPage /></RequireRole>} />
+                        <Route path="/admin/support" element={<RequireRole roles={["SuperAdmin"]}><SupportInboxPage /></RequireRole>} />
                         <Route path="/admin/settings/sms" element={<RequireRole roles={["SuperAdmin"]}><SmsSettingsPage /></RequireRole>} />
                         <Route path="/admin/branding" element={<RequireRole roles={["SuperAdmin"]}><BrandingPage platform /></RequireRole>} />
                       </Route>

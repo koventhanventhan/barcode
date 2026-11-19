@@ -25,6 +25,8 @@ import type {
   StaffLeaveRequestDto,
 } from "@/features/operations/api";
 import { api, ApiError } from "@/lib/api";
+import { getStaffRegistrations } from "@/features/staff/registrationApi";
+import { StaffRegistrationsPanel } from "@/features/staff/StaffRegistrationsPanel";
 import type { Branch } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -56,7 +58,7 @@ export function StaffPage() {
   const queryClient = useQueryClient();
   const staffLeaveFeature = useFeature("StaffLeave");
 
-  const [tab, setTab] = useState<"directory" | "attendance" | "leaves">("directory");
+  const [tab, setTab] = useState<"directory" | "registrations" | "attendance" | "leaves">("directory");
   const [open, setOpen] = useState(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
 
@@ -87,6 +89,11 @@ export function StaffPage() {
     queryKey: ["staff-leaves"],
     enabled: tab === "leaves" && staffLeaveFeature.isEnabled,
     queryFn: () => api<StaffLeaveRequestDto[]>("/api/staff/leaves"),
+  });
+
+  const pendingRegistrations = useQuery({
+    queryKey: ["staff-registrations-count"],
+    queryFn: () => getStaffRegistrations({ status: "Pending", page: 1, pageSize: 1 }),
   });
 
   useEffect(() => {
@@ -250,10 +257,11 @@ export function StaffPage() {
         }
       />
 
-      <div className="mb-4 flex gap-1 border-b border-border pb-2">
+      <div className="mb-4 flex flex-wrap gap-1 border-b border-border pb-2">
         {(
           [
             ["directory", t("staff.tabDirectory")],
+            ["registrations", t("staff.tabRegistrations")],
             ["attendance", t("staff.tabAttendance")],
             ["leaves", t("staff.tabLeaves")],
           ] as const
@@ -263,11 +271,16 @@ export function StaffPage() {
             type="button"
             onClick={() => setTab(key)}
             className={cn(
-              "rounded-md px-3 py-1.5 text-sm",
+              "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm",
               tab === key ? "bg-secondary font-medium" : "text-muted hover:bg-secondary",
             )}
           >
-            {label}
+            <span>{label}</span>
+            {key === "registrations" && (pendingRegistrations.data?.pendingCount ?? 0) > 0 ? (
+              <span className="rounded bg-primary/15 px-1.5 py-0.5 text-[11px] font-medium text-primary tabular-nums">
+                {pendingRegistrations.data?.pendingCount}
+              </span>
+            ) : null}
           </button>
         ))}
       </div>
@@ -284,6 +297,14 @@ export function StaffPage() {
             enableExport={false}
           />
         )
+      ) : null}
+
+      {tab === "registrations" ? (
+        <StaffRegistrationsPanel
+          templates={templates.data ?? []}
+          branches={branches.data ?? []}
+          canManage={canManage}
+        />
       ) : null}
 
       {tab === "attendance" ? (

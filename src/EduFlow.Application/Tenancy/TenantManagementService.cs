@@ -26,6 +26,7 @@ public interface ITenantManagementService
     Task<IReadOnlyList<TenantUserDto>> GetUsersAsync(CancellationToken cancellationToken = default);
     Task<TenantUserDto> GetUserByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<TenantUserDto> CreateUserAsync(CreateTenantUserRequest request, CancellationToken cancellationToken = default);
+    Task<TenantUserDto> CreateUserFromHashAsync(CreateTenantUserFromHashRequest request, CancellationToken cancellationToken = default);
     Task<TenantUserDto> UpdateUserRoleAsync(Guid id, UpdateTenantUserRoleRequest request, CancellationToken cancellationToken = default);
     Task DeleteUserAsync(Guid id, CancellationToken cancellationToken = default);
     Task SetUserBranchesAsync(Guid id, IReadOnlyList<Guid> branchIds, CancellationToken cancellationToken = default);
@@ -296,9 +297,33 @@ public sealed class TenantManagementService(
             u.CreatedAt);
     }
 
-    public async Task<TenantUserDto> CreateUserAsync(
+    public Task<TenantUserDto> CreateUserAsync(
         CreateTenantUserRequest request,
         CancellationToken cancellationToken = default)
+    {
+        PasswordPolicy.ValidateOrThrow(request.Password);
+        var hash = PasswordHasher.HashPassword(request.Password);
+        return CreateUserInternalAsync(
+            new CreateTenantUserFromHashRequest(
+                request.Email,
+                request.FullName,
+                hash,
+                request.RoleType,
+                request.Phone,
+                request.CustomRoleId,
+                request.BranchId,
+                request.BranchIds),
+            cancellationToken);
+    }
+
+    public Task<TenantUserDto> CreateUserFromHashAsync(
+        CreateTenantUserFromHashRequest request,
+        CancellationToken cancellationToken = default) =>
+        CreateUserInternalAsync(request, cancellationToken);
+
+    private async Task<TenantUserDto> CreateUserInternalAsync(
+        CreateTenantUserFromHashRequest request,
+        CancellationToken cancellationToken)
     {
         var tenantId = tenantContext.TenantId
             ?? throw new DomainValidationException("TENANT_REQUIRED", "Tenant context is required.");
@@ -308,7 +333,10 @@ public sealed class TenantManagementService(
             throw new DomainValidationException("INVALID_ROLE", "Cannot create a SuperAdmin inside a tenant.");
         }
 
-        PasswordPolicy.ValidateOrThrow(request.Password);
+        if (string.IsNullOrWhiteSpace(request.PasswordHash))
+        {
+            throw new DomainValidationException("PASSWORD_REQUIRED", "Password hash is required.");
+        }
 
         var normalizedEmail = request.Email.Trim().ToLowerInvariant();
         var duplicate = await db.Users.AnyAsync(u => u.Email.ToLower() == normalizedEmail, cancellationToken);
@@ -345,7 +373,7 @@ public sealed class TenantManagementService(
             Email = normalizedEmail,
             FullName = request.FullName.Trim(),
             Phone = request.Phone,
-            PasswordHash = PasswordHasher.HashPassword(request.Password),
+            PasswordHash = request.PasswordHash,
             RoleType = request.RoleType,
             CustomRoleId = request.CustomRoleId,
             BranchId = branchIds.FirstOrDefault() is Guid first && first != Guid.Empty ? first : request.BranchId,
@@ -373,7 +401,7 @@ public sealed class TenantManagementService(
             "User.Created",
             nameof(User),
             user.Id.ToString(),
-            new { user.Email, RoleType = user.RoleType.ToString(), user.CustomRoleId },
+            new { Email = PiiRedactor.MaskEmail(user.Email), RoleType = user.RoleType.ToString(), user.CustomRoleId },
             cancellationToken: cancellationToken);
 
         await db.SaveChangesAsync(cancellationToken);

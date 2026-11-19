@@ -39,3 +39,17 @@ export async function downloadApi(path: string, filename: string, init: RequestI
   link.remove();
   URL.revokeObjectURL(url);
 }
+
+export function downloadQrSvg(svg: SVGSVGElement | null, filename = "staff-registration-qr.svg") {
+  if (!svg) return;
+  const serialized = new XMLSerializer().serializeToString(svg);
+  const blob = new Blob([serialized], { type: "image/svg+xml;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}

@@ -1,12 +1,20 @@
 import { CircleHelp, X } from "lucide-react";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { t } from "@/config/strings";
 import { Input } from "@/components/ui/input";
+import { useAuth } from "@/features/auth/AuthProvider";
 import { cn } from "@/lib/utils";
 import { filterHelpArticles, helpArticleIds, type HelpArticle } from "./articles";
 
 export function HelpWidget({ className = "" }: { className?: string }) {
+  const auth = useAuth();
   const [open, setOpen] = useState(false);
+  const canSupport =
+    Boolean(auth.user)
+    && auth.user?.role !== "SuperAdmin"
+    && auth.user?.role !== "Parent"
+    && auth.hasPermission("settings.manage");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
   const articles: HelpArticle[] = helpArticleIds.map((id) => ({
@@ -71,6 +79,17 @@ export function HelpWidget({ className = "" }: { className?: string }) {
               </ul>
             )}
           </div>
+          {canSupport ? (
+            <footer className="border-t border-border px-3 py-2">
+              <Link
+                to="/app/support"
+                onClick={() => setOpen(false)}
+                className="text-[13px] font-medium text-primary hover:underline"
+              >
+                {t("support.openSupportPage")}
+              </Link>
+            </footer>
+          ) : null}
         </section>
       ) : null}
       <button

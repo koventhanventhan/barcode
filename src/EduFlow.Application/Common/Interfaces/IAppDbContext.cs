@@ -64,6 +64,10 @@ public interface IAppDbContext
     DbSet<SmsGatewayErrorLog> SmsGatewayErrorLogs { get; }
     DbSet<StaffAttendanceRecord> StaffAttendanceRecords { get; }
     DbSet<StaffLeaveRequest> StaffLeaveRequests { get; }
+    DbSet<StaffRegistrationLink> StaffRegistrationLinks { get; }
+    DbSet<StaffRegistrationRequest> StaffRegistrationRequests { get; }
+    DbSet<SupportTicket> SupportTickets { get; }
+    DbSet<SupportTicketMessage> SupportTicketMessages { get; }
     DbSet<DemoRequest> DemoRequests { get; }
     DbSet<TenantOnboarding> TenantOnboardings { get; }
     DbSet<TenantAddOn> TenantAddOns { get; }

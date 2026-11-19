@@ -1,5 +1,6 @@
 using EduFlow.Application.Auth;
 using EduFlow.Application.Marketing;
+using EduFlow.Application.Staff;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EduFlow.Api.Endpoints;
@@ -45,6 +46,21 @@ public static class PublicEndpoints
             AuthEndpoints.AppendRefreshTokenCookie(httpContext, result.RefreshToken);
             return Results.Ok(result);
         }).WithName("StartDemoSession");
+
+        group.MapGet("/staff-registration/{token}", async (
+            string token,
+            IStaffRegistrationService registration,
+            CancellationToken ct) =>
+            Results.Ok(await registration.GetPublicInfoAsync(token, ct)))
+            .WithName("GetPublicStaffRegistrationInfo");
+
+        group.MapPost("/staff-registration/{token}", async (
+            string token,
+            [FromBody] SubmitStaffRegistrationRequest request,
+            IStaffRegistrationService registration,
+            CancellationToken ct) =>
+            Results.Ok(await registration.SubmitPublicAsync(token, request, ct)))
+            .WithName("SubmitPublicStaffRegistration");
 
         var onboarding = app.MapGroup("/api/onboarding")
             .WithTags("Onboarding")

@@ -637,6 +637,43 @@ public sealed class TenantIsolationTests(ApiFactory factory) : IClassFixture<Api
                 Status = NotificationStatus.Queued,
                 SmsSegments = 1
             });
+            db.StaffRegistrationLinks.Add(new StaffRegistrationLink
+            {
+                TenantId = tenantId,
+                Token = $"reg-tok-{suffix}-{tenantId:N}",
+                IsEnabled = true
+            });
+            db.StaffRegistrationRequests.Add(new StaffRegistrationRequest
+            {
+                TenantId = tenantId,
+                FullName = $"Applicant {suffix}",
+                Email = $"applicant-{suffix}@iso.lk",
+                PasswordHash = "hash",
+                RequestedRoleType = RoleType.Staff,
+                Status = StaffRegistrationStatus.Pending
+            });
+            var ticket = new SupportTicket
+            {
+                TenantId = tenantId,
+                TicketSequence = suffix == "a" ? 9001 : 9002,
+                TicketNumber = $"TKT-ISO-{suffix.ToUpperInvariant()}-{tenantId.ToString("N")[..6]}",
+                Subject = $"Ticket {suffix}",
+                Category = SupportTicketCategory.General,
+                CreatedByUserId = user.Id,
+                CreatedByName = user.FullName,
+                CreatedByEmail = user.Email,
+                LastMessageAt = DateTimeOffset.UtcNow
+            };
+            db.SupportTickets.Add(ticket);
+            db.SupportTicketMessages.Add(new SupportTicketMessage
+            {
+                TenantId = tenantId,
+                TicketId = ticket.Id,
+                SenderUserId = user.Id,
+                SenderName = user.FullName,
+                SenderRole = "InstituteAdmin",
+                Body = $"Support message {suffix}"
+            });
             await db.SaveChangesAsync();
         }
     }

@@ -74,6 +74,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         }
 
         builder.UseEnvironment("Development");
+        builder.UseSetting("Sms:Provider", "Fake");
+        builder.UseSetting("Sms:TestMode", "false");
         builder.ConfigureServices(services =>
         {
             services.RemoveAll<DbContextOptions<AppDbContext>>();

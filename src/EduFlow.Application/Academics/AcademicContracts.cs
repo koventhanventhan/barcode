@@ -99,9 +99,16 @@ public sealed record DirectoryRow(
     string LevelName,
     string Status);
 
+public sealed record QrMatrixDto(int Size, string Modules);
+
 public interface IBarcodeEncoder
 {
     bool[] EncodeCode128(string content);
+}
+
+public interface IQrCodeEncoder
+{
+    QrMatrixDto EncodeQr(string content);
 }
 
 public interface IAcademicDocumentService

@@ -7,6 +7,7 @@ using EduFlow.Application.Students;
 using EduFlow.Domain.Constants;
 using EduFlow.Domain.Enums;
 using EduFlow.Domain.Exceptions;
+using Microsoft.AspNetCore.Mvc;
 
 namespace EduFlow.Api.Endpoints;
 
@@ -194,6 +195,52 @@ public static class AcademicEndpoints
             var created = await service.CreateAsync(request, ct);
             return Results.Created($"/api/users/{created.Id}", created);
         }).RequirePermission(Permissions.UsersManage).WithName("CreateStaffMember");
+
+        staff.MapGet("/registration-link", async (IStaffRegistrationService service, CancellationToken ct) =>
+            Results.Ok(await service.GetRegistrationLinkAsync(ct)))
+            .RequirePermission(Permissions.UsersView)
+            .WithName("GetStaffRegistrationLink");
+
+        staff.MapPut("/registration-link", async (
+            [FromBody] UpdateStaffRegistrationLinkRequest request,
+            IStaffRegistrationService service,
+            CancellationToken ct) =>
+            Results.Ok(await service.UpsertRegistrationLinkAsync(request, ct)))
+            .RequirePermission(Permissions.UsersManage)
+            .WithName("UpdateStaffRegistrationLink");
+
+        staff.MapPost("/registration-link/rotate", async (IStaffRegistrationService service, CancellationToken ct) =>
+            Results.Ok(await service.RotateRegistrationLinkAsync(ct)))
+            .RequirePermission(Permissions.UsersManage)
+            .WithName("RotateStaffRegistrationLink");
+
+        staff.MapGet("/registrations", async (
+            [FromQuery] StaffRegistrationStatus? status,
+            [FromQuery] int? page,
+            [FromQuery] int? pageSize,
+            IStaffRegistrationService service,
+            CancellationToken ct) =>
+            Results.Ok(await service.GetRequestsAsync(status, page ?? 1, pageSize ?? 25, ct)))
+            .RequirePermission(Permissions.UsersView)
+            .WithName("GetStaffRegistrationRequests");
+
+        staff.MapPost("/registrations/{id:guid}/approve", async (
+            Guid id,
+            [FromBody] ApproveStaffRegistrationRequest? request,
+            IStaffRegistrationService service,
+            CancellationToken ct) =>
+            Results.Ok(await service.ApproveAsync(id, request ?? new ApproveStaffRegistrationRequest(), ct)))
+            .RequirePermission(Permissions.UsersManage)
+            .WithName("ApproveStaffRegistration");
+
+        staff.MapPost("/registrations/{id:guid}/reject", async (
+            Guid id,
+            [FromBody] RejectStaffRegistrationRequest? request,
+            IStaffRegistrationService service,
+            CancellationToken ct) =>
+            Results.Ok(await service.RejectAsync(id, request ?? new RejectStaffRegistrationRequest(), ct)))
+            .RequirePermission(Permissions.UsersManage)
+            .WithName("RejectStaffRegistration");
 
         app.MapPut("/api/users/{id:guid}/status", async (Guid id, SetUserActiveRequest request, IStaffDirectoryService service, CancellationToken ct) =>
             Results.Ok(await service.SetActiveAsync(id, request.IsActive, ct)))

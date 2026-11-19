@@ -67,6 +67,16 @@ public sealed record CreateTenantUserRequest(
     Guid? BranchId = null,
     IReadOnlyList<Guid>? BranchIds = null);
 
+public sealed record CreateTenantUserFromHashRequest(
+    string Email,
+    string FullName,
+    string PasswordHash,
+    RoleType RoleType,
+    string? Phone = null,
+    Guid? CustomRoleId = null,
+    Guid? BranchId = null,
+    IReadOnlyList<Guid>? BranchIds = null);
+
 public sealed record SetUserBranchesRequest(IReadOnlyList<Guid> BranchIds);
 
 public sealed record BranchScopeDto(bool CanViewAll, IReadOnlyList<BranchDto> Branches);

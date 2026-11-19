@@ -80,6 +80,10 @@ public sealed class AppDbContext(
     public DbSet<SmsGatewayErrorLog> SmsGatewayErrorLogs => Set<SmsGatewayErrorLog>();
     public DbSet<StaffAttendanceRecord> StaffAttendanceRecords => Set<StaffAttendanceRecord>();
     public DbSet<StaffLeaveRequest> StaffLeaveRequests => Set<StaffLeaveRequest>();
+    public DbSet<StaffRegistrationLink> StaffRegistrationLinks => Set<StaffRegistrationLink>();
+    public DbSet<StaffRegistrationRequest> StaffRegistrationRequests => Set<StaffRegistrationRequest>();
+    public DbSet<SupportTicket> SupportTickets => Set<SupportTicket>();
+    public DbSet<SupportTicketMessage> SupportTicketMessages => Set<SupportTicketMessage>();
     public DbSet<DemoRequest> DemoRequests => Set<DemoRequest>();
     public DbSet<TenantOnboarding> TenantOnboardings => Set<TenantOnboarding>();
     public DbSet<TenantAddOn> TenantAddOns => Set<TenantAddOn>();
@@ -949,6 +953,47 @@ public sealed class AppDbContext(
             b.HasIndex(x => new { x.TenantId, x.CampaignId });
             b.HasOne<BroadcastCampaign>().WithMany().HasForeignKey(x => x.CampaignId).OnDelete(DeleteBehavior.Restrict);
             b.HasOne<Student>().WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<StaffRegistrationLink>(b =>
+        {
+            b.Property(x => x.Token).HasMaxLength(128).IsRequired();
+            b.HasIndex(x => x.Token).IsUnique();
+        });
+
+        modelBuilder.Entity<StaffRegistrationRequest>(b =>
+        {
+            b.Property(x => x.FullName).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Email).HasMaxLength(256).IsRequired();
+            b.Property(x => x.Phone).HasMaxLength(32);
+            b.Property(x => x.PasswordHash).HasMaxLength(512).IsRequired();
+            b.Property(x => x.Notes).HasMaxLength(500);
+            b.Property(x => x.ReviewNotes).HasMaxLength(500);
+            b.HasIndex(x => new { x.TenantId, x.Status, x.CreatedAt });
+            b.HasIndex(x => new { x.TenantId, x.Email });
+        });
+
+        modelBuilder.Entity<SupportTicket>(b =>
+        {
+            b.Property(x => x.TicketNumber).HasMaxLength(32).IsRequired();
+            b.Property(x => x.Subject).HasMaxLength(200).IsRequired();
+            b.Property(x => x.CreatedByName).HasMaxLength(200).IsRequired();
+            b.Property(x => x.CreatedByEmail).HasMaxLength(256).IsRequired();
+            b.HasIndex(x => x.TicketNumber).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.Status, x.LastMessageAt });
+            b.HasIndex(x => new { x.Status, x.IsPriority, x.LastMessageAt });
+        });
+
+        modelBuilder.Entity<SupportTicketMessage>(b =>
+        {
+            b.Property(x => x.SenderName).HasMaxLength(200).IsRequired();
+            b.Property(x => x.SenderRole).HasMaxLength(40).IsRequired();
+            b.Property(x => x.Body).HasMaxLength(4000).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.TicketId, x.CreatedAt });
+            b.HasOne(x => x.Ticket)
+                .WithMany(t => t.Messages)
+                .HasForeignKey(x => x.TicketId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

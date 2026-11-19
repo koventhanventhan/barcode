@@ -15,6 +15,7 @@ using EduFlow.Application.Parents;
 using EduFlow.Application.Students;
 using EduFlow.Application.Storage;
 using EduFlow.Application.SuperAdmin;
+using EduFlow.Application.Support;
 using EduFlow.Application.Tenancy;
 using EduFlow.Infrastructure.Backups;
 using EduFlow.Infrastructure.Documents;
@@ -173,6 +174,8 @@ public static class DependencyInjection
         services.AddScoped<IStudentService, StudentService>();
         services.AddScoped<IStaffDirectoryService, StaffDirectoryService>();
         services.AddScoped<IStaffOperationsService, StaffOperationsService>();
+        services.AddScoped<IStaffRegistrationService, StaffRegistrationService>();
+        services.AddScoped<ISupportTicketService, SupportTicketService>();
         services.AddScoped<IAttendanceService, AttendanceService>();
         services.AddScoped<IFeeService, FeeService>();
         services.AddScoped<IExamService, ExamService>();
@@ -198,6 +201,7 @@ public static class DependencyInjection
 
         services.AddSingleton<IPaymentGateway, PayHerePaymentGateway>();
         services.AddSingleton<IBarcodeEncoder, ZxingBarcodeEncoder>();
+        services.AddSingleton<IQrCodeEncoder, ZxingBarcodeEncoder>();
         services.AddSingleton<IAcademicDocumentService, AcademicPdfService>();
         services.AddSingleton<IFeeDocumentService, FeePdfService>();
         services.AddSingleton<IExamDocumentService, ExamPdfService>();

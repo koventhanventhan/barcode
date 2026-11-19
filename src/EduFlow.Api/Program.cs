@@ -254,6 +254,7 @@ app.MapFeeEndpoints();
 app.MapExamEndpoints();
 app.MapParentEndpoints();
 app.MapOperationsEndpoints();
+app.MapSupportEndpoints();
 app.MapPublicEndpoints();
 app.MapHub<EduFlow.Api.Hubs.AttendanceHub>("/hubs/attendance");
 
